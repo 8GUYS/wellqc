@@ -1,0 +1,25 @@
+{
+  "extends": [
+    "next/core-web-vitals",
+    "next/typescript"
+  ],
+  "rules": {
+    // ─── TypeScript Strictness ───────────────────────────────────────────────
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/consistent-type-imports": ["warn", { "prefer": "type-imports" }],
+
+    // ─── React Best Practices ────────────────────────────────────────────────
+    "react/self-closing-comp": "warn",
+    "react/jsx-curly-brace-presence": ["warn", { "props": "never", "children": "never" }],
+
+    // ─── Code Quality ────────────────────────────────────────────────────────
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "prefer-const": "error",
+    "no-var": "error",
+    "eqeqeq": ["error", "always"],
+
+    // ─── Import Organisation ─────────────────────────────────────────────────
+    "import/no-duplicates": "warn"
+  }
+}

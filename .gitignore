@@ -45,3 +45,14 @@ next-env.d.ts
 services/python_parser/venv/
 
 services/python_parser/__pycache__/
+
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
+.agents/.claude/.windsurf/skills-lock.json
+
+.agents/
+.claude/
+.windsurf/
+skills-lock.json

@@ -1,13 +1,204 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
+}
+
+model User {
+  id                    String        @id @default(uuid())
+  email                 String        @unique
+  name                  String
+  passwordHash          String
+  role                  String        @default("PETROPHYSICIST") // ADMIN, PETROPHYSICIST, DATA_ENGINEER, GEOSCIENTIST, VIEWER
+  department            String?       @default("Subsurface Analytics")
+  avatarUrl             String?
+  ndaAcceptedAt         DateTime?
+
+  // Billing and Usage Tracking
+  tier                  String        @default("FREE") // "FREE", "PRO", "ENTERPRISE"
+  freeChecksUsed        Int           @default(0)
+  stripeCustomerId      String?       @unique
+  stripeSubscriptionId  String?       @unique
+
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  lasFiles              LASFile[]     @relation("UserUploads")
+  activityLogs          ActivityLog[]
+  apiTokens             APIToken[]
+  wells                 Well[]
+}
+
+model Field {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  basin     String
+  country   String
+  region    String?
+  wells     Well[]
+  createdAt DateTime @default(now())
+}
+
+model Operator {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  code         String?
+  contactEmail String?
+  wells        Well[]
+  createdAt    DateTime @default(now())
+}
+
+model Well {
+  id           String          @id @default(uuid())
+  apiNo        String          @unique // UWI / API Number
+  name         String
+  operatorName String
+  fieldName    String
+  basin        String
+  country      String
+  latitude     Float
+  longitude    Float
+  elevFt       Float           @default(0)
+  tdFt         Float           @default(10000)
+  depthUnit    String          @default("FT") // FT or M
+  status       String          @default("ACTIVE") // ACTIVE, DRILLING, SHUT_IN, COMPLETED, ABANDONED
+  qualityScore Int             @default(0) // 0 - 100
+  qualityGrade String          @default("UNKNOWN") // EXCELLENT, GOOD, POOR, CRITICAL
+  ownerId      String?
+  owner        User?           @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  field        Field?          @relation(fields: [fieldName], references: [name])
+  operator     Operator?       @relation(fields: [operatorName], references: [name])
+  lasFiles     LASFile[]
+  reports      QualityReport[]
+
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([ownerId])
+}
+
+model LASFile {
+  id           String          @id @default(uuid())
+  wellId       String
+  well         Well            @relation(fields: [wellId], references: [id], onDelete: Cascade)
+  originalName String
+  fileSizeKb   Float
+  lasVersion   String          @default("2.0")
+  startDepth   Float
+  stopDepth    Float
+  stepDepth    Float
+  nullValue    Float           @default(-999.25)
+  depthUnit    String          @default("FT")
+  rawHeader    String
+  curveCount   Int             @default(0)
+  pointCount   Int             @default(0)
+  status       String          @default("PROCESSED") // UPLOADED, PARSING, PROCESSED, ERROR
+
+  uploadedById String?
+  uploadedBy   User?           @relation("UserUploads", fields: [uploadedById], references: [id])
+
+  curves       Curve[]
+  reports      QualityReport[]
+  createdAt    DateTime        @default(now())
+}
+
+model Curve {
+  id               String          @id @default(uuid())
+  lasFileId        String
+  lasFile          LASFile         @relation(fields: [lasFileId], references: [id], onDelete: Cascade)
+  originalMnemonic String
+  standardMnemonic String          @default("UNKNOWN")
+  unit             String          @default("")
+  description      String          @default("")
+  nullCount        Int             @default(0)
+  totalPoints      Int             @default(0)
+  nullPercentage   Float           @default(0.0)
+  confidence       Float           @default(1.0)
+  minVal           Float?
+  maxVal           Float?
+  meanVal          Float?
+  status           String          @default("VALID") // VALID, STANDARDISED, WARNING, FLAG
+
+  // Downsampled log data array stored as JSON for visualization
+  dataJson         String          @default("[]")
+
+  anomalies        Anomaly[]
+  createdAt        DateTime        @default(now())
+}
+
+model QualityReport {
+  id                String      @id @default(uuid())
+  wellId            String
+  lasFileId         String
+  well              Well        @relation(fields: [wellId], references: [id], onDelete: Cascade)
+  lasFile           LASFile     @relation(fields: [lasFileId], references: [id], onDelete: Cascade)
+
+  overallScore      Int         @default(0)
+  qualityGrade      String      @default("UNKNOWN") // EXCELLENT, GOOD, POOR, CRITICAL
+  completenessScore Int         @default(0)
+  consistencyScore  Int         @default(0)
+  anomalyCount      Int         @default(0)
+
+  aiSummary         String      @default("")
+  recommendations   String      @default("")
+  reportJson        String      @default("{}") // Full JSON audit details
+
+  anomalies         Anomaly[]
+  createdAt         DateTime    @default(now())
+}
+
+model Anomaly {
+  id                  String         @id @default(uuid())
+  qualityReportId     String
+  qualityReport       QualityReport  @relation(fields: [qualityReportId], references: [id], onDelete: Cascade)
+  curveId             String?
+  curve               Curve?         @relation(fields: [curveId], references: [id])
+  curveMnemonic       String
+  depthStart          Float
+  depthEnd            Float
+  anomalyType         String         // IMPOSSIBLE_VALUE, EXTREME_SPIKE, FLATLINE, DEPTH_GAP, NULL_CLUSTER, UNIT_MISMATCH
+  severity            String         // CRITICAL, WARNING, INFO
+  description         String
+  suggestedCorrection String
+  status              String         @default("OPEN") // OPEN, REVIEWED, RESOLVED, IGNORED
+
+  createdAt           DateTime       @default(now())
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  userName   String   @default("System Agent")
+  userRole   String   @default("PETROPHYSICIST")
+  action     String   // LOGIN, UPLOAD_LAS, STANDARDISE_CURVE, RUN_QA, EXPORT_REPORT, ADMIN_CHANGE
+  targetType String?  // WELL, LAS_FILE, CURVE, REPORT, USER
+  targetId   String?
+  details    String
+  ipAddress  String   @default("127.0.0.1")
+  createdAt  DateTime @default(now())
+}
+
+model APIToken {
+  id         String    @id @default(uuid())
+  name       String
+  token      String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model Webhook {
+  id        String   @id @default(uuid())
+  name      String
+  url       String
+  secret    String
+  events    String   // JSON string of subscribed events
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
 }

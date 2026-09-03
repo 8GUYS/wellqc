@@ -1,9 +1,10 @@
-datasource db {
-  provider = "postgresql"
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
-generator client {
-  provider = "prisma-client-js"
+datasource db {
+  provider = "postgresql"
 }
 
 model User {
@@ -68,12 +69,12 @@ model Well {
   qualityGrade String          @default("UNKNOWN") // EXCELLENT, GOOD, POOR, CRITICAL
   ownerId      String?
   owner        User?           @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  
+
   field        Field?          @relation(fields: [fieldName], references: [name])
   operator     Operator?       @relation(fields: [operatorName], references: [name])
   lasFiles     LASFile[]
   reports      QualityReport[]
-  
+
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
@@ -96,10 +97,10 @@ model LASFile {
   curveCount   Int             @default(0)
   pointCount   Int             @default(0)
   status       String          @default("PROCESSED") // UPLOADED, PARSING, PROCESSED, ERROR
-  
+
   uploadedById String?
   uploadedBy   User?           @relation("UserUploads", fields: [uploadedById], references: [id])
-  
+
   curves       Curve[]
   reports      QualityReport[]
   createdAt    DateTime        @default(now())
@@ -121,10 +122,10 @@ model Curve {
   maxVal           Float?
   meanVal          Float?
   status           String          @default("VALID") // VALID, STANDARDISED, WARNING, FLAG
-  
+
   // Downsampled log data array stored as JSON for visualization
-  dataJson         String          @default("[]") 
-  
+  dataJson         String          @default("[]")
+
   anomalies        Anomaly[]
   createdAt        DateTime        @default(now())
 }
@@ -135,17 +136,17 @@ model QualityReport {
   lasFileId         String
   well              Well        @relation(fields: [wellId], references: [id], onDelete: Cascade)
   lasFile           LASFile     @relation(fields: [lasFileId], references: [id], onDelete: Cascade)
-  
+
   overallScore      Int         @default(0)
   qualityGrade      String      @default("UNKNOWN") // EXCELLENT, GOOD, POOR, CRITICAL
   completenessScore Int         @default(0)
   consistencyScore  Int         @default(0)
   anomalyCount      Int         @default(0)
-  
+
   aiSummary         String      @default("")
   recommendations   String      @default("")
   reportJson        String      @default("{}") // Full JSON audit details
-  
+
   anomalies         Anomaly[]
   createdAt         DateTime    @default(now())
 }
@@ -164,7 +165,7 @@ model Anomaly {
   description         String
   suggestedCorrection String
   status              String         @default("OPEN") // OPEN, REVIEWED, RESOLVED, IGNORED
-  
+
   createdAt           DateTime       @default(now())
 }
 

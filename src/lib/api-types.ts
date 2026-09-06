@@ -1,3 +1,5 @@
+import { CurveHealthSummary } from "@/lib/las/quality-engine";
+
 export interface WellListItem {
   id: string;
   apiNo: string;
@@ -20,6 +22,7 @@ export interface WellListItem {
   curveCount: number;
   pointCount: number;
   anomalyCount: number;
+  curveSummaries?: CurveHealthSummary[];
   createdAt: string;
   updatedAt: string;
 }
@@ -86,6 +89,7 @@ export interface WellDetailResponse {
     description: string;
     suggestedCorrection: string;
   }>;
+  curveSummaries: CurveHealthSummary[];
 }
 
 // ─── Analytics ───────────────────────────────────────────────────────────────

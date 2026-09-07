@@ -1,4 +1,7 @@
-import { CurveHealthSummary } from "@/lib/las/quality-engine";
+/** Summary of the health and quality checks for a curve. */
+export interface CurveHealthSummary {
+  [key: string]: unknown;
+}
 
 export interface WellListItem {
   id: string;

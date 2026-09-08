@@ -331,4 +331,4 @@ npm start
 
 ## 📄 License
 
-This project is private and proprietary. All rights reserved © NDI-GROUP 5.
+This project is private and proprietary. All rights reserved © NDI-GROUP-5.

@@ -27,6 +27,10 @@ model User {
   updatedAt             DateTime      @updatedAt
 
   lasFiles              LASFile[]     @relation("UserUploads")
+  ownedLasFiles         LASFile[]     @relation("LASFileOwner")
+  ownedCurves           Curve[]       @relation("CurveOwner")
+  ownedQualityReports   QualityReport[] @relation("QualityReportOwner")
+  ownedAnomalies        Anomaly[]     @relation("AnomalyOwner")
   activityLogs          ActivityLog[]
   apiTokens             APIToken[]
   wells                 Well[]
@@ -101,9 +105,14 @@ model LASFile {
   uploadedById String?
   uploadedBy   User?           @relation("UserUploads", fields: [uploadedById], references: [id])
 
+  ownerId      String?
+  owner        User?           @relation("LASFileOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
   curves       Curve[]
   reports      QualityReport[]
   createdAt    DateTime        @default(now())
+
+  @@index([ownerId])
 }
 
 model Curve {
@@ -126,8 +135,13 @@ model Curve {
   // Downsampled log data array stored as JSON for visualization
   dataJson         String          @default("[]")
 
+  ownerId          String?
+  owner            User?           @relation("CurveOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
   anomalies        Anomaly[]
   createdAt        DateTime        @default(now())
+
+  @@index([ownerId])
 }
 
 model QualityReport {
@@ -147,8 +161,13 @@ model QualityReport {
   recommendations   String      @default("")
   reportJson        String      @default("{}") // Full JSON audit details
 
+  ownerId           String?
+  owner             User?       @relation("QualityReportOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
   anomalies         Anomaly[]
   createdAt         DateTime    @default(now())
+
+  @@index([ownerId])
 }
 
 model Anomaly {
@@ -166,7 +185,12 @@ model Anomaly {
   suggestedCorrection String
   status              String         @default("OPEN") // OPEN, REVIEWED, RESOLVED, IGNORED
 
+  ownerId             String?
+  owner               User?          @relation("AnomalyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
   createdAt           DateTime       @default(now())
+
+  @@index([ownerId])
 }
 
 model ActivityLog {

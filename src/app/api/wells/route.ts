@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { WellListItem } from "@/lib/api-types";
+import { CurveHealthSummary, WellListItem } from "@/lib/api-types";
 import { getCurrentUser } from "@/lib/auth";
-import { CurveHealthSummary } from "@/lib/las/quality-engine";
 
 interface CreateWellRequest {
   name?: string;

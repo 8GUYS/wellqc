@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { WellDetailResponse, WellListItem } from "@/lib/api-types";
+import { CurveHealthSummary, WellDetailResponse, WellListItem } from "@/lib/api-types";
 import { getCurrentUser } from "@/lib/auth";
-import { CurveHealthSummary } from "@/lib/las/quality-engine";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

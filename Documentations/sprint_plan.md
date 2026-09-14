@@ -27,10 +27,11 @@ The WellQC+ platform is structured as a full-stack, enterprise-grade AI well log
 * **Pricing Portal (`/pricing`)**: Full public pricing page comparing Starter Free (2 checks), Pro Petrophysicist (₦75,000/mo or $50/mo), and Enterprise Hub.
 
 ### 3. Application UI & Dashboard Modules (`src/app/`)
-* **Navigation & Shell**: `app-shell.tsx`, responsive `sidebar.tsx` with mobile drawer, and `header.tsx` with RBAC role switcher (`ADMIN`, `PETROPHYSICIST`, `DATA_ENGINEER`, `GEOSCIENTIST`, `VIEWER`).
+* **Navigation & Shell**: `app-shell.tsx`, responsive `sidebar.tsx` with mobile drawer, and `header.tsx` with RBAC role switcher (`ADMIN`, `PETROPHYSICIST`, `DATA_ENGINEER`, `GEOSCIENTIST`, `VIEWER`), plus **Global Live Search Bar** featuring real-time matching overlay dropdown, keyboard navigation (`Enter` / `Escape`), and URL search parameter synchronization (`/wells?search=...`).
 * **Upload Workspace ([`upload/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/upload/page.tsx))**: Drag-and-drop LAS ingestion, pre-validation checks, multi-track wireline rendering, database commit, **`localStorage` upload session persistence** (key `wellqc_upload_session`) to survive accidental page refreshes, and **inline Curve Standardisation & Quality Inventory display** post-commit.
 * **Quality Control Command Center (`dashboard/page.tsx`)**: 8 live telemetry KPI cards, 7-day rolling quality trend chart, field performance breakdown, and problem wells list.
-* **Asset & Well Management ([`wells/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/wells/page.tsx), [`wells/[id]/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/wells/%5Bid%5D/page.tsx))**: Well inventories, geographic coordinates, curve channels, audit history, and **`CurveInventoryTable` component** rendering per-curve standardisation results and health scores directly within the well detail view after a LAS file is committed.
+* **Asset & Well Management ([`wells/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/wells/page.tsx), [`wells/[id]/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/wells/%5Bid%5D/page.tsx))**: Well inventories, geographic coordinates, curve channels, audit history, **`CurveInventoryTable` component**, and **URL-based search query filtering**.
+* **Jest & RTL Automated Test Suite**: `jest.config.ts` (Next.js App Router support), `jest.setup.ts` (`@testing-library/jest-dom`), unit tests for LAS parser (`parser.test.ts`), quality engine scoring (`quality-engine.test.ts`), and Header UI component (`header.test.tsx`).
 * **Specialized Pages**: QA Engine (`qa-engine/page.tsx`), Standardisation Dictionary (`standardisation/page.tsx`), Analytics (`analytics/page.tsx`), Well Comparison (`comparison/page.tsx`), Audit Reports ([`reports/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/reports/page.tsx)), Activity Log (`activity/page.tsx`), and Admin Panel (`admin/page.tsx`).
 
 ### 4. Reusable Well-Log Components (`src/components/well-log/`)
@@ -159,6 +160,18 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
   - `Curve Inventory` *(new)*: All `CurveHealthSummary` fields as numeric-typed cells for pivot-table analysis.
   - `Anomaly Log` *(new, conditional)*: Full anomaly record per row, only appended when anomalies exist.
 
+**SE2 — Global Header Search & Wells URL Query Synchronization** *(Completed 08 Sep 2026)*
+* Built live overlay search popup in [`header.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/components/ui/header.tsx) that queries and filters well assets across Name, API/UWI Number, Field, Operator, and Basin.
+* Implemented quick-click direct navigation (`/wells?highlight=<wellId>`) to expand matched assets and `Enter` key search redirection (`/wells?search=<query>`).
+* Updated [`wells/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/wells/page.tsx) to sync `search` URL parameters on mount and filter well lists dynamically.
+* Added dismiss controls: clear (`X`) button, click-outside listener, and `Escape` key handler.
+
+**SE1 & CE1 — Jest & React Testing Library Automated Test Suite** *(Completed 08 Sep 2026)*
+* Installed Jest, `@testing-library/react`, `@testing-library/jest-dom`, and `jest-environment-jsdom`.
+* Configured [`jest.config.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/jest.config.ts) for Next.js App Router SWC transformations and `@/*` alias mapping.
+* Configured [`jest.setup.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/jest.setup.ts) with DOM matchers and added `npm test` / `npm run test:watch` scripts to `package.json`.
+* Created 3 unit test suites (7 tests, 100% passing): `parser.test.ts` (LAS parsing & mnemonics), `quality-engine.test.ts` (scoring & anomaly detection), and `header.test.tsx` (React Header search UI).
+
 #### 🔄 Remaining Sprint 5 Items
 
 * **SE1:** Review quality scoring and imputation pipeline for production edge cases; enforce NDA acceptance checks.
@@ -253,8 +266,11 @@ WellQC+ Development Team (8 Members)
 | 5.12 | Paystack Payment Gateway & Pricing Portal | SE2 | 🔄 In Progress | — | `paystack.ts`, `payment-modal.tsx`, `/pricing` |
 | 5.13 | Freemium LAS check enforcement (`/api/las/check`) | CE2 | 🔄 In Progress | — | `api/las/check/route.ts` |
 | 5.14 | Multi-Tenant Security Audit | CE2 | 🔄 In Progress | — | All `/api/*` routes |
+| 5.15 | Global Header Search Bar & URL search sync (`/wells?search=...`) | SE2 | ✅ Done | 08 Sep 2026 | `header.tsx`, `wells/page.tsx` |
+| 5.16 | Jest & RTL Automated Test Suite (`jest.config.ts`, `__tests__/*`) | SE1 | ✅ Done | 08 Sep 2026 | `jest.config.ts`, `jest.setup.ts`, `__tests__/*` |
+| 5.17 | Automated LAS Data Cleaner Engine, Verification Audit UI & `cleaner.test.ts` | SE1 | ✅ Done | 09 Sep 2026 | `cleaner.ts`, `clean/route.ts`, `upload/page.tsx`, `cleaner.test.ts` |
 
 ---
 
 > **WellQC+ v2.5.0-Enterprise** | Master Development Sprint Plan & Ownership Matrix  
-> Updated 04 Sep 2026 · Grounded 100% in Codebase · 8 Team Members (2 SE, 4 DA, 2 CE) · 6 Sprints.
+> Updated 09 Sep 2026 · Grounded 100% in Codebase · 8 Team Members (2 SE, 4 DA, 2 CE) · 6 Sprints.

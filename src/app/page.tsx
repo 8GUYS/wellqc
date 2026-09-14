@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { LandingNavbar } from "@/components/landing-navbar";
-// import { PaymentModal } from "@/components/pricing/payment-modal";
 import {
   Activity,
   CheckCircle2,
@@ -38,7 +37,6 @@ import {
 } from "lucide-react";
 
 export default function LandingPage() {
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [pricingCurrency, setPricingCurrency] = useState<"NGN" | "USD">("NGN");
 
   // Contact form state
@@ -937,12 +935,6 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {/* Paystack Payment Modal */}
-      {/* <PaymentModal
-        isOpen={paymentModalOpen}
-        onClose={() => setPaymentModalOpen(false)}
-        defaultPlan="pro_monthly"
-      /> */}
     </div>
   );
 }

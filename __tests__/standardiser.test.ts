@@ -1,4 +1,4 @@
-import { standardiseMnemonic, STANDARD_CURVES } from "@/lib/las/standardiser";
+import { standardiseMnemonic } from "@/lib/las/standardiser";
 
 describe("Mnemonic Standardiser (standardiseMnemonic)", () => {
   it("matches exact standard mnemonics with 1.0 confidence", () => {

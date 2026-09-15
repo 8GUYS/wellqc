@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import Link from "next/link";
 import { WellListItem } from "@/lib/api-types";
@@ -18,9 +18,22 @@ import {
   UploadCloud,
   Layers,
   Sparkles,
-  CheckCircle2,
   X,
 } from "lucide-react";
+
+function subscribeToStorage(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
+
+function getLatestCommittedWellSnapshot(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem("wellqc_latest_committed_well");
+  } catch {
+    return null;
+  }
+}
 
 export default function WellManagementPage() {
   const [wells, setWells] = useState<WellListItem[]>([]);
@@ -31,12 +44,31 @@ export default function WellManagementPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [expandedWellId, setExpandedWellId] = useState<string | null>(null);
-  const [recentCommittedWell, setRecentCommittedWell] = useState<{
-    wellId: string;
-    wellName: string;
-    qualityScore: number;
-    timestamp: number;
-  } | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  const storedWellRaw = useSyncExternalStore(
+    subscribeToStorage,
+    getLatestCommittedWellSnapshot,
+    () => null
+  );
+
+  const recentCommittedWell = useMemo(() => {
+    if (!storedWellRaw) return null;
+    try {
+      const parsed = JSON.parse(storedWellRaw);
+      if (parsed && parsed.wellId && parsed.wellName) {
+        if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+          return parsed as {
+            wellId: string;
+            wellName: string;
+            qualityScore: number;
+            timestamp: number;
+          };
+        }
+      }
+    } catch {}
+    return null;
+  }, [storedWellRaw]);
 
   const [newWellName, setNewWellName] = useState("");
   const [newApiNo, setNewApiNo] = useState("");
@@ -48,20 +80,6 @@ export default function WellManagementPage() {
 
   useEffect(() => {
     loadWells();
-
-    // Check for recently committed well from localStorage
-    try {
-      const stored = localStorage.getItem("wellqc_latest_committed_well");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed && parsed.wellId && parsed.wellName) {
-          // If created within last 24 hours
-          if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
-            setRecentCommittedWell(parsed);
-          }
-        }
-      }
-    } catch {}
   }, []);
 
   const toggleExpandWell = (wellId: string) => {
@@ -213,7 +231,7 @@ export default function WellManagementPage() {
           </div>
         </div>
 
-        {recentCommittedWell && (
+        {recentCommittedWell && !bannerDismissed && (
           <div className="bg-gradient-to-r from-cyan-950/40 via-wellqc-panel to-cyan-950/40 border border-cyan-500/40 rounded-2xl p-4 flex items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
               <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center shrink-0">
@@ -243,7 +261,7 @@ export default function WellManagementPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setRecentCommittedWell(null)}
+                onClick={() => setBannerDismissed(true)}
                 className="p-1.5 rounded-lg hover:bg-wellqc-card text-slate-400 hover:text-white"
                 title="Dismiss banner"
               >
@@ -465,7 +483,7 @@ export default function WellManagementPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   {(well.curveSummaries ?? []).length > 0 ? (
                                     (well.curveSummaries ?? []).map((summary, index) => {
-                                      const curveSummary = summary as Record<string, unknown>;
+                                      const curveSummary = summary;
                                       const curveName = typeof curveSummary.standardMnemonic === "string"
                                         ? curveSummary.standardMnemonic
                                         : typeof curveSummary.mnemonic === "string"

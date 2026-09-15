@@ -46,46 +46,71 @@ function downloadTextFile(fileName: string, content: string, mimeType: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export default function LASUploadPage() {
-  const [dragActive, setDragActive] = useState(false);
-  const [rawText, setRawText] = useState<string>("");
-  const [fileName, setFileName] = useState<string>("");
-  const [parsedLAS, setParsedLAS] = useState<ParsedLAS | null>(null);
-  const [qaResult, setQaResult] = useState<QualityAnalysisResult | null>(null);
-  const [aiOutput, setAiOutput] = useState<AIAnalysisOutput | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [savedSuccess, setSavedSuccess] = useState(false);
-  const [saveError, setSaveError] = useState("");
-  const [savedWell, setSavedWell] = useState<{ id: string; name: string; qualityScore: number } | null>(null);
-  const [uploadQueue, setUploadQueue] = useState<QueuedLASFile[]>([]);
-  const [limitReachedModal, setLimitReachedModal] = useState(false);
-  const [restoredFromStorage, setRestoredFromStorage] = useState(false);
-
-  // 1. Restore from localStorage on initial mount (in case user refreshed page)
-  useEffect(() => {
+function getInitialUploadWorkspace(): {
+  fileName: string;
+  rawText: string;
+  parsedLAS: ParsedLAS | null;
+  qaResult: QualityAnalysisResult | null;
+  aiOutput: AIAnalysisOutput | null;
+  savedSuccess: boolean;
+  savedWell: { id: string; name: string; qualityScore: number } | null;
+  uploadQueue: QueuedLASFile[];
+  restoredFromStorage: boolean;
+} {
+  if (typeof window !== "undefined") {
     try {
       const saved = localStorage.getItem("wellqc_upload_workspace");
       if (saved) {
         const session = JSON.parse(saved);
         if (session && session.parsedLAS && session.qaResult) {
-          setFileName(session.fileName || "restored-well-log.las");
-          setRawText(session.rawText || "");
-          setParsedLAS(session.parsedLAS);
-          setQaResult(session.qaResult);
-          setAiOutput(session.aiOutput || null);
-          setSavedSuccess(Boolean(session.savedSuccess));
-          setSavedWell(session.savedWell || null);
-          if (Array.isArray(session.uploadQueue) && session.uploadQueue.length > 0) {
-            setUploadQueue(session.uploadQueue);
-          }
-          setRestoredFromStorage(true);
+          return {
+            fileName: session.fileName || "restored-well-log.las",
+            rawText: session.rawText || "",
+            parsedLAS: session.parsedLAS,
+            qaResult: session.qaResult,
+            aiOutput: session.aiOutput || null,
+            savedSuccess: Boolean(session.savedSuccess),
+            savedWell: session.savedWell || null,
+            uploadQueue: Array.isArray(session.uploadQueue) ? session.uploadQueue : [],
+            restoredFromStorage: true,
+          };
         }
       }
     } catch (e) {
       console.warn("Could not restore upload session from localStorage", e);
     }
-  }, []);
+  }
+
+  return {
+    fileName: "",
+    rawText: "",
+    parsedLAS: null,
+    qaResult: null,
+    aiOutput: null,
+    savedSuccess: false,
+    savedWell: null,
+    uploadQueue: [],
+    restoredFromStorage: false,
+  };
+}
+
+export default function LASUploadPage() {
+  const [initialWorkspace] = useState(getInitialUploadWorkspace);
+
+  const [dragActive, setDragActive] = useState(false);
+  const [rawText, setRawText] = useState<string>(initialWorkspace.rawText);
+  const [fileName, setFileName] = useState<string>(initialWorkspace.fileName);
+  const [parsedLAS, setParsedLAS] = useState<ParsedLAS | null>(initialWorkspace.parsedLAS);
+  const [qaResult, setQaResult] = useState<QualityAnalysisResult | null>(initialWorkspace.qaResult);
+  const [aiOutput, setAiOutput] = useState<AIAnalysisOutput | null>(initialWorkspace.aiOutput);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(initialWorkspace.savedSuccess);
+  const [saveError, setSaveError] = useState("");
+  const [savedWell, setSavedWell] = useState<{ id: string; name: string; qualityScore: number } | null>(initialWorkspace.savedWell);
+  const [uploadQueue, setUploadQueue] = useState<QueuedLASFile[]>(initialWorkspace.uploadQueue);
+  const [limitReachedModal, setLimitReachedModal] = useState(false);
+  const [restoredFromStorage, setRestoredFromStorage] = useState(initialWorkspace.restoredFromStorage);
 
   // 2. Persist state to localStorage on changes
   useEffect(() => {
@@ -156,34 +181,7 @@ export default function LASUploadPage() {
     }
   };
 
-  const processFileContent = async (content: string, name: string) => {
-    setIsProcessing(true);
-    setSavedSuccess(false);
-    setSaveError("");
-    setSavedWell(null);
 
-    const allowed = await checkFreemiumLimit();
-    if (!allowed) {
-      setIsProcessing(false);
-      return;
-    }
-
-    try {
-      const parsed = parseLASContent(content);
-      const qa = analyzeWellLogQuality(parsed);
-      const ai = generateAIAnalysis(parsed, qa);
-
-      setRawText(content);
-      setFileName(name);
-      setParsedLAS(parsed);
-      setQaResult(qa);
-      setAiOutput(ai);
-    } catch (err) {
-      console.error("LAS Parsing Error:", err);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   const loadQueuedFile = (file: QueuedLASFile) => {
     setRawText(file.content);

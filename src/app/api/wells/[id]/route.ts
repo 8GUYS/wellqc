@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { CurveHealthSummary, WellDetailResponse, WellListItem } from "@/lib/api-types";
+import { CurveAnomalyItem, CurveHealthStatus, CurveHealthSummary, WellDetailResponse, WellListItem } from "@/lib/api-types";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -240,13 +240,13 @@ function extractCurveSummaries(
   const anomalies = latestReport?.anomalies || [];
 
   return latestLasFile.curves.map((curve) => {
-    const curveAnomalies = anomalies
+    const curveAnomalies: CurveAnomalyItem[] = anomalies
       .filter((a) => a.curveMnemonic === curve.originalMnemonic)
       .map((a) => ({
         curveMnemonic: a.curveMnemonic,
         depthStart: a.depthStart,
         depthEnd: a.depthEnd,
-        anomalyType: a.anomalyType as any,
+        anomalyType: a.anomalyType,
         severity: normalizeSeverity(a.severity),
         description: a.description,
         suggestedCorrection: a.suggestedCorrection,
@@ -259,6 +259,9 @@ function extractCurveSummaries(
     healthScore -= curveAnomalies.length * 15;
     healthScore = Math.max(0, Math.min(100, healthScore));
 
+    const status: CurveHealthStatus =
+      curve.status === "VALID" ? "EXCELLENT" : curve.status === "STANDARDISED" ? "GOOD" : "POOR";
+
     return {
       mnemonic: curve.originalMnemonic,
       standardMnemonic: curve.standardMnemonic || "UNKNOWN",
@@ -270,7 +273,7 @@ function extractCurveSummaries(
       maxVal: curve.maxVal,
       meanVal: curve.meanVal,
       healthScore,
-      status: (curve.status === "VALID" ? "EXCELLENT" : curve.status === "STANDARDISED" ? "GOOD" : "POOR") as any,
+      status,
       anomalies: curveAnomalies,
     };
   });

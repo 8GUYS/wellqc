@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { CurveHealthSummary, WellListItem } from "@/lib/api-types";
+import { CurveHealthStatus, CurveHealthSummary, WellListItem } from "@/lib/api-types";
 import { getCurrentUser } from "@/lib/auth";
 
 interface CreateWellRequest {
@@ -186,6 +186,9 @@ function extractCurveSummaries(
     else if (curve.nullPercentage > 5) healthScore -= 10;
     healthScore = Math.max(0, Math.min(100, healthScore));
 
+    const status: CurveHealthStatus =
+      curve.status === "VALID" ? "EXCELLENT" : curve.status === "STANDARDISED" ? "GOOD" : "POOR";
+
     return {
       mnemonic: curve.originalMnemonic,
       standardMnemonic: curve.standardMnemonic || "UNKNOWN",
@@ -197,7 +200,7 @@ function extractCurveSummaries(
       maxVal: curve.maxVal,
       meanVal: curve.meanVal,
       healthScore,
-      status: (curve.status === "VALID" ? "EXCELLENT" : curve.status === "STANDARDISED" ? "GOOD" : "POOR") as any,
+      status,
       anomalies: [],
     };
   });

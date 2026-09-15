@@ -1,6 +1,29 @@
+export type CurveHealthStatus = "EXCELLENT" | "GOOD" | "POOR" | "CRITICAL";
+
+export interface CurveAnomalyItem {
+  curveMnemonic: string;
+  depthStart: number;
+  depthEnd: number;
+  anomalyType: string;
+  severity: "CRITICAL" | "WARNING" | "INFO";
+  description: string;
+  suggestedCorrection: string;
+}
+
 /** Summary of the health and quality checks for a curve. */
 export interface CurveHealthSummary {
-  [key: string]: unknown;
+  mnemonic: string;
+  standardMnemonic: string;
+  unit: string;
+  nullCount: number;
+  totalPoints: number;
+  nullPercentage: number;
+  minVal: number | null;
+  maxVal: number | null;
+  meanVal: number | null;
+  healthScore: number;
+  status: CurveHealthStatus;
+  anomalies: CurveAnomalyItem[];
 }
 
 export interface WellListItem {

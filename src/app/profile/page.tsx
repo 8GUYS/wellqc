@@ -79,9 +79,13 @@ export default function UserProfilePage() {
     try {
       setLoading(true);
       const res = await fetch("/api/user/profile");
+      if (!res.ok) {
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
 
-      if (res.ok && data.user) {
+      if (data.user) {
         setProfile(data.user);
         setPayments(data.paymentRecords || []);
         setFormData((prev) => ({

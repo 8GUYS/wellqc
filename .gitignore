@@ -52,6 +52,9 @@ services/python_parser/venv/
 
 services/python_parser/__pycache__/
 
+CLAUDE.md
+agents.md
+
 .agents/
 .claude/
 .windsurf/

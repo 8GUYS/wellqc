@@ -111,6 +111,9 @@ export default function LandingPage() {
   // Payment & pricing currency state (Commented out for free testing - re-enable with payment option)
   // const [pricingCurrency, setPricingCurrency] = useState<"NGN" | "USD">("NGN");
 
+  // Viewer Layout Mode state (defaults to SPLIT to showcase both wireline plot and data table)
+  const [viewerLayout, setViewerLayout] = useState<"GRAPH" | "SPLIT" | "TABLE">("SPLIT");
+
   // Contact form state
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formData, setFormData] = useState({
@@ -194,7 +197,55 @@ export default function LandingPage() {
           </div>
 
           {/* Hero Visual Live Wireline Log Viewer Preview */}
-          <div className="mt-14 relative max-w-6xl mx-auto">
+          <div className="mt-14 relative max-w-7xl mx-auto space-y-3">
+            {/* Quick Layout Mode Showcase Tabs */}
+            <div className="flex flex-wrap items-center justify-between gap-3 px-2">
+              <div className="flex items-center space-x-2 text-xs font-mono text-slate-400">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                <span className="text-slate-300 font-bold">Interactive Subsurface Workspace:</span>
+                <span className="hidden sm:inline">Choose your display layout</span>
+              </div>
+
+              <div className="inline-flex items-center bg-slate-900/90 border border-slate-800 rounded-xl p-1 shadow-lg text-xs font-mono">
+                <button
+                  type="button"
+                  onClick={() => setViewerLayout("GRAPH")}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
+                    viewerLayout === "GRAPH"
+                      ? "bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 shadow-md shadow-emerald-500/20"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Wireline Plot</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewerLayout("SPLIT")}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
+                    viewerLayout === "SPLIT"
+                      ? "bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 shadow-md shadow-emerald-500/20"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Split Viewer (Side-by-Side)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewerLayout("TABLE")}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
+                    viewerLayout === "TABLE"
+                      ? "bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 shadow-md shadow-emerald-500/20"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Data Table (Spreadsheet)</span>
+                </button>
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-2 sm:p-4 shadow-2xl backdrop-blur-xl ring-1 ring-white/10 overflow-hidden">
               <WellLogViewer
                 wellName="TUJA 2 (Original Untouched Raw)"
@@ -203,6 +254,8 @@ export default function LandingPage() {
                 stopDepth={3711.2344}
                 curvesData={SAMPLE_TUJA2_DATA}
                 anomalies={SAMPLE_TUJA2_ANOMALIES}
+                layoutMode={viewerLayout}
+                onLayoutModeChange={(mode) => setViewerLayout(mode)}
               />
             </div>
           </div>

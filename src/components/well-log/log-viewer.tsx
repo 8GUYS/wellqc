@@ -33,6 +33,10 @@ interface LogViewerProps {
     severity: string;
     description: string;
   }[];
+  initialLayoutMode?: "GRAPH" | "SPLIT" | "TABLE";
+  initialViewMode?: "CLASSIC_PAPER" | "DARK_MODERN";
+  layoutMode?: "GRAPH" | "SPLIT" | "TABLE";
+  onLayoutModeChange?: (mode: "GRAPH" | "SPLIT" | "TABLE") => void;
 }
 
 export function WellLogViewer({
@@ -42,11 +46,24 @@ export function WellLogViewer({
   stopDepth,
   curvesData,
   anomalies = [],
+  initialLayoutMode = "GRAPH",
+  initialViewMode = "CLASSIC_PAPER",
+  layoutMode: externalLayoutMode,
+  onLayoutModeChange,
 }: LogViewerProps) {
-  const [layoutMode, setLayoutMode] = useState<"GRAPH" | "SPLIT" | "TABLE">("GRAPH");
-  const [viewMode, setViewMode] = useState<"CLASSIC_PAPER" | "DARK_MODERN">("CLASSIC_PAPER");
+  const [internalLayoutMode, setInternalLayoutMode] = useState<"GRAPH" | "SPLIT" | "TABLE">(
+    externalLayoutMode || initialLayoutMode
+  );
+  const [viewMode, setViewMode] = useState<"CLASSIC_PAPER" | "DARK_MODERN">(initialViewMode);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [selectedDepth, setSelectedDepth] = useState<number | null>(null);
+
+  const layoutMode = externalLayoutMode !== undefined ? externalLayoutMode : internalLayoutMode;
+
+  const handleLayoutModeChange = (mode: "GRAPH" | "SPLIT" | "TABLE") => {
+    setInternalLayoutMode(mode);
+    onLayoutModeChange?.(mode);
+  };
 
   const depthArr = curvesData.depth || [];
   const totalPoints = depthArr.length;
@@ -479,7 +496,7 @@ export function WellLogViewer({
           {/* Layout Mode Switcher Toggle (Graph vs Split vs Table) */}
           <div className="flex items-center bg-wellqc-card border border-wellqc-border rounded-xl p-1 shadow-inner">
             <button
-              onClick={() => setLayoutMode("GRAPH")}
+              onClick={() => handleLayoutModeChange("GRAPH")}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
                 layoutMode === "GRAPH"
                   ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
@@ -492,7 +509,7 @@ export function WellLogViewer({
             </button>
 
             <button
-              onClick={() => setLayoutMode("SPLIT")}
+              onClick={() => handleLayoutModeChange("SPLIT")}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
                 layoutMode === "SPLIT"
                   ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
@@ -505,7 +522,7 @@ export function WellLogViewer({
             </button>
 
             <button
-              onClick={() => setLayoutMode("TABLE")}
+              onClick={() => handleLayoutModeChange("TABLE")}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
                 layoutMode === "TABLE"
                   ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"

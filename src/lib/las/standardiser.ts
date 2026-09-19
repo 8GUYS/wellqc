@@ -184,6 +184,31 @@ export function addCustomAlias(standardMnemonic: string, newAlias: string): bool
   return true;
 }
 
+/**
+ * Updates the active upload session stored in localStorage with newly added aliases
+ * and dispatches a global 'wellqc_alias_updated' window event.
+ */
+export function updateActiveUploadWithNewAlias(reanalyzer?: (parsed: any) => any): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const raw = localStorage.getItem('wellqc_upload_workspace');
+    if (!raw) return false;
+    const session = JSON.parse(raw);
+    if (!session || !session.parsedLAS) return false;
+
+    if (typeof reanalyzer === 'function') {
+      session.qaResult = reanalyzer(session.parsedLAS);
+    }
+    session.updatedAt = Date.now();
+    localStorage.setItem('wellqc_upload_workspace', JSON.stringify(session));
+    window.dispatchEvent(new CustomEvent('wellqc_alias_updated', { detail: { qaResult: session.qaResult } }));
+    return true;
+  } catch (err) {
+    console.warn('Failed to update active upload workspace with alias:', err);
+    return false;
+  }
+}
+
 // Retrieve standard curve definitions merged with custom persistent aliases
 export function getMergedStandardCurves(): Record<string, StandardCurveDef> {
   const custom = getStoredCustomAliases();

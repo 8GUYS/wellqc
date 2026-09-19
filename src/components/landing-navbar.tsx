@@ -20,7 +20,7 @@ export function LandingNavbar() {
     { name: "Home", href: "#home" },
     { name: "About Us", href: "#about" },
     { name: "Services & Features", href: "#services" },
-    { name: "Pricing", href: "#pricing" },
+    // { name: "Pricing", href: "#pricing" }, // Commented out for free testing - re-enable with payment option
     { name: "Contact Us", href: "#contact" },
   ];
 

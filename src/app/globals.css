@@ -1,10 +1,26 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --background: #0b0f17;
   --foreground: #f1f5f9;
+}
+
+@theme {
+  --color-background: #0b0f17;
+  --color-foreground: #f1f5f9;
+
+  --color-wellqc-dark: #0b0f17;
+  --color-wellqc-panel: #131b2e;
+  --color-wellqc-card: #182238;
+  --color-wellqc-border: #233252;
+  --color-wellqc-accent: #3b82f6;
+  --color-wellqc-cyan: #06b6d4;
+  --color-wellqc-emerald: #10b981;
+  --color-wellqc-amber: #f59e0b;
+  --color-wellqc-rose: #ef4444;
+  --color-wellqc-violet: #8b5cf6;
+  --color-wellqc-text: #f1f5f9;
+  --color-wellqc-muted: #94a3b8;
 }
 
 body {

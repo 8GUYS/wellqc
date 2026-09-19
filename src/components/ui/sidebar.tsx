@@ -41,7 +41,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
     { label: "Audit Reports", href: "/reports", icon: FileSpreadsheet },
     { label: "Activity Logs", href: "/activity", icon: History },
     { label: "User Profile & Billing", href: "/profile", icon: User },
-    { label: "Pricing & Plans", href: "/pricing", icon: CreditCard },
+    // { label: "Pricing & Plans", href: "/pricing", icon: CreditCard }, // Commented out for testing - re-enable when payment option is active
   ];
 
   if (currentRole === "ADMIN") {

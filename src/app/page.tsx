@@ -37,7 +37,8 @@ import {
 } from "lucide-react";
 
 export default function LandingPage() {
-  const [pricingCurrency, setPricingCurrency] = useState<"NGN" | "USD">("NGN");
+  // Payment & pricing currency state (Commented out for free testing - re-enable with payment option)
+  // const [pricingCurrency, setPricingCurrency] = useState<"NGN" | "USD">("NGN");
 
   // Contact form state
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -104,12 +105,14 @@ export default function LandingPage() {
                 <ArrowRight className="w-5 h-5" />
               </Link>
 
+              {/* Pricing button commented out for free testing - re-enable with payment option
               <Link
                 href="#pricing"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-semibold text-slate-200 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-600 transition-all duration-200"
               >
                 <span>View Pricing Plans</span>
               </Link>
+              */}
             </div>
 
             {/* Freemium Trust Note */}
@@ -539,8 +542,9 @@ export default function LandingPage() {
       </section>
 
       {/* ========================================================================= */}
-      {/* 4. PRICING SECTION (#pricing)                                            */}
+      {/* 4. PRICING SECTION (#pricing) - Commented out for free testing           */}
       {/* ========================================================================= */}
+      {/*
       <section id="pricing" className="py-24 bg-slate-900/30 relative border-b border-slate-800/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
@@ -555,7 +559,6 @@ export default function LandingPage() {
               Try WellQC+ completely free for your first 2 log files. Upgrade seamlessly with Nigerian &amp; Global Cards, Bank Transfer, or USSD.
             </p>
 
-            {/* Currency Switcher */}
             <div className="inline-flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-2xl shadow-inner mt-2">
               <span className="text-xs text-slate-400 font-mono px-2">Currency:</span>
               <button
@@ -583,9 +586,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Pricing Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
-            {/* Free Tier Card */}
             <div className="bg-slate-900 rounded-2xl border border-slate-800 p-8 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -628,7 +629,6 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            {/* Pro Tier Card (Highlighted) */}
             <div className="bg-slate-900 rounded-2xl border-2 border-emerald-500 p-8 flex flex-col justify-between relative shadow-2xl shadow-emerald-500/10">
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 text-xs font-extrabold tracking-wider uppercase shadow-md flex items-center gap-1">
                 <Zap className="w-3.5 h-3.5 fill-current" />
@@ -692,7 +692,6 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Enterprise Tier Card */}
             <div className="bg-slate-900 rounded-2xl border border-slate-800 p-8 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -740,7 +739,6 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Paystack Trust Badge Banner on Landing Page */}
           <div className="max-w-4xl mx-auto mt-12 p-4 sm:p-5 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-300">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
@@ -760,6 +758,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      */}
 
       {/* ========================================================================= */}
       {/* 5. CONTACT US SECTION (#contact)                                          */}
@@ -916,7 +915,7 @@ export default function LandingPage() {
               <Link href="#home" className="hover:text-emerald-400 transition-colors">Home</Link>
               <Link href="#about" className="hover:text-emerald-400 transition-colors">About Us</Link>
               <Link href="#services" className="hover:text-emerald-400 transition-colors">Services</Link>
-              <Link href="#pricing" className="hover:text-emerald-400 transition-colors">Pricing</Link>
+              {/* <Link href="#pricing" className="hover:text-emerald-400 transition-colors">Pricing</Link> */}
               <Link href="#contact" className="hover:text-emerald-400 transition-colors">Contact</Link>
               <Link href="/login" className="hover:text-emerald-400 transition-colors">Sign In</Link>
             </div>

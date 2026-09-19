@@ -100,7 +100,8 @@ export function Header({
 
       {/* Right Toolbar Controls */}
       <div className="flex items-center space-x-2 md:space-x-3">
-        {/* Subscription Plan & Usage Badge */}
+        {/* Subscription Plan & Usage Badge - Commented out for unrestricted testing */}
+        {/*
         <div className="flex items-center space-x-2">
           {userTier === "PRO" ? (
             <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[11px] font-mono font-bold">
@@ -117,6 +118,12 @@ export function Header({
               </span>
             </div>
           )}
+        </div>
+        */}
+        <div className="flex items-center space-x-2">
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono font-semibold">
+            <span>TEST MODE (UNLIMITED)</span>
+          </span>
         </div>
 
         {/* RBAC Role Switcher */}

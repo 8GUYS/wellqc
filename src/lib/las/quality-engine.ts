@@ -2,19 +2,25 @@ import { ParsedLAS } from './parser';
 import { standardiseMnemonic, STANDARD_CURVES } from './standardiser';
 import { convertToStandardUnit } from './exporter';
 
+export type AnomalyType =
+  | 'IMPOSSIBLE_VALUE'
+  | 'EXTREME_SPIKE'
+  | 'FLATLINE'
+  | 'DEPTH_GAP'
+  | 'NULL_CLUSTER'
+  | 'UNIT_MISMATCH'
+  | 'DUPLICATE_CURVE'
+  | 'DUPLICATE_DEPTH'
+  | 'OUTLIER_VALUE'
+  | 'NON_STANDARD_MNEMONIC'
+  | 'MISSING_CORE_CURVE';
+
 export interface AnomalyReportItem {
+  id?: string;
   curveMnemonic: string;
   depthStart: number;
   depthEnd: number;
-  anomalyType: 
-    | 'IMPOSSIBLE_VALUE'
-    | 'EXTREME_SPIKE'
-    | 'FLATLINE'
-    | 'DEPTH_GAP'
-    | 'NULL_CLUSTER'
-    | 'UNIT_MISMATCH'
-    | 'DUPLICATE_CURVE'
-    | 'DUPLICATE_DEPTH';
+  anomalyType: AnomalyType;
   severity: 'CRITICAL' | 'WARNING' | 'INFO';
   description: string;
   suggestedCorrection: string;
@@ -288,6 +294,24 @@ export function analyzeWellLogQuality(las: ParsedLAS): QualityAnalysisResult {
 
   // 4. Missing Key Standard Curves
   const missingStandardCurves = expectedKeyCurves.filter((c) => !presentStandardMnemonics.has(c));
+  for (const missingCurve of missingStandardCurves) {
+    anomalies.push({
+      curveMnemonic: missingCurve,
+      depthStart: las.wellInfo.startDepth,
+      depthEnd: las.wellInfo.stopDepth,
+      anomalyType: 'MISSING_CORE_CURVE',
+      severity: 'WARNING',
+      description: `Core standard petrophysical curve ${missingCurve} is absent from this well log dataset.`,
+      suggestedCorrection: 'Synthesize channel via multi-log empirical regression or KNN estimation.',
+    });
+  }
+
+  // Ensure every anomaly has a unique deterministic ID
+  anomalies.forEach((a, i) => {
+    if (!a.id) {
+      a.id = `anom-${a.curveMnemonic}-${a.anomalyType}-${Math.round(a.depthStart || 0)}-${i}`;
+    }
+  });
 
   // 5. Compute Aggregate Quality Scores
   const completenessScore = Math.max(

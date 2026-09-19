@@ -3,7 +3,7 @@
 > **Project:** WellQC+ — AI-Powered Well Log Quality Assurance & Subsurface Analytics Platform  
 > **Team Structure (8 Members):** 2 Software Engineers · 4 Data Analysts · 2 Cloud Engineers  
 > **Timeline:** 3 Months (12 Weeks) · 6 × 2-Week Sprints  
-> **Active Sprint:** Sprint 5 — Security, Paystack Monetization & Freemium Enforcement  
+> **Active Sprint:** Sprint 4 — Advanced Visualisation, Imputation & Analytics  
 > **Methodology:** Agile Scrum with 2-Week Sprint Cycles  
 
 ---
@@ -15,7 +15,9 @@ The WellQC+ platform is structured as a full-stack, enterprise-grade AI well log
 ### 1. Core Petrophysical & AI Engines (`src/lib/las/`)
 * **LAS Parser Engine ([`parser.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/parser.ts))**: Native TypeScript parser for LAS 2.0/3.0 files (`~Version`, `~Well`, `~Curve`, and `~ASCII` sections), normalizes null indicators (`-999.25`, `-9999`, `NaN`), and handles depth intervals.
 * **Quality Scoring Engine ([`quality-engine.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/quality-engine.ts))**: Audits 7 Core Required Curves (`GR`, `RHOB`, `NPHI`, `DT`, `RT`, `CALI`, `SP`) and detects all 11 user-specified anomaly categories (`DUPLICATE_DEPTH`, `DEPTH_GAP`, `NULL_CLUSTER`, `IMPOSSIBLE_VALUE`, `OUTLIER_VALUE`, `EXTREME_SPIKE` with calibrated DT cycle-skip sensitivity, `FLATLINE`, `UNIT_MISMATCH`, `NON_STANDARD_MNEMONIC`, `DUPLICATE_CURVE`, and `MISSING_CORE_CURVE`). Computes Curve Health, Completeness, Consistency, and composite Quality Score ($0\text{--}100$).
+* **Anomaly Correction Options Dictionary ([`anomaly-options.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/anomaly-options.ts))** *(NEW — Sprint 4)*: Standardized petrophysical correction options dictionary for all 11 anomaly types with detailed technical descriptions, unique option IDs, and pre-selected `recommended: true` primary fixes.
 * **Automated Data Cleaning & Repair Engine ([`cleaner.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/cleaner.ts))**: Core data modification engine executing duplicate depth pruning, depth gap alignment, physical outlier clipping, DT sonic despiking (5-point median window), unit conversions, flatline stuck-sensor handling, and missing gap imputation (`KNN`, `Linear`, `Median`). Generates Before vs After verification reports and cleaned LAS 2.0 / CSV text files.
+* **Anomaly Fix Application & Audit Endpoint ([`apply-fixes/route.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/api/las/apply-fixes/route.ts))** *(NEW — Sprint 4)*: REST API endpoint applying approved anomaly fixes to LAS datasets while logging individual, transparent audit entries per anomaly to `ActivityLog`.
 * **AI Recommendation Engine ([`ai-analyzer.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/ai-analyzer.ts))**: Rule-based expert system generating natural-language petrophysical risk summaries, confidence scores, and remediation steps.
 * **Mnemonic Standardiser ([`standardiser.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/standardiser.ts))**: Maps raw vendor mnemonics (`GAMMA`, `DEN`, `CNL`, `ILD`, `AC`) to standard API mnemonics (`GR`, `RHOB`, `NPHI`, `RT`, `DT`) with confidence weighting, custom alias persistence, and `updateActiveUploadWithNewAlias()` auto-propagation.
 * **Missing Value & Imputation Engine ([`imputation-engine.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/imputation-engine.ts))**: Diagnoses 4 root causes (casing shoe, washout, telemetry dropout, off-bottom) and benchmarks 5 imputation algorithms (KNN, Cubic Spline, Linear, Mean, Median) with ground-truth cross-validation calculating RMSE, MAE, R², variance preservation, and speed.
@@ -39,7 +41,7 @@ The WellQC+ platform is structured as a full-stack, enterprise-grade AI well log
 
 ### 4. Reusable Well-Log Components (`src/components/well-log/`)
 * **Multi-Track Log Viewer ([`log-viewer.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/components/well-log/log-viewer.tsx))**: SVG-rendered wireline tracks with Classic Paper and Dark Subsurface themes.
-* **Curve Inventory Table ([`curve-inventory-table.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/components/well-log/curve-inventory-table.tsx))** *(NEW — Sprint 5)*: Reusable component displaying Raw Mnemonic → Standard Name mapping, Unit, Null %, Data Range, Health Score (colour-coded), and expandable anomaly flag details per curve. Used in both the Upload Workspace and Well Detail pages.
+* **Curve Inventory Table ([`curve-inventory-table.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/components/well-log/curve-inventory-table.tsx))** *(NEW — Sprint 4)*: Reusable component displaying Raw Mnemonic → Standard Name mapping, Unit, Null %, Data Range, Health Score (colour-coded), and expandable anomaly flag details per curve. Used in both the Upload Workspace and Well Detail pages.
 * **Imputation Benchmark Modal (`imputation-benchmark-modal.tsx`)**: Multi-method algorithm comparison UI.
 
 ### 5. Database & Infrastructure (`prisma/`)
@@ -118,6 +120,19 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
 * **DA4:** Run test uploads on 10 LAS test files to verify grade categorization (`EXCELLENT` $\ge 90$, `GOOD` $75\text{--}89$, `POOR` $50\text{--}74$, `CRITICAL` $<50$).
 * **CE1:** Optimize Next.js chunk splitting and bundle size.
 * **CE2:** Build atomic transaction in `POST /api/las` with `db.$transaction()` ensuring multi-tenant workspace isolation.
+
+---
+
+### 🟠 SPRINT 4 (Weeks 7–8): Advanced Visualisation, Imputation & Analytics
+* **Theme:** Wireline multi-track log viewer, KNN imputation cross-validation, dashboard telemetry, and report generation.
+* **SE1:** Build Multi-Track Wireline Log Viewer (`log-viewer.tsx`) supporting Track 1 (`GR`), Track 2 (`RT` log scale), Track 3 (`DT`/`RHOB`/`NPHI`), and missing-null gap overlays in Classic Paper & Dark Subsurface views.
+* **SE2:** Build Command Dashboard (`dashboard/page.tsx`), QA Engine UI (`qa-engine/page.tsx`), and Standardisation Dictionary page (`standardisation/page.tsx`).
+* **DA1:** Build persistent custom alias registration (`addCustomAlias` stored in `localStorage`) in `standardiser.ts`.
+* **DA2:** Implement Multi-Method Imputation Benchmarking Engine in `imputation-engine.ts` (KNN, Cubic Spline, Linear, Mean, Median) with ground-truth cross-validation calculating RMSE, MAE, R², and variance preservation.
+* **DA3:** Build Field Performance ranking calculations and Anomaly Distribution aggregations for `analytics/page.tsx`.
+* **DA4:** Implement PDF Audit Certificate generator (jsPDF), Excel Workbook exporter (SheetJS), and CSV logger in `reports/page.tsx`.
+* **CE1:** Optimize client-side memory usage and SVG rendering performance for large log files (>10,000 depth samples).
+* **CE2:** Implement Python FastAPI microservice (`services/python_parser/main.py`) with `lasio`, `pandas`, and `scikit-learn` (`KNNImputer`) endpoints.
 
 ---
 

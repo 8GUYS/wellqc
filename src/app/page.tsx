@@ -3,6 +3,77 @@
 import { useState } from "react";
 import Link from "next/link";
 import { LandingNavbar } from "@/components/landing-navbar";
+import { WellLogViewer } from "@/components/well-log/log-viewer";
+
+// Realistic sample borehole log matching TUJA 2 for landing page hero display
+const SAMPLE_TUJA2_DEPTH: number[] = [];
+const SAMPLE_TUJA2_GR: number[] = [];
+const SAMPLE_TUJA2_RT: number[] = [];
+const SAMPLE_TUJA2_DT: number[] = [];
+const SAMPLE_TUJA2_RHOB: number[] = [];
+
+for (let i = 0; i < 70; i++) {
+  const d = +(1989.7344 + i * 0.5).toFixed(4);
+  SAMPLE_TUJA2_DEPTH.push(d);
+
+  // Gamma Ray (GR): Baseline ~40 GAPI, with shale intervals (~90 GAPI) and sand intervals (~20 GAPI)
+  let gr = 40 + Math.sin(i * 0.2) * 14 + Math.cos(i * 0.08) * 8;
+  if (d >= 2000 && d <= 2012) gr += 48; // shale interval
+  if (d >= 2016 && d <= 2024) gr = Math.max(16, gr - 22); // clean reservoir sand
+  SAMPLE_TUJA2_GR.push(+gr.toFixed(2));
+
+  // Resistivity (RT): Logarithmic scale (0.2–2000 ohm.m)
+  let rt = 2.2 + Math.sin(i * 0.18) * 0.9;
+  if (d >= 2016 && d <= 2024) rt = 14 + Math.sin(i * 0.25) * 8; // hydrocarbon pay zone
+  SAMPLE_TUJA2_RT.push(+Math.max(0.3, rt).toFixed(2));
+
+  // Sonic (DT): Steady baseline ~74 µs/ft with extreme cycle-skip spikes at ~1995, 2005, 2015
+  let dt = 72 + Math.sin(i * 0.12) * 4;
+  if (Math.abs(d - 1995.2344) < 0.6) dt = 168.5; // Sonic cycle skip 1
+  if (Math.abs(d - 2005.2344) < 0.6) dt = 182.0; // Sonic cycle skip 2
+  if (Math.abs(d - 2015.2344) < 0.6) dt = 194.2; // Sonic cycle skip 3
+  SAMPLE_TUJA2_DT.push(+dt.toFixed(2));
+
+  let rhob = 2.44 - Math.sin(i * 0.15) * 0.12;
+  SAMPLE_TUJA2_RHOB.push(+rhob.toFixed(2));
+}
+
+const SAMPLE_TUJA2_DATA = {
+  depth: SAMPLE_TUJA2_DEPTH,
+  curves: {
+    GR: SAMPLE_TUJA2_GR,
+    RT: SAMPLE_TUJA2_RT,
+    DT: SAMPLE_TUJA2_DT,
+    RHOB: SAMPLE_TUJA2_RHOB,
+  },
+};
+
+const SAMPLE_TUJA2_ANOMALIES = [
+  {
+    depthStart: 1994.8,
+    depthEnd: 1995.8,
+    curveMnemonic: "DT",
+    anomalyType: "SONIC SPIKE (CYCLE SKIP)",
+    severity: "CRITICAL",
+    description: "Sonic cycle-skip artifact detected (DT > 168 µs/ft).",
+  },
+  {
+    depthStart: 2004.8,
+    depthEnd: 2005.8,
+    curveMnemonic: "DT",
+    anomalyType: "SONIC SPIKE (CYCLE SKIP)",
+    severity: "CRITICAL",
+    description: "Acoustic sensor cycle-skip artifact detected (DT > 180 µs/ft).",
+  },
+  {
+    depthStart: 2014.8,
+    depthEnd: 2015.8,
+    curveMnemonic: "DT",
+    anomalyType: "SONIC SPIKE (CYCLE SKIP)",
+    severity: "CRITICAL",
+    description: "Severe sonic cycle-skip dropout (DT > 190 µs/ft).",
+  },
+];
 import {
   Activity,
   CheckCircle2,
@@ -101,7 +172,7 @@ export default function LandingPage() {
                 href="/register"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl text-base font-bold text-slate-950 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/35 hover:-translate-y-0.5 transition-all duration-200"
               >
-                <span>Check 2 Log Files for Free</span>
+                <span>Check Log Files for Free</span>
                 <ArrowRight className="w-5 h-5" />
               </Link>
 
@@ -118,70 +189,21 @@ export default function LandingPage() {
             {/* Freemium Trust Note */}
             <p className="text-xs text-slate-400 flex items-center justify-center gap-2 pt-1">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>No credit card required for your first 2 log file checks</span>
+              <span>No credit card required for your free log file checks</span>
             </p>
           </div>
 
-          {/* Hero Visual Mockup Preview */}
-          <div className="mt-14 relative max-w-5xl mx-auto">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4 shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
-              <div className="bg-slate-950 rounded-xl p-4 sm:p-6 space-y-6">
-                {/* Mock Top Header */}
-                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-rose-500/80" />
-                    <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-                    <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-                    <span className="text-xs text-slate-400 font-mono ml-2">
-                      LAS Audit Workspace &mdash; Well: ND-DELTA-07X
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 text-xs font-semibold">
-                      94% EXCELLENT GRADE
-                    </span>
-                  </div>
-                </div>
-
-                {/* Mock Dashboard Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                    <span className="text-xs text-slate-400 block">Overall Health</span>
-                    <span className="text-2xl font-bold text-emerald-400">94 / 100</span>
-                    <span className="text-[11px] text-emerald-500/80 block mt-1">Ready for Petrophysical Audit</span>
-                  </div>
-                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                    <span className="text-xs text-slate-400 block">Mnemonics Matched</span>
-                    <span className="text-2xl font-bold text-cyan-400">8 / 8 Standard</span>
-                    <span className="text-[11px] text-slate-400 block mt-1">100% Alias Confidence</span>
-                  </div>
-                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                    <span className="text-xs text-slate-400 block">Anomalies Detected</span>
-                    <span className="text-2xl font-bold text-amber-400">2 Spikes</span>
-                    <span className="text-[11px] text-amber-400/80 block mt-1">Depth: 7,420 - 7,425 FT</span>
-                  </div>
-                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                    <span className="text-xs text-slate-400 block">Missing Data Imputed</span>
-                    <span className="text-2xl font-bold text-emerald-400">KNN ML</span>
-                    <span className="text-[11px] text-slate-400 block mt-1">R² Score: 0.94</span>
-                  </div>
-                </div>
-
-                {/* Mock Curve Row */}
-                <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
-                  <div className="flex items-center gap-3">
-                    <Activity className="w-5 h-5 text-emerald-400" />
-                    <div>
-                      <span className="font-semibold text-slate-200">Gamma Ray (GR)</span>
-                      <span className="text-slate-400 block text-[11px]">Mapped from GAPI &bull; Range: 15.2 - 138.4 GAPI</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">0.0% Nulls</span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono">VALID</span>
-                  </div>
-                </div>
-              </div>
+          {/* Hero Visual Live Wireline Log Viewer Preview */}
+          <div className="mt-14 relative max-w-6xl mx-auto">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-2 sm:p-4 shadow-2xl backdrop-blur-xl ring-1 ring-white/10 overflow-hidden">
+              <WellLogViewer
+                wellName="TUJA 2 (Original Untouched Raw)"
+                depthUnit="m"
+                startDepth={1989.7344}
+                stopDepth={3711.2344}
+                curvesData={SAMPLE_TUJA2_DATA}
+                anomalies={SAMPLE_TUJA2_ANOMALIES}
+              />
             </div>
           </div>
 
@@ -510,7 +532,7 @@ export default function LandingPage() {
               <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
                 <Database className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">KNN Data Imputation</h3>
+              <h3 className="text-lg font-bold text-white mb-2">ML Data Imputation</h3>
               <p className="text-slate-400 text-sm leading-relaxed">
                 Benchmark 5 data imputation strategies (KNN, Cubic Spline, Linear Interpolation) with cross-validation RMSE &amp; R² preservation metrics.
               </p>

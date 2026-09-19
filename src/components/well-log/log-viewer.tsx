@@ -1,38 +1,27 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
+import { useState } from "react";
 import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  AlertTriangle,
+  FileText,
+  Layout,
   Printer,
-  Layers,
-  ChevronDown,
-  Info,
-  Maximize2,
-  Eye,
-  Sliders,
+  Sparkles,
+  LineChart,
+  Columns,
+  Table,
 } from "lucide-react";
+import { WellLogDataTable } from "./log-data-table";
 
-export interface LogViewerCurve {
-  mnemonic: string;
-  unit?: string;
-  description?: string;
-  values: number[];
-  color?: string;
-}
-
-export interface LogViewerProps {
+interface LogViewerProps {
   wellName: string;
-  field?: string;
-  operator?: string;
-  depthUnit?: string;
+  depthUnit: string;
   startDepth: number;
   stopDepth: number;
-  step?: number;
-  depths?: number[];
-  curves?: LogViewerCurve[];
-  curvesData?: {
+  curvesData: {
     depth: number[];
     curves: Record<string, number[]>;
   };
@@ -44,775 +33,614 @@ export interface LogViewerProps {
     severity: string;
     description: string;
   }[];
-  rawCurves?: LogViewerCurve[]; // Pre-clean curves for comparison
-  showCompareToRaw?: boolean;
-  nullValue?: number;
-  title?: string;
 }
 
-// Standard petrophysical track configurations
-interface CurveScaleConfig {
-  isLog: boolean;
-  min: number;
-  max: number;
-  unit: string;
-  defaultColor: string;
-  trackIndex: number;
-}
-
-const DEFAULT_CURVE_CONFIGS: Record<string, Partial<CurveScaleConfig>> = {
-  GR: { isLog: false, min: 0, max: 150, unit: "GAPI", defaultColor: "#10b981", trackIndex: 0 },
-  CALI: { isLog: false, min: 6, max: 16, unit: "IN", defaultColor: "#64748b", trackIndex: 0 },
-  SP: { isLog: false, min: -80, max: 40, unit: "MV", defaultColor: "#eab308", trackIndex: 0 },
-  RT: { isLog: true, min: 0.2, max: 2000, unit: "OHMM", defaultColor: "#ef4444", trackIndex: 1 },
-  ILD: { isLog: true, min: 0.2, max: 2000, unit: "OHMM", defaultColor: "#ef4444", trackIndex: 1 },
-  LLD: { isLog: true, min: 0.2, max: 2000, unit: "OHMM", defaultColor: "#f97316", trackIndex: 1 },
-  RES: { isLog: true, min: 0.2, max: 2000, unit: "OHMM", defaultColor: "#ef4444", trackIndex: 1 },
-  AHT90: { isLog: true, min: 0.2, max: 2000, unit: "OHMM", defaultColor: "#ef4444", trackIndex: 1 },
-  RHOB: { isLog: false, min: 1.95, max: 2.95, unit: "G/C3", defaultColor: "#06b6d4", trackIndex: 2 },
-  NPHI: { isLog: false, min: -0.15, max: 0.45, unit: "V/V", defaultColor: "#3b82f6", trackIndex: 2 },
-  DT: { isLog: false, min: 40, max: 140, unit: "US/F", defaultColor: "#3b82f6", trackIndex: 2 },
-  SONIC: { isLog: false, min: 40, max: 140, unit: "US/F", defaultColor: "#3b82f6", trackIndex: 2 },
-  PEF: { isLog: false, min: 0, max: 10, unit: "B/E", defaultColor: "#ec4899", trackIndex: 2 },
-};
-
-function isResistivityCurve(mnemonic: string): boolean {
-  const upper = mnemonic.toUpperCase();
-  return (
-    upper.startsWith("RT") ||
-    upper.startsWith("RES") ||
-    upper.startsWith("ILD") ||
-    upper.startsWith("LLD") ||
-    upper.startsWith("MSFL") ||
-    upper.startsWith("AHT") ||
-    upper.includes("RESIS")
-  );
-}
-
-export function LogViewer({
+export function WellLogViewer({
   wellName,
-  field = "Unknown Field",
-  operator = "Unknown Operator",
-  depthUnit = "FT",
+  depthUnit,
   startDepth,
   stopDepth,
-  step = 0.5,
-  depths: rawDepths,
-  curves: rawCurvesList,
   curvesData,
-  rawCurves = [],
-  showCompareToRaw = true,
-  nullValue = -999.25,
-  title = "Cleaned Log Viewer",
+  anomalies = [],
 }: LogViewerProps) {
-  const viewerContainerRef = useRef<HTMLDivElement>(null);
+  const [layoutMode, setLayoutMode] = useState<"GRAPH" | "SPLIT" | "TABLE">("GRAPH");
+  const [viewMode, setViewMode] = useState<"CLASSIC_PAPER" | "DARK_MODERN">("CLASSIC_PAPER");
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [selectedDepth, setSelectedDepth] = useState<number | null>(null);
 
-  const depths = useMemo(() => rawDepths || curvesData?.depth || [], [rawDepths, curvesData]);
-  const curves: LogViewerCurve[] = useMemo(() => {
-    if (rawCurvesList && rawCurvesList.length > 0) return rawCurvesList;
-    if (curvesData?.curves) {
-      return Object.entries(curvesData.curves).map(([mnemonic, values]): LogViewerCurve => ({
-        mnemonic,
-        values,
-        unit: "",
-      }));
-    }
-    return [];
-  }, [rawCurvesList, curvesData]);
+  const depthArr = curvesData.depth || [];
+  const totalPoints = depthArr.length;
 
-  // 1. Curve selections for Track 1, Track 2, Track 3
-  const availableMnemonics = useMemo(() => curves.map((c) => c.mnemonic), [curves]);
+  const grValues = curvesData.curves["GR"] || curvesData.curves["GAMMA"] || [];
+  const rtValues = curvesData.curves["RT"] || curvesData.curves["RES"] || curvesData.curves["ILD"] || [];
+  const dtValues = curvesData.curves["DT"] || curvesData.curves["SONIC"] || [];
+  const rhobValues = curvesData.curves["RHOB"] || [];
 
-  const defaultTrack1 = useMemo(() => {
-    return (
-      availableMnemonics.find((m) => m === "GR" || m.includes("GAM")) ||
-      availableMnemonics[0] ||
-      ""
-    );
-  }, [availableMnemonics]);
+  // Calculate missing gap intervals for each track
+  const getMissingGaps = (series: number[]) => {
+    const gaps: { startIdx: number; endIdx: number; startDepth: number; endDepth: number }[] = [];
+    let inGap = false;
+    let startIdx = -1;
 
-  const defaultTrack2 = useMemo(() => {
-    return (
-      availableMnemonics.find(isResistivityCurve) ||
-      availableMnemonics[1] ||
-      availableMnemonics[0] ||
-      ""
-    );
-  }, [availableMnemonics]);
+    for (let i = 0; i <= series.length; i++) {
+      const val = series[i];
+      const isNull = i === series.length || val === -999.25 || val === -9999 || isNaN(val) || val === null || val === undefined;
 
-  const defaultTrack3 = useMemo(() => {
-    return (
-      availableMnemonics.find((m) => m === "RHOB" || m === "DT" || m.includes("DEN") || m.includes("SON")) ||
-      availableMnemonics[2] ||
-      availableMnemonics[0] ||
-      ""
-    );
-  }, [availableMnemonics]);
-
-  const [selectedTrack1, setSelectedTrack1] = useState<string>(defaultTrack1);
-  const [selectedTrack2, setSelectedTrack2] = useState<string>(defaultTrack2);
-  const [selectedTrack3, setSelectedTrack3] = useState<string>(defaultTrack3);
-
-  // Sync if availableMnemonics load asynchronously
-  React.useEffect(() => {
-    if (!selectedTrack1 && defaultTrack1) setSelectedTrack1(defaultTrack1);
-    if (!selectedTrack2 && defaultTrack2) setSelectedTrack2(defaultTrack2);
-    if (!selectedTrack3 && defaultTrack3) setSelectedTrack3(defaultTrack3);
-  }, [defaultTrack1, defaultTrack2, defaultTrack3, selectedTrack1, selectedTrack2, selectedTrack3]);
-
-  // 2. Viewer Controls State
-  const [zoomLevel, setZoomLevel] = useState<number>(1); // 0.75, 1, 1.5, 2, 3
-  const [compareToRaw, setCompareToRaw] = useState<boolean>(false);
-  const [viewMode, setViewMode] = useState<"standard" | "dense">("standard");
-
-  // Depth range
-  const minDepth = Math.min(...(depths.length > 0 ? depths : [startDepth]));
-  const maxDepth = Math.max(...(depths.length > 0 ? depths : [stopDepth]));
-  const depthSpan = Math.max(1, maxDepth - minDepth);
-
-  // Render dimensions
-  const trackWidth = 260; // px per track
-  const depthAxisWidth = 70; // px for depth column
-  const totalSvgWidth = trackWidth * 3 + depthAxisWidth;
-  const pixelsPerDepthUnit = (viewMode === "dense" ? 1.2 : 2.0) * zoomLevel;
-  const totalSvgHeight = Math.max(500, Math.min(8000, depthSpan * pixelsPerDepthUnit));
-
-  // Print handler
-  const handlePrint = () => {
-    window.print();
-  };
-
-  // Helper to get curve configuration
-  const getCurveConfig = (mnemonic: string): CurveScaleConfig => {
-    const upper = mnemonic.toUpperCase();
-    const isLog = isResistivityCurve(upper);
-
-    if (DEFAULT_CURVE_CONFIGS[upper]) {
-      const def = DEFAULT_CURVE_CONFIGS[upper];
-      return {
-        isLog: isLog || Boolean(def.isLog),
-        min: def.min ?? (isLog ? 0.2 : 0),
-        max: def.max ?? (isLog ? 2000 : 100),
-        unit: def.unit || "unit",
-        defaultColor: def.defaultColor || (isLog ? "#ef4444" : "#10b981"),
-        trackIndex: def.trackIndex ?? 0,
-      };
-    }
-
-    // Default dynamic config
-    if (isLog) {
-      return {
-        isLog: true,
-        min: 0.2,
-        max: 2000,
-        unit: "OHMM",
-        defaultColor: "#ef4444",
-        trackIndex: 1,
-      };
-    }
-
-    // Compute empirical range from curve data
-    const c = curves.find((item) => item.mnemonic === mnemonic);
-    let min = 0;
-    let max = 100;
-    if (c && c.values.length > 0) {
-      const valid = c.values.filter((v) => v !== nullValue && !Number.isNaN(v));
-      if (valid.length > 0) {
-        min = Math.floor(Math.min(...valid));
-        max = Math.ceil(Math.max(...valid));
-        if (min === max) {
-          min -= 10;
-          max += 10;
+      if (isNull && !inGap && i < series.length) {
+        inGap = true;
+        startIdx = i;
+      } else if (!isNull && inGap) {
+        inGap = false;
+        if (i - startIdx >= 5) {
+          gaps.push({
+            startIdx,
+            endIdx: i - 1,
+            startDepth: depthArr[startIdx],
+            endDepth: depthArr[i - 1],
+          });
         }
       }
     }
-
-    return {
-      isLog: false,
-      min,
-      max,
-      unit: c?.unit || "",
-      defaultColor: "#06b6d4",
-      trackIndex: 0,
-    };
+    return gaps;
   };
 
-  // Maps value to horizontal X coordinate within track (0 to trackWidth)
+  const grGaps = getMissingGaps(grValues);
+  const rtGaps = getMissingGaps(rtValues);
+  const dtGaps = getMissingGaps(dtValues);
+
+  // Helper to map curve values to SVG X coordinates (0 to 100% of track width)
   const mapValueToX = (
     val: number,
-    cfg: CurveScaleConfig
-  ): number | null => {
-    if (val === nullValue || Number.isNaN(val)) return null;
-
-    if (cfg.isLog) {
-      // 4-decade logarithmic scale: 0.2 to 2000 ohm.m
-      const logMin = Math.log10(Math.max(0.01, cfg.min));
-      const logMax = Math.log10(cfg.max);
-      const safeVal = Math.max(cfg.min, Math.min(cfg.max, val));
-      const logVal = Math.log10(safeVal);
-      const ratio = (logVal - logMin) / (logMax - logMin);
-      return Math.max(0, Math.min(trackWidth, ratio * trackWidth));
+    min: number,
+    max: number,
+    trackWidth: number,
+    isLogScale: boolean = false
+  ) => {
+    if (isLogScale) {
+      const positiveMin = min > 0 ? min : 0.2;
+      const positiveMax = max > positiveMin ? max : 2000;
+      const safeVal = Math.max(positiveMin, Math.min(positiveMax, val <= 0 ? positiveMin : val));
+      const logMin = Math.log10(positiveMin);
+      const logMax = Math.log10(positiveMax);
+      return ((Math.log10(safeVal) - logMin) / (logMax - logMin)) * trackWidth;
     }
-
-    // Linear scale
-    const ratio = (val - cfg.min) / (cfg.max - cfg.min || 1);
-    return Math.max(0, Math.min(trackWidth, ratio * trackWidth));
+    const clamped = Math.max(min, Math.min(max, val));
+    return ((clamped - min) / (max - min)) * trackWidth;
   };
 
-  // Maps depth to vertical Y coordinate (0 to totalSvgHeight)
-  const mapDepthToY = (d: number): number => {
-    const ratio = (d - minDepth) / depthSpan;
-    return ratio * totalSvgHeight;
+  // Helper to map depth to Y coordinate (0 to canvasHeight)
+  const svgHeight = Math.max(900, totalPoints * 6) * zoomLevel;
+  const minDepth = depthArr[0] || startDepth;
+  const maxDepth = depthArr[depthArr.length - 1] || stopDepth;
+  const depthSpan = maxDepth - minDepth || 1;
+
+  const mapDepthToY = (d: number) => {
+    return ((d - minDepth) / depthSpan) * (svgHeight - 60) + 30;
   };
 
-  // Builds SVG polyline points or path with gaps at null values
-  const buildCurvePath = (
-    curveVals: number[],
-    cfg: CurveScaleConfig,
-    xOffset: number
-  ): string => {
-    if (!curveVals || curveVals.length === 0 || depths.length === 0) return "";
-
-    const paths: string[] = [];
-    let currentSegment: string[] = [];
-
-    const len = Math.min(curveVals.length, depths.length);
-    // Downsample if dataset is enormous to guarantee smooth 60fps rendering
-    const stride = len > 5000 ? Math.ceil(len / 3000) : 1;
-
-    for (let i = 0; i < len; i += stride) {
-      const v = curveVals[i];
-      const d = depths[i];
-
-      const x = mapValueToX(v, cfg);
-      if (x !== null) {
-        const y = mapDepthToY(d);
-        currentSegment.push(`${(xOffset + x).toFixed(1)},${y.toFixed(1)}`);
-      } else {
-        if (currentSegment.length > 0) {
-          paths.push(`M ${currentSegment.join(" L ")}`);
-          currentSegment = [];
-        }
+  // Render SVG Polyline for a curve
+  const renderSvgCurve = (
+    series: number[],
+    minVal: number,
+    maxVal: number,
+    trackWidth: number,
+    color: string,
+    isLogScale: boolean = false
+  ) => {
+    const points: string[] = [];
+    series.forEach((val, idx) => {
+      if (val !== -999.25 && val !== -9999 && !isNaN(val) && val !== null && val !== undefined) {
+        const x = mapValueToX(val, minVal, maxVal, trackWidth, isLogScale);
+        const y = mapDepthToY(depthArr[idx]);
+        points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
       }
-    }
-
-    if (currentSegment.length > 0) {
-      paths.push(`M ${currentSegment.join(" L ")}`);
-    }
-
-    return paths.join(" ");
+    });
+    return points.join(" ");
   };
 
-  // Generate depth ticks
-  const depthTicks = useMemo(() => {
-    const ticks: { depth: number; y: number; isMajor: boolean }[] = [];
-    const stepInterval = depthSpan > 1000 ? 100 : depthSpan > 300 ? 50 : 20;
-    const firstTick = Math.ceil(minDepth / stepInterval) * stepInterval;
+  // Generate depth tick marks (every 50 ft/m)
+  const depthTicks: number[] = [];
+  const startStep = Math.ceil(minDepth / 50) * 50;
+  for (let d = startStep; d <= maxDepth; d += 50) {
+    depthTicks.push(d);
+  }
 
-    for (let d = firstTick; d <= maxDepth; d += stepInterval) {
-      ticks.push({
-        depth: d,
-        y: mapDepthToY(d),
-        isMajor: d % (stepInterval * 2) === 0,
-      });
-    }
-    return ticks;
-  }, [minDepth, maxDepth, depthSpan, totalSvgHeight]);
-
-  // Active track curves
-  const t1Curve = curves.find((c) => c.mnemonic === selectedTrack1);
-  const t2Curve = curves.find((c) => c.mnemonic === selectedTrack2);
-  const t3Curve = curves.find((c) => c.mnemonic === selectedTrack3);
-
-  const t1Raw = rawCurves.find((c) => c.mnemonic === selectedTrack1);
-  const t2Raw = rawCurves.find((c) => c.mnemonic === selectedTrack2);
-  const t3Raw = rawCurves.find((c) => c.mnemonic === selectedTrack3);
-
-  const t1Cfg = getCurveConfig(selectedTrack1);
-  const t2Cfg = getCurveConfig(selectedTrack2);
-  const t3Cfg = getCurveConfig(selectedTrack3);
-
-  // Horizontal offsets for the 3 tracks
-  // Layout: Track 1 (0..trackWidth) | Depth Axis (depthAxisWidth) | Track 2 (trackWidth) | Track 3 (trackWidth)
-  const track1X = 0;
-  const depthAxisX = trackWidth;
-  const track2X = trackWidth + depthAxisWidth;
-  const track3X = trackWidth + depthAxisWidth + trackWidth;
-
-  return (
-    <div
-      ref={viewerContainerRef}
-      className="bg-wellqc-panel border border-wellqc-border rounded-2xl overflow-hidden shadow-xl space-y-0"
-    >
-      {/* 1. Header Bar: Title + Controls */}
-      <div className="p-4 border-b border-wellqc-border flex flex-col md:flex-row md:items-center justify-between gap-4 bg-wellqc-card/50">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300">
-            <Layers className="w-4 h-4" />
+  // Graphical Log Rendering
+  const renderGraphLog = () => {
+    if (viewMode === "CLASSIC_PAPER") {
+      return (
+        <div className="bg-white text-black p-4 border-4 border-red-600 rounded-lg shadow-2xl overflow-x-auto select-none font-serif">
+          {/* Main Title Banner Header */}
+          <div className="border-2 border-black mb-1 p-2 flex flex-col md:flex-row md:items-center justify-between bg-white text-black text-center font-bold">
+            <div className="w-24 hidden md:block text-left text-xs font-sans">
+              Log Code: <br />
+              <span className="font-mono">ISS 102</span>
+            </div>
+            <div className="flex-1">
+              <h1 className="text-xl md:text-2xl font-black uppercase tracking-widest font-sans border-b-2 border-black pb-1 mb-1">
+                BOREHOLE LOG: {wellName}
+              </h1>
+              <div className="flex justify-around text-xs font-mono">
+                <span>Field: Niger Delta</span>
+                <span>Depth Range: {minDepth} – {maxDepth} {depthUnit}</span>
+                <span>Operator: WellQC+ Telemetry</span>
+              </div>
+            </div>
+            <div className="w-36 text-right text-xs font-sans hidden md:block">
+              Log Parameters: ISS 102 <br />
+              <span className="text-[10px] text-slate-600">Scale 1:500 Wireline</span>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-black text-white font-mono tracking-tight flex items-center gap-2">
-              <span>{title}</span>
-              <span className="px-2 py-0.5 rounded text-[10px] bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
-                3-Track Wireline
-              </span>
-            </h3>
-            <p className="text-[11px] text-wellqc-muted font-mono">
-              Logarithmic Resistivity (0.2–2000 Ω·m) • Linear Gamma &amp; Sonic Logs
-            </p>
+
+          {/* Log Track Header Box */}
+          <div className="grid grid-cols-12 border-2 border-black bg-white text-black font-sans font-bold text-center text-xs min-w-[580px]">
+            {/* Depth Header */}
+            <div className="col-span-2 border-r-2 border-black p-2 flex flex-col justify-between bg-slate-100">
+              <div>Depth</div>
+              <div className="text-sm font-black">{depthUnit.toLowerCase()}</div>
+            </div>
+
+            {/* TRACK 1 Header */}
+            <div className="col-span-3 border-r-2 border-black p-1 bg-white">
+              <div className="text-xs uppercase border-b border-black pb-0.5">TRACK 1</div>
+              <div className="text-sm font-black text-green-700">GAMMA RAY</div>
+              <div className="text-xs text-green-700 font-mono">GR (GAPI)</div>
+              <div className="flex justify-between text-[11px] font-mono px-2 pt-1 border-t border-slate-300 mt-1">
+                <span>0</span>
+                <span>150</span>
+              </div>
+            </div>
+
+            {/* TRACK 2 Header */}
+            <div className="col-span-4 border-r-2 border-black p-1 bg-white">
+              <div className="text-xs uppercase border-b border-black pb-0.5">TRACK 2</div>
+              <div className="text-sm font-black text-red-600">RESISTIVITY (LOG)</div>
+              <div className="text-xs text-red-600 font-mono">RT (ohm.m) — Logarithmic Scale</div>
+              <div className="flex justify-between text-[10px] font-mono px-1 pt-1 border-t border-slate-300 mt-1">
+                <span>0.2</span>
+                <span>2</span>
+                <span>20</span>
+                <span>200</span>
+                <span>2000</span>
+              </div>
+            </div>
+
+            {/* TRACK 3 Header */}
+            <div className="col-span-3 p-1 bg-white">
+              <div className="text-xs uppercase border-b border-black pb-0.5">TRACK 3</div>
+              <div className="text-sm font-black text-blue-700">SONIC</div>
+              <div className="text-xs text-blue-700 font-mono">DT (&mu;s/ft)</div>
+              <div className="flex justify-between text-[11px] font-mono px-2 pt-1 border-t border-slate-300 mt-1">
+                <span>40</span>
+                <span>240</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Log Grid Body (Vertical Wireline Plot) */}
+          <div className="relative border-2 border-t-0 border-black bg-white overflow-hidden min-w-[580px]" style={{ height: `${svgHeight}px` }}>
+            {/* Background Graph Grid Pattern */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: `
+                  linear-gradient(to right, #cbd5e1 1px, transparent 1px),
+                  linear-gradient(to bottom, #94a3b8 1px, transparent 1px),
+                  linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)
+                `,
+                backgroundSize: `16.66% 40px, 100% 40px, 100% 10px`,
+              }}
+            />
+
+            {/* Selected Depth Marker Line */}
+            {selectedDepth !== null && selectedDepth >= minDepth && selectedDepth <= maxDepth && (
+              <div
+                className="absolute left-0 right-0 border-b-2 border-cyan-500 z-30 pointer-events-none flex items-center justify-end pr-2"
+                style={{ top: `${mapDepthToY(selectedDepth)}px` }}
+              >
+                <span className="bg-cyan-600 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
+                  Target Depth: {selectedDepth.toFixed(1)} {depthUnit}
+                </span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-12 h-full relative z-10 font-sans">
+              {/* Depth Column */}
+              <div className="col-span-2 border-r-2 border-black bg-slate-50/50 relative">
+                {depthTicks.map((d) => {
+                  const y = mapDepthToY(d);
+                  return (
+                    <div
+                      key={d}
+                      className="absolute left-0 right-0 flex items-center justify-between px-2 text-xs font-mono font-bold text-black border-t border-black/40"
+                      style={{ top: `${y}px`, transform: 'translateY(-50%)' }}
+                    >
+                      <span className="text-sm">{d}</span>
+                      <span className="text-[10px] text-slate-500">—</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* TRACK 1 (GAMMA RAY - Green) */}
+              <div className="col-span-3 border-r-2 border-black relative">
+                <svg className="w-full h-full overflow-visible">
+                  <polyline
+                    fill="none"
+                    stroke="#15803d"
+                    strokeWidth="2.5"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    points={renderSvgCurve(grValues, 0, 150, 220, "#15803d")}
+                  />
+                </svg>
+
+                {/* Missing Gap Banner Overlay for Track 1 */}
+                {grGaps.map((gap, i) => {
+                  const topY = mapDepthToY(gap.startDepth);
+                  const botY = mapDepthToY(gap.endDepth);
+                  const h = Math.max(35, botY - topY);
+
+                  return (
+                    <div
+                      key={i}
+                      className="absolute left-2 right-2 border-2 border-black bg-white flex items-center justify-center font-black font-sans text-xs shadow-md"
+                      style={{ top: `${topY}px`, height: `${h}px` }}
+                    >
+                      <span>MISSING GAP</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* TRACK 2 (RESISTIVITY - Red, Logarithmic Scale) */}
+              <div className="col-span-4 border-r-2 border-black relative">
+                {/* Logarithmic Decade Vertical Grid Lines */}
+                <div className="absolute inset-0 pointer-events-none flex justify-between px-0">
+                  <div className="border-r border-red-200/60 h-full w-[25%]" />
+                  <div className="border-r border-red-200/60 h-full w-[25%]" />
+                  <div className="border-r border-red-200/60 h-full w-[25%]" />
+                  <div className="h-full w-[25%]" />
+                </div>
+                <svg className="w-full h-full overflow-visible relative z-10">
+                  <polyline
+                    fill="none"
+                    stroke="#dc2626"
+                    strokeWidth="2.5"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    points={renderSvgCurve(rtValues, 0.2, 2000, 300, "#dc2626", true)}
+                  />
+                </svg>
+
+                {/* Missing Gap Banner Overlay for Track 2 */}
+                {rtGaps.map((gap, i) => {
+                  const topY = mapDepthToY(gap.startDepth);
+                  const botY = mapDepthToY(gap.endDepth);
+                  const h = Math.max(35, botY - topY);
+
+                  return (
+                    <div
+                      key={i}
+                      className="absolute left-2 right-2 border-2 border-black bg-white flex items-center justify-center font-black font-sans text-xs shadow-md"
+                      style={{ top: `${topY}px`, height: `${h}px` }}
+                    >
+                      <span>MISSING GAP</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* TRACK 3 (SONIC - Blue & Anomaly Callouts) */}
+              <div className="col-span-3 relative">
+                <svg className="w-full h-full overflow-visible">
+                  <polyline
+                    fill="none"
+                    stroke="#1d4ed8"
+                    strokeWidth="2.5"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    points={renderSvgCurve(dtValues, 40, 240, 220, "#1d4ed8")}
+                  />
+                </svg>
+
+                {/* Missing Gap Banner Overlay for Track 3 */}
+                {dtGaps.map((gap, i) => {
+                  const topY = mapDepthToY(gap.startDepth);
+                  const botY = mapDepthToY(gap.endDepth);
+                  const h = Math.max(35, botY - topY);
+
+                  return (
+                    <div
+                      key={i}
+                      className="absolute left-2 right-2 border-2 border-black bg-white flex items-center justify-center font-black font-sans text-xs shadow-md"
+                      style={{ top: `${topY}px`, height: `${h}px` }}
+                    >
+                      <span>MISSING GAP</span>
+                    </div>
+                  );
+                })}
+
+                {/* Anomaly Pointer Callout Labels */}
+                {anomalies
+                  .filter((a) => a.anomalyType === "EXTREME_SPIKE" || a.anomalyType === "IMPOSSIBLE_VALUE")
+                  .map((an, i) => {
+                    const y = mapDepthToY(an.depthStart);
+                    return (
+                      <div
+                        key={i}
+                        className="absolute right-2 border-2 border-black bg-white px-2 py-1 shadow-lg text-[10px] font-black font-sans flex items-center space-x-1"
+                        style={{ top: `${y}px`, transform: "translateY(-50%)" }}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
+                        <span>SONIC SPIKE (CYCLE SKIP)</span>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
           </div>
         </div>
+      );
+    }
 
-        {/* Controls on right: View mode, Zoom, Print */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* View Mode Toggle */}
-          <div className="bg-wellqc-dark/80 p-0.5 rounded-lg border border-wellqc-border flex items-center text-xs font-mono">
+    // Modern Dark Mode
+    return (
+      <div className="bg-wellqc-card border border-wellqc-border rounded-xl p-5 shadow-2xl space-y-4">
+        {selectedDepth !== null && (
+          <div className="p-2.5 bg-cyan-500/10 border border-cyan-500/30 rounded-lg flex items-center justify-between text-xs font-mono text-cyan-300">
+            <span>Synchronized Depth Marker:</span>
+            <span className="font-bold">{selectedDepth.toFixed(1)} {depthUnit}</span>
+          </div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono">
+          {/* Track 1 Dark */}
+          <div className="bg-wellqc-panel border border-wellqc-border rounded-xl p-3">
+            <div className="flex items-center justify-between pb-2 border-b border-wellqc-border mb-2 text-xs font-bold text-emerald-400">
+              <span>TRACK 1: GAMMA RAY (GR)</span>
+              <span>0 – 150 GAPI</span>
+            </div>
+            <div className="h-96 relative bg-wellqc-dark rounded-lg overflow-hidden p-2 border border-wellqc-border">
+              <svg className="w-full h-full overflow-visible">
+                <polyline
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth="2"
+                  points={renderSvgCurve(grValues, 0, 150, 240, "#10b981")}
+                />
+              </svg>
+            </div>
+          </div>
+
+          {/* Track 2 Dark */}
+          <div className="bg-wellqc-panel border border-wellqc-border rounded-xl p-3">
+            <div className="flex items-center justify-between pb-2 border-b border-wellqc-border mb-2 text-xs font-bold text-red-400">
+              <span>TRACK 2: RESISTIVITY (RT) [LOG]</span>
+              <span>0.2 – 2000 OHMM (Logarithmic)</span>
+            </div>
+            <div className="h-96 relative bg-wellqc-dark rounded-lg overflow-hidden p-2 border border-wellqc-border">
+              {/* Decade guide lines */}
+              <div className="absolute inset-0 pointer-events-none flex justify-between px-0">
+                <div className="border-r border-red-500/10 h-full w-[25%]" />
+                <div className="border-r border-red-500/10 h-full w-[25%]" />
+                <div className="border-r border-red-500/10 h-full w-[25%]" />
+                <div className="h-full w-[25%]" />
+              </div>
+              <svg className="w-full h-full overflow-visible relative z-10">
+                <polyline
+                  fill="none"
+                  stroke="#ef4444"
+                  strokeWidth="2"
+                  points={renderSvgCurve(rtValues, 0.2, 2000, 240, "#ef4444", true)}
+                />
+              </svg>
+            </div>
+          </div>
+
+          {/* Track 3 Dark */}
+          <div className="bg-wellqc-panel border border-wellqc-border rounded-xl p-3">
+            <div className="flex items-center justify-between pb-2 border-b border-wellqc-border mb-2 text-xs font-bold text-cyan-400">
+              <span>TRACK 3: SONIC (DT)</span>
+              <span>40 – 240 &mu;s/ft</span>
+            </div>
+            <div className="h-96 relative bg-wellqc-dark rounded-lg overflow-hidden p-2 border border-wellqc-border">
+              <svg className="w-full h-full overflow-visible">
+                <polyline
+                  fill="none"
+                  stroke="#06b6d4"
+                  strokeWidth="2"
+                  points={renderSvgCurve(dtValues, 40, 240, 240, "#06b6d4")}
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4 font-sans">
+      {/* Top Action Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-wellqc-panel border border-wellqc-border rounded-xl shadow-lg">
+        <div>
+          <div className="flex items-center space-x-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <h3 className="text-base font-extrabold text-white tracking-tight">
+              {wellName} — Wireline Subsurface Explorer
+            </h3>
+          </div>
+          <p className="text-xs text-wellqc-muted font-mono mt-0.5">
+            Depth Interval: {minDepth} – {maxDepth} {depthUnit} | {totalPoints.toLocaleString()} Recorded Samples
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
+          {/* Layout Mode Switcher Toggle (Graph vs Split vs Table) */}
+          <div className="flex items-center bg-wellqc-card border border-wellqc-border rounded-xl p-1 shadow-inner">
             <button
-              type="button"
-              onClick={() => setViewMode("standard")}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                viewMode === "standard"
-                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+              onClick={() => setLayoutMode("GRAPH")}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
+                layoutMode === "GRAPH"
+                  ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
                   : "text-slate-400 hover:text-white"
               }`}
+              title="Show graphical well log plot only"
             >
-              Standard
+              <LineChart className="w-3.5 h-3.5" />
+              <span>Log Plot</span>
             </button>
+
             <button
-              type="button"
-              onClick={() => setViewMode("dense")}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                viewMode === "dense"
-                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+              onClick={() => setLayoutMode("SPLIT")}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
+                layoutMode === "SPLIT"
+                  ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
                   : "text-slate-400 hover:text-white"
               }`}
+              title="Show graphical log and tabular data side-by-side"
             >
-              Dense
+              <Columns className="w-3.5 h-3.5" />
+              <span>Split View</span>
+            </button>
+
+            <button
+              onClick={() => setLayoutMode("TABLE")}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
+                layoutMode === "TABLE"
+                  ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
+                  : "text-slate-400 hover:text-white"
+              }`}
+              title="Show full tabular numerical spreadsheet view"
+            >
+              <Table className="w-3.5 h-3.5" />
+              <span>Data Table</span>
             </button>
           </div>
 
-          {/* Zoom Controls */}
-          <div className="flex items-center space-x-1 bg-wellqc-dark/80 p-1 rounded-lg border border-wellqc-border text-slate-300 font-mono text-xs">
-            <button
-              type="button"
-              onClick={() => setZoomLevel((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
-              className="p-1 rounded hover:bg-wellqc-panel hover:text-white"
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </button>
-            <span className="text-[11px] px-1 font-bold text-cyan-300 w-10 text-center">
-              {Math.round(zoomLevel * 100)}%
-            </span>
-            <button
-              type="button"
-              onClick={() => setZoomLevel((z) => Math.min(3.0, +(z + 0.25).toFixed(2)))}
-              className="p-1 rounded hover:bg-wellqc-panel hover:text-white"
-              title="Zoom In"
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setZoomLevel(1)}
-              className="p-1 rounded hover:bg-wellqc-panel text-slate-400 hover:text-white ml-0.5"
-              title="Reset Zoom"
-            >
-              <RotateCcw className="w-3 h-3" />
-            </button>
-          </div>
+          {/* Graphical Theme Switcher (Only visible when Graph or Split is active) */}
+          {layoutMode !== "TABLE" && (
+            <div className="flex items-center bg-wellqc-card border border-wellqc-border rounded-xl p-1 shadow-inner">
+              <button
+                onClick={() => setViewMode("CLASSIC_PAPER")}
+                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg font-bold transition-all ${
+                  viewMode === "CLASSIC_PAPER"
+                    ? "bg-red-600 text-white shadow-md shadow-red-600/30"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Switch to Classic Borehole Paper Log styling"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Paper Log</span>
+              </button>
 
-          {/* Print / Export */}
+              <button
+                onClick={() => setViewMode("DARK_MODERN")}
+                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg font-bold transition-all ${
+                  viewMode === "DARK_MODERN"
+                    ? "bg-cyan-500 text-black shadow-md shadow-cyan-500/30"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Switch to Dark Subsurface styling"
+              >
+                <Layout className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Dark Subsurface</span>
+              </button>
+            </div>
+          )}
+
+          {/* Zoom & Track Controls (For Graph View) */}
+          {layoutMode !== "TABLE" && (
+            <div className="flex items-center space-x-1 bg-wellqc-card border border-wellqc-border rounded-xl p-1">
+              <button
+                onClick={() => setZoomLevel((z) => Math.min(z + 0.25, 3.0))}
+                className="p-1.5 text-slate-300 hover:text-cyan-400"
+                title="Zoom In Vertical Scale"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setZoomLevel((z) => Math.max(z - 0.25, 0.6))}
+                className="p-1.5 text-slate-300 hover:text-cyan-400"
+                title="Zoom Out Vertical Scale"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setZoomLevel(1)}
+                className="p-1.5 text-slate-300 hover:text-cyan-400"
+                title="Reset Scale"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           <button
-            type="button"
-            onClick={handlePrint}
-            className="px-3 py-1.5 rounded-lg bg-wellqc-card hover:bg-wellqc-panel border border-wellqc-border text-slate-300 hover:text-white font-mono text-xs flex items-center gap-1.5 transition-colors"
-            title="Print Wireline Log"
+            onClick={() => window.print()}
+            className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-wellqc-card border border-wellqc-border text-slate-300 hover:text-white font-bold transition-colors"
           >
-            <Printer className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Print</span>
+            <Printer className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Print Log</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Control Bar: Track 1 / 2 / 3 Dropdowns + Compare to raw checkbox */}
-      <div className="p-3 border-b border-wellqc-border bg-wellqc-dark/60 flex flex-wrap items-center justify-between gap-4 font-mono text-xs">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Track 1 Dropdown */}
-          <div className="flex items-center space-x-1.5">
-            <span className="text-[11px] text-wellqc-muted uppercase font-bold">Track 1:</span>
-            <select
-              value={selectedTrack1}
-              onChange={(e) => setSelectedTrack1(e.target.value)}
-              className="bg-wellqc-card border border-wellqc-border rounded-lg px-2.5 py-1 text-xs text-emerald-400 font-bold focus:outline-none focus:border-cyan-400"
-            >
-              {availableMnemonics.map((m) => (
-                <option key={`t1-${m}`} value={m}>
-                  {m} ({curves.find((c) => c.mnemonic === m)?.unit || ""})
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* RENDER VIEW ACCORDING TO LAYOUT MODE */}
 
-          {/* Track 2 Dropdown */}
-          <div className="flex items-center space-x-1.5">
-            <span className="text-[11px] text-wellqc-muted uppercase font-bold">Track 2:</span>
-            <select
-              value={selectedTrack2}
-              onChange={(e) => setSelectedTrack2(e.target.value)}
-              className="bg-wellqc-card border border-wellqc-border rounded-lg px-2.5 py-1 text-xs text-rose-400 font-bold focus:outline-none focus:border-cyan-400"
-            >
-              {availableMnemonics.map((m) => (
-                <option key={`t2-${m}`} value={m}>
-                  {m} ({isResistivityCurve(m) ? "Logarithmic" : "Linear"})
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* 1. GRAPH ONLY MODE */}
+      {layoutMode === "GRAPH" && renderGraphLog()}
 
-          {/* Track 3 Dropdown */}
-          <div className="flex items-center space-x-1.5">
-            <span className="text-[11px] text-wellqc-muted uppercase font-bold">Track 3:</span>
-            <select
-              value={selectedTrack3}
-              onChange={(e) => setSelectedTrack3(e.target.value)}
-              className="bg-wellqc-card border border-wellqc-border rounded-lg px-2.5 py-1 text-xs text-cyan-400 font-bold focus:outline-none focus:border-cyan-400"
-            >
-              {availableMnemonics.map((m) => (
-                <option key={`t3-${m}`} value={m}>
-                  {m} ({curves.find((c) => c.mnemonic === m)?.unit || ""})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Compare to raw (pre-clean) checkbox */}
-        {showCompareToRaw && (
-          <label className="flex items-center space-x-2 cursor-pointer select-none bg-wellqc-card/80 border border-wellqc-border px-3 py-1 rounded-lg hover:border-cyan-500/40 transition-colors">
-            <input
-              type="checkbox"
-              checked={compareToRaw}
-              onChange={(e) => setCompareToRaw(e.target.checked)}
-              className="w-3.5 h-3.5 rounded bg-wellqc-dark border-slate-700 text-cyan-500 focus:ring-0 focus:outline-none cursor-pointer"
-            />
-            <span className="text-[11px] font-bold text-slate-200">
-              Compare to raw (pre-clean)
-            </span>
-            {compareToRaw && (
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            )}
-          </label>
-        )}
-      </div>
-
-      {/* 3. Small Header (Well Info & Track Legend Header) */}
-      <div className="border-b border-wellqc-border bg-wellqc-dark p-3 font-mono text-xs">
-        <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 pb-2 mb-2 border-b border-wellqc-border/40">
-          <div>
-            <strong className="text-white font-bold">{wellName}</strong> • Field: {field} • Operator: {operator}
-          </div>
-          <div>
-            Depth Interval: {startDepth} – {stopDepth} {depthUnit} (Step: {step})
-          </div>
-        </div>
-
-        {/* Track Headers Row */}
-        <div className="grid grid-cols-[260px_70px_260px_260px] gap-0 text-center font-mono text-xs overflow-x-auto">
-          {/* Track 1 Header */}
-          <div className="border-r border-wellqc-border p-2 bg-emerald-950/20 text-left">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-emerald-400">{selectedTrack1}</span>
-              <span className="text-[10px] text-emerald-300/70">{t1Cfg.unit} (Linear)</span>
-            </div>
-            <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-              <span>{t1Cfg.min}</span>
-              <span className="text-[9px] text-slate-500">Track 1</span>
-              <span>{t1Cfg.max}</span>
-            </div>
-          </div>
-
-          {/* Depth Axis Header */}
-          <div className="border-r border-wellqc-border p-2 bg-wellqc-panel flex flex-col justify-center items-center">
-            <span className="text-[10px] uppercase font-bold text-cyan-300">DEPTH</span>
-            <span className="text-[9px] text-slate-500">({depthUnit})</span>
-          </div>
-
-          {/* Track 2 Header (Resistivity / Logarithmic) */}
-          <div className="border-r border-wellqc-border p-2 bg-rose-950/20 text-left">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-rose-400">{selectedTrack2}</span>
-              <span className="text-[10px] text-rose-300/70">
-                {t2Cfg.isLog ? "0.2–2000 (Logarithmic)" : `${t2Cfg.unit} (Linear)`}
+      {/* 2. SPLIT VIEW (SIDE-BY-SIDE GRAPH LOG & TABULAR DATA) */}
+      {layoutMode === "SPLIT" && (
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+          <div className="xl:col-span-6 space-y-3 overflow-hidden">
+            <div className="flex items-center justify-between px-2 py-1 text-xs font-mono text-slate-400">
+              <span className="font-bold text-white flex items-center space-x-1.5">
+                <LineChart className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Wireline Curves Track</span>
               </span>
+              <span>Vertical Scale: {Math.round(zoomLevel * 100)}%</span>
             </div>
-            <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-              <span>{t2Cfg.isLog ? "0.2" : t2Cfg.min}</span>
-              <span className="text-[9px] text-slate-500">{t2Cfg.isLog ? "1   10   100" : "Track 2"}</span>
-              <span>{t2Cfg.isLog ? "2000" : t2Cfg.max}</span>
-            </div>
+            {renderGraphLog()}
           </div>
 
-          {/* Track 3 Header */}
-          <div className="p-2 bg-cyan-950/20 text-left">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-cyan-400">{selectedTrack3}</span>
-              <span className="text-[10px] text-cyan-300/70">{t3Cfg.unit} (Linear)</span>
+          <div className="xl:col-span-6 space-y-3">
+            <div className="flex items-center justify-between px-2 py-1 text-xs font-mono text-slate-400">
+              <span className="font-bold text-white flex items-center space-x-1.5">
+                <Table className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Synchronized Tabular Sheet</span>
+              </span>
+              <span>Click a row to locate on track</span>
             </div>
-            <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-              <span>{t3Cfg.min}</span>
-              <span className="text-[9px] text-slate-500">Track 3</span>
-              <span>{t3Cfg.max}</span>
-            </div>
+            <WellLogDataTable
+              wellName={wellName}
+              depthUnit={depthUnit}
+              curvesData={curvesData}
+              anomalies={anomalies}
+              isCompact={true}
+              selectedDepth={selectedDepth}
+              onDepthSelect={(d) => setSelectedDepth(d)}
+            />
           </div>
         </div>
-      </div>
+      )}
 
-      {/* 4. The Log Itself: 3-Track Wireline Canvas / SVG */}
-      <div className="overflow-auto max-h-[620px] bg-slate-950 relative select-none">
-        <svg
-          width={totalSvgWidth}
-          height={totalSvgHeight}
-          className="font-mono text-[10px]"
-        >
-          <defs>
-            {/* Grid Pattern for Linear Tracks */}
-            <pattern id="linearGrid" width="52" height="40" patternUnits="userSpaceOnUse">
-              <line x1="0" y1="0" x2="52" y2="0" stroke="#1e293b" strokeWidth="0.75" />
-              <line x1="52" y1="0" x2="52" y2="40" stroke="#1e293b" strokeWidth="0.5" />
-            </pattern>
-          </defs>
-
-          {/* Background tracks */}
-          {/* Track 1 Area */}
-          <rect
-            x={track1X}
-            y="0"
-            width={trackWidth}
-            height={totalSvgHeight}
-            fill="#030712"
-          />
-          <rect
-            x={track1X}
-            y="0"
-            width={trackWidth}
-            height={totalSvgHeight}
-            fill="url(#linearGrid)"
-          />
-
-          {/* Depth Axis Background */}
-          <rect
-            x={depthAxisX}
-            y="0"
-            width={depthAxisWidth}
-            height={totalSvgHeight}
-            fill="#090d16"
-            stroke="#1e293b"
-            strokeWidth="1"
-          />
-
-          {/* Track 2 Area (Resistivity 4-Decade Log Grid) */}
-          <rect
-            x={track2X}
-            y="0"
-            width={trackWidth}
-            height={totalSvgHeight}
-            fill="#030712"
-          />
-          {/* Draw 4-Decade Logarithmic Vertical Gridlines for Track 2 if isLog */}
-          {t2Cfg.isLog ? (
-            <>
-              {/* Decade boundary lines: 0.2, 1, 10, 100, 1000, 2000 */}
-              {[0.2, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000].map((v) => {
-                const xPos = mapValueToX(v, t2Cfg);
-                if (xPos === null) return null;
-                const isDecade = [0.2, 1, 10, 100, 1000, 2000].includes(v);
-                return (
-                  <line
-                    key={`log-line-${v}`}
-                    x1={track2X + xPos}
-                    y1="0"
-                    x2={track2X + xPos}
-                    y2={totalSvgHeight}
-                    stroke={isDecade ? "#334155" : "#1e293b"}
-                    strokeWidth={isDecade ? "1" : "0.5"}
-                    strokeDasharray={isDecade ? undefined : "2,3"}
-                  />
-                );
-              })}
-            </>
-          ) : (
-            <rect
-              x={track2X}
-              y="0"
-              width={trackWidth}
-              height={totalSvgHeight}
-              fill="url(#linearGrid)"
-            />
-          )}
-
-          {/* Track 3 Area */}
-          <rect
-            x={track3X}
-            y="0"
-            width={trackWidth}
-            height={totalSvgHeight}
-            fill="#030712"
-          />
-          <rect
-            x={track3X}
-            y="0"
-            width={trackWidth}
-            height={totalSvgHeight}
-            fill="url(#linearGrid)"
-          />
-
-          {/* Horizontal Depth Grid Lines across all tracks */}
-          {depthTicks.map((tick) => (
-            <g key={`dtick-${tick.depth}`}>
-              <line
-                x1="0"
-                y1={tick.y}
-                x2={totalSvgWidth}
-                y2={tick.y}
-                stroke={tick.isMajor ? "#334155" : "#1e293b"}
-                strokeWidth={tick.isMajor ? "1" : "0.5"}
-              />
-              {/* Depth numbers in the depth column */}
-              <text
-                x={depthAxisX + depthAxisWidth / 2}
-                y={tick.y + 3.5}
-                fill={tick.isMajor ? "#38bdf8" : "#94a3b8"}
-                fontSize={tick.isMajor ? "10" : "9"}
-                fontWeight={tick.isMajor ? "bold" : "normal"}
-                textAnchor="middle"
-              >
-                {Math.round(tick.depth)}
-              </text>
-            </g>
-          ))}
-
-          {/* Track Borders */}
-          <line x1={trackWidth} y1="0" x2={trackWidth} y2={totalSvgHeight} stroke="#334155" strokeWidth="1.5" />
-          <line
-            x1={trackWidth + depthAxisWidth}
-            y1="0"
-            x2={trackWidth + depthAxisWidth}
-            y2={totalSvgHeight}
-            stroke="#334155"
-            strokeWidth="1.5"
-          />
-          <line
-            x1={trackWidth + depthAxisWidth + trackWidth}
-            y1="0"
-            x2={trackWidth + depthAxisWidth + trackWidth}
-            y2={totalSvgHeight}
-            stroke="#334155"
-            strokeWidth="1.5"
-          />
-
-          {/* --- CURVE DRAWING: RAW (PRE-CLEAN) DASHED GRAY UNDERNEATH --- */}
-          {compareToRaw && (
-            <>
-              {/* Track 1 Raw */}
-              {t1Raw && (
-                <path
-                  d={buildCurvePath(t1Raw.values, t1Cfg, track1X)}
-                  fill="none"
-                  stroke="#94a3b8"
-                  strokeWidth="1.5"
-                  strokeDasharray="4,4"
-                  opacity="0.8"
-                />
-              )}
-
-              {/* Track 2 Raw */}
-              {t2Raw && (
-                <path
-                  d={buildCurvePath(t2Raw.values, t2Cfg, track2X)}
-                  fill="none"
-                  stroke="#94a3b8"
-                  strokeWidth="1.5"
-                  strokeDasharray="4,4"
-                  opacity="0.8"
-                />
-              )}
-
-              {/* Track 3 Raw */}
-              {t3Raw && (
-                <path
-                  d={buildCurvePath(t3Raw.values, t3Cfg, track3X)}
-                  fill="none"
-                  stroke="#94a3b8"
-                  strokeWidth="1.5"
-                  strokeDasharray="4,4"
-                  opacity="0.8"
-                />
-              )}
-            </>
-          )}
-
-          {/* --- CURVE DRAWING: CLEANED SOLID COLORED CURVES --- */}
-          {/* Track 1 Cleaned */}
-          {t1Curve && (
-            <path
-              d={buildCurvePath(t1Curve.values, t1Cfg, track1X)}
-              fill="none"
-              stroke={t1Cfg.defaultColor}
-              strokeWidth="1.75"
-            />
-          )}
-
-          {/* Track 2 Cleaned */}
-          {t2Curve && (
-            <path
-              d={buildCurvePath(t2Curve.values, t2Cfg, track2X)}
-              fill="none"
-              stroke={t2Cfg.defaultColor}
-              strokeWidth="1.75"
-            />
-          )}
-
-          {/* Track 3 Cleaned */}
-          {t3Curve && (
-            <path
-              d={buildCurvePath(t3Curve.values, t3Cfg, track3X)}
-              fill="none"
-              stroke={t3Cfg.defaultColor}
-              strokeWidth="1.75"
-            />
-          )}
-        </svg>
-      </div>
-
-      {/* 5. Footer Legend */}
-      <div className="p-3 bg-wellqc-panel/80 border-t border-wellqc-border flex flex-wrap items-center justify-between text-xs font-mono text-slate-400">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-0.5 bg-emerald-400 inline-block" />
-            <span>Track 1: {selectedTrack1} (Linear)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-0.5 bg-rose-400 inline-block" />
-            <span>Track 2: {selectedTrack2} ({t2Cfg.isLog ? "Logarithmic 4-Decade" : "Linear"})</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-0.5 bg-cyan-400 inline-block" />
-            <span>Track 3: {selectedTrack3} (Linear)</span>
-          </div>
-          {compareToRaw && (
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <span className="w-3 h-0.5 border-t border-dashed border-slate-400 inline-block" />
-              <span>Dashed Gray: Raw Pre-Cleaning Baseline</span>
-            </div>
-          )}
-        </div>
-        <div className="text-[11px] text-wellqc-muted">
-          {depths.length.toLocaleString()} depth records plotted
-        </div>
-      </div>
+      {/* 3. TABLE ONLY MODE */}
+      {layoutMode === "TABLE" && (
+        <WellLogDataTable
+          wellName={wellName}
+          depthUnit={depthUnit}
+          curvesData={curvesData}
+          anomalies={anomalies}
+          isCompact={false}
+          selectedDepth={selectedDepth}
+          onDepthSelect={(d) => setSelectedDepth(d)}
+        />
+      )}
     </div>
   );
 }
 
-export const WellLogViewer = LogViewer;
+export const LogViewer = WellLogViewer;
+

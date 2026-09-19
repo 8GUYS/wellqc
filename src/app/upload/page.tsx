@@ -7,7 +7,7 @@ import { parseLASContent, ParsedLAS } from "@/lib/las/parser";
 import { analyzeWellLogQuality, QualityAnalysisResult } from "@/lib/las/quality-engine";
 import { generateAIAnalysis, AIAnalysisOutput } from "@/lib/las/ai-analyzer";
 import { buildCleanedDataExport } from "@/lib/las/exporter";
-import { LogViewer, LogViewerCurve } from "@/components/well-log/log-viewer";
+import { WellLogViewer } from "@/components/well-log/log-viewer";
 import { CurveInventoryTable } from "@/components/well-log/curve-inventory-table";
 import {
   UploadCloud,
@@ -817,27 +817,13 @@ export default function LASUploadPage() {
               {/* Tab 1b: Wireline Log Viewer with Logarithmic Resistivity Scale */}
               {activeTab === "viewer" && parsedLAS && (
                 <div className="p-4">
-                  <LogViewer
-                    title="Wireline Log Viewer (LAS Ingestion)"
-                    wellName={parsedLAS.wellInfo.wellName || fileName}
-                    field={parsedLAS.wellInfo.field || "N/A"}
-                    operator={parsedLAS.wellInfo.company || "N/A"}
+                  <WellLogViewer
+                    wellName={`${parsedLAS.wellInfo.wellName || fileName} (Original Untouched Raw)`}
                     depthUnit={parsedLAS.wellInfo.depthUnit || "FT"}
                     startDepth={parsedLAS.wellInfo.startDepth}
                     stopDepth={parsedLAS.wellInfo.stopDepth}
-                    step={parsedLAS.wellInfo.step}
-                    depths={parsedLAS.data.depth}
-                    curves={Object.entries(parsedLAS.data.curves).map(([mnemonic, values]) => {
-                      const meta = parsedLAS.curves.find((c) => c.mnemonic === mnemonic);
-                      return {
-                        mnemonic,
-                        unit: meta?.unit || "",
-                        description: meta?.description || "",
-                        values,
-                      };
-                    })}
-                    showCompareToRaw={false}
-                    nullValue={parsedLAS.wellInfo.nullValue}
+                    curvesData={parsedLAS.data}
+                    anomalies={qaResult?.anomalies || []}
                   />
                 </div>
               )}

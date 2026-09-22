@@ -3,77 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { LandingNavbar } from "@/components/landing-navbar";
-import { WellLogViewer } from "@/components/well-log/log-viewer";
-
-// Realistic sample borehole log matching TUJA 2 for landing page hero display
-const SAMPLE_TUJA2_DEPTH: number[] = [];
-const SAMPLE_TUJA2_GR: number[] = [];
-const SAMPLE_TUJA2_RT: number[] = [];
-const SAMPLE_TUJA2_DT: number[] = [];
-const SAMPLE_TUJA2_RHOB: number[] = [];
-
-for (let i = 0; i < 70; i++) {
-  const d = +(1989.7344 + i * 0.5).toFixed(4);
-  SAMPLE_TUJA2_DEPTH.push(d);
-
-  // Gamma Ray (GR): Baseline ~40 GAPI, with shale intervals (~90 GAPI) and sand intervals (~20 GAPI)
-  let gr = 40 + Math.sin(i * 0.2) * 14 + Math.cos(i * 0.08) * 8;
-  if (d >= 2000 && d <= 2012) gr += 48; // shale interval
-  if (d >= 2016 && d <= 2024) gr = Math.max(16, gr - 22); // clean reservoir sand
-  SAMPLE_TUJA2_GR.push(+gr.toFixed(2));
-
-  // Resistivity (RT): Logarithmic scale (0.2–2000 ohm.m)
-  let rt = 2.2 + Math.sin(i * 0.18) * 0.9;
-  if (d >= 2016 && d <= 2024) rt = 14 + Math.sin(i * 0.25) * 8; // hydrocarbon pay zone
-  SAMPLE_TUJA2_RT.push(+Math.max(0.3, rt).toFixed(2));
-
-  // Sonic (DT): Steady baseline ~74 µs/ft with extreme cycle-skip spikes at ~1995, 2005, 2015
-  let dt = 72 + Math.sin(i * 0.12) * 4;
-  if (Math.abs(d - 1995.2344) < 0.6) dt = 168.5; // Sonic cycle skip 1
-  if (Math.abs(d - 2005.2344) < 0.6) dt = 182.0; // Sonic cycle skip 2
-  if (Math.abs(d - 2015.2344) < 0.6) dt = 194.2; // Sonic cycle skip 3
-  SAMPLE_TUJA2_DT.push(+dt.toFixed(2));
-
-  let rhob = 2.44 - Math.sin(i * 0.15) * 0.12;
-  SAMPLE_TUJA2_RHOB.push(+rhob.toFixed(2));
-}
-
-const SAMPLE_TUJA2_DATA = {
-  depth: SAMPLE_TUJA2_DEPTH,
-  curves: {
-    GR: SAMPLE_TUJA2_GR,
-    RT: SAMPLE_TUJA2_RT,
-    DT: SAMPLE_TUJA2_DT,
-    RHOB: SAMPLE_TUJA2_RHOB,
-  },
-};
-
-const SAMPLE_TUJA2_ANOMALIES = [
-  {
-    depthStart: 1994.8,
-    depthEnd: 1995.8,
-    curveMnemonic: "DT",
-    anomalyType: "SONIC SPIKE (CYCLE SKIP)",
-    severity: "CRITICAL",
-    description: "Sonic cycle-skip artifact detected (DT > 168 µs/ft).",
-  },
-  {
-    depthStart: 2004.8,
-    depthEnd: 2005.8,
-    curveMnemonic: "DT",
-    anomalyType: "SONIC SPIKE (CYCLE SKIP)",
-    severity: "CRITICAL",
-    description: "Acoustic sensor cycle-skip artifact detected (DT > 180 µs/ft).",
-  },
-  {
-    depthStart: 2014.8,
-    depthEnd: 2015.8,
-    curveMnemonic: "DT",
-    anomalyType: "SONIC SPIKE (CYCLE SKIP)",
-    severity: "CRITICAL",
-    description: "Severe sonic cycle-skip dropout (DT > 190 µs/ft).",
-  },
-];
 import {
   Activity,
   CheckCircle2,
@@ -110,9 +39,6 @@ import {
 export default function LandingPage() {
   // Payment & pricing currency state (Commented out for free testing - re-enable with payment option)
   // const [pricingCurrency, setPricingCurrency] = useState<"NGN" | "USD">("NGN");
-
-  // Viewer Layout Mode state (defaults to SPLIT to showcase both wireline plot and data table)
-  const [viewerLayout, setViewerLayout] = useState<"GRAPH" | "SPLIT" | "TABLE">("SPLIT");
 
   // Contact form state
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -196,67 +122,94 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Hero Visual Live Wireline Log Viewer Preview */}
-          <div className="mt-14 relative max-w-7xl mx-auto space-y-3">
-            {/* Quick Layout Mode Showcase Tabs */}
-            <div className="flex flex-wrap items-center justify-between gap-3 px-2">
-              <div className="flex items-center space-x-2 text-xs font-mono text-slate-400">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                <span className="text-slate-300 font-bold">Interactive Subsurface Workspace:</span>
-                <span className="hidden sm:inline">Choose your display layout</span>
-              </div>
+          {/* Hero Visual Mockup Preview — Privacy-Safe & Anonymized */}
+          <div className="mt-14 relative max-w-5xl mx-auto">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4 shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
+              <div className="bg-slate-950 rounded-xl p-4 sm:p-6 space-y-6">
+                {/* Mock Top Header */}
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full bg-rose-500/80" />
+                    <div className="w-3 h-3 rounded-full bg-amber-500/80" />
+                    <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+                    <span className="text-xs text-slate-400 font-mono ml-2">
+                      LAS Automated Audit Workspace &mdash; Well: ND-DEMO-01X (Synthetic Benchmark)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 text-xs font-semibold">
+                      94% EXCELLENT GRADE
+                    </span>
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-cyan-500/10 text-cyan-300 text-xs font-mono border border-cyan-500/20">
+                      <Lock className="w-3 h-3 text-cyan-400" />
+                      <span>Encrypted Tenant Sandbox</span>
+                    </span>
+                  </div>
+                </div>
 
-              <div className="inline-flex items-center bg-slate-900/90 border border-slate-800 rounded-xl p-1 shadow-lg text-xs font-mono">
-                <button
-                  type="button"
-                  onClick={() => setViewerLayout("GRAPH")}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
-                    viewerLayout === "GRAPH"
-                      ? "bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 shadow-md shadow-emerald-500/20"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <Activity className="w-3.5 h-3.5" />
-                  <span>Wireline Plot</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewerLayout("SPLIT")}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
-                    viewerLayout === "SPLIT"
-                      ? "bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 shadow-md shadow-emerald-500/20"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Split Viewer (Side-by-Side)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewerLayout("TABLE")}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
-                    viewerLayout === "TABLE"
-                      ? "bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 shadow-md shadow-emerald-500/20"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                  <span>Data Table (Spreadsheet)</span>
-                </button>
-              </div>
-            </div>
+                {/* Mock Dashboard Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                    <span className="text-xs text-slate-400 block">Overall Health</span>
+                    <span className="text-2xl font-bold text-emerald-400">94 / 100</span>
+                    <span className="text-[11px] text-emerald-500/80 block mt-1">Ready for Petrophysical Audit</span>
+                  </div>
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                    <span className="text-xs text-slate-400 block">Mnemonics Matched</span>
+                    <span className="text-2xl font-bold text-cyan-400">8 / 8 Standard</span>
+                    <span className="text-[11px] text-slate-400 block mt-1">100% Alias Confidence</span>
+                  </div>
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                    <span className="text-xs text-slate-400 block">Anomalies Detected</span>
+                    <span className="text-2xl font-bold text-amber-400">2 Spikes</span>
+                    <span className="text-[11px] text-amber-400/80 block mt-1">Sonic Cycle Skips Flagged</span>
+                  </div>
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                    <span className="text-xs text-slate-400 block">Missing Data Imputed</span>
+                    <span className="text-2xl font-bold text-emerald-400">KNN ML</span>
+                    <span className="text-[11px] text-slate-400 block mt-1">R² Score: 0.94 Preserved</span>
+                  </div>
+                </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-2 sm:p-4 shadow-2xl backdrop-blur-xl ring-1 ring-white/10 overflow-hidden">
-              <WellLogViewer
-                wellName="TUJA 2 (Original Untouched Raw)"
-                depthUnit="m"
-                startDepth={1989.7344}
-                stopDepth={3711.2344}
-                curvesData={SAMPLE_TUJA2_DATA}
-                anomalies={SAMPLE_TUJA2_ANOMALIES}
-                layoutMode={viewerLayout}
-                onLayoutModeChange={(mode) => setViewerLayout(mode)}
-              />
+                {/* Mock Curve Rows */}
+                <div className="space-y-2">
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
+                    <div className="flex items-center gap-3">
+                      <Activity className="w-4 h-4 text-emerald-400" />
+                      <div>
+                        <span className="font-semibold text-slate-200">Gamma Ray (GR)</span>
+                        <span className="text-slate-400 block text-[11px]">Mapped from GAPI &bull; Range: 15.2 - 138.4 GAPI</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">0.0% Nulls</span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono text-[11px]">VALID</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
+                    <div className="flex items-center gap-3">
+                      <Layers className="w-4 h-4 text-cyan-400" />
+                      <div>
+                        <span className="font-semibold text-slate-200">Deep Resistivity (RT)</span>
+                        <span className="text-slate-400 block text-[11px]">Mapped from OHMM &bull; Logarithmic Range: 0.2 - 2000 &Omega;.m</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">100% Quality</span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono text-[11px]">VALID</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Enterprise Confidentiality Assurance Banner */}
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/40 border border-slate-800/80 text-[11px] text-slate-400 font-mono">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    Enterprise Privacy Guarantee: Real customer well logs remain private and encrypted (AES-256), accessible exclusively within authenticated corporate workspaces.
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 

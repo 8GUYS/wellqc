@@ -13,6 +13,12 @@ interface CommitLASRequest {
   lasText?: string;
 }
 
+class FreemiumLimitError extends Error {
+  constructor(public freeChecksUsed: number) {
+    super("Free limit reached. You have used your 2 free LAS log file checks. Upgrade to Pro for unlimited log checks.");
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const url = new URL(request.url);
@@ -89,13 +95,16 @@ export async function POST(request: Request) {
     // Check freemium check limit (Commented out for free testing - uncomment when payment option is implemented)
     /*
     const userTier = user.tier || "FREE";
-    const checksUsed = user.freeChecksUsed ?? 0;
-    if (userTier === "FREE" && checksUsed >= 2) {
+
+    // Cheap early check — good UX, avoids wasting CPU on parsing for an obviously-over-limit user.
+    // NOT the authoritative check — that happens atomically inside the transaction below.
+    const checksUsedEarly = user.freeChecksUsed ?? 0;
+    if (userTier === "FREE" && checksUsedEarly >= 2) {
       return NextResponse.json(
         {
           error: "Free limit reached. You have used your 2 free LAS log file checks. Upgrade to Pro for unlimited log checks.",
           limitReached: true,
-          freeChecksUsed: checksUsed,
+          freeChecksUsed: checksUsedEarly,
           tier: userTier,
         },
         { status: 402 },
@@ -142,6 +151,19 @@ export async function POST(request: Request) {
     });
 
     const saved = await db.$transaction(async (tx) => {
+      // Atomic freemium check-and-increment — the actual enforcement.
+      // A single conditional UPDATE closes the race two concurrent requests
+      // could otherwise exploit by both reading "under limit" before either writes.
+      if (userTier === "FREE") {
+        const consumed = await tx.user.updateMany({
+          where: { id: user.id, tier: "FREE", freeChecksUsed: { lt: 2 } },
+          data: { freeChecksUsed: { increment: 1 } },
+        });
+        if (consumed.count === 0) {
+          throw new FreemiumLimitError(2);
+        }
+      }
+
       await tx.operator.upsert({
         where: { name: operatorName },
         update: {},
@@ -218,11 +240,12 @@ export async function POST(request: Request) {
           pointCount: parsed.totalPoints,
           status: "PROCESSED",
           uploadedById: user.id,
+          ownerId: user.id,
         },
       });
 
       await tx.curve.createMany({
-        data: curveRows.map((curve) => ({ ...curve, lasFileId: lasFile.id })),
+        data: curveRows.map((curve) => ({ ...curve, lasFileId: lasFile.id, ownerId: user.id })),
       });
 
       const savedCurves = await tx.curve.findMany({
@@ -243,6 +266,7 @@ export async function POST(request: Request) {
           aiSummary: ai.summary,
           recommendations: JSON.stringify(ai.recommendations),
           reportJson: JSON.stringify(qa),
+          ownerId: user.id,
         },
       });
 
@@ -258,6 +282,7 @@ export async function POST(request: Request) {
             severity: anomaly.severity,
             description: anomaly.description,
             suggestedCorrection: anomaly.suggestedCorrection,
+            ownerId: user.id,
           })),
         });
       }
@@ -300,6 +325,17 @@ export async function POST(request: Request) {
       reportId: saved.report.id,
     });
   } catch (error) {
+    if (error instanceof FreemiumLimitError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          limitReached: true,
+          freeChecksUsed: error.freeChecksUsed,
+          tier: "FREE",
+        },
+        { status: 402 },
+      );
+    }
     console.error("Failed to commit LAS file", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to commit LAS file." },

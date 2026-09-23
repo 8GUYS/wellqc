@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
   ZoomIn,
   ZoomOut,
@@ -39,6 +39,26 @@ interface LogViewerProps {
   onLayoutModeChange?: (mode: "GRAPH" | "SPLIT" | "TABLE") => void;
 }
 
+// Fixed-height scroll viewport for the graphical log pane. Instead of
+// laying the entire multi-thousand-px log out in the page at once, the
+// pane scrolls internally and only the visible depth window (+ overscan)
+// is rendered as real DOM/SVG nodes. This is the main perf/memory fix
+// for files with >10,000 depth samples.
+const VIEWPORT_HEIGHT = 720; // px, visible pane height
+const OVERSCAN_PX = 400; // px, extra rendered above/below the visible window
+
+// Binary search: first index in an ascending sorted array whose value is >= target.
+function findDepthIndex(target: number, arr: number[]): number {
+  let lo = 0;
+  let hi = arr.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (arr[mid] < target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
 export function WellLogViewer({
   wellName,
   depthUnit,
@@ -57,6 +77,23 @@ export function WellLogViewer({
   const [viewMode, setViewMode] = useState<"CLASSIC_PAPER" | "DARK_MODERN">(initialViewMode);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [selectedDepth, setSelectedDepth] = useState<number | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+
+  const scrollRafRef = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current !== null) cancelAnimationFrame(scrollRafRef.current);
+    };
+  }, []);
+
+  const handleTrackScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const top = e.currentTarget.scrollTop;
+    if (scrollRafRef.current !== null) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      setScrollTop(top);
+      scrollRafRef.current = null;
+    });
+  }, []);
 
   const layoutMode = externalLayoutMode !== undefined ? externalLayoutMode : internalLayoutMode;
 
@@ -101,9 +138,9 @@ export function WellLogViewer({
     return gaps;
   };
 
-  const grGaps = getMissingGaps(grValues);
-  const rtGaps = getMissingGaps(rtValues);
-  const dtGaps = getMissingGaps(dtValues);
+  const grGapsAll = useMemo(() => getMissingGaps(grValues), [grValues, depthArr]);
+  const rtGapsAll = useMemo(() => getMissingGaps(rtValues), [rtValues, depthArr]);
+  const dtGapsAll = useMemo(() => getMissingGaps(dtValues), [dtValues, depthArr]);
 
   // Helper to map curve values to SVG X coordinates (0 to 100% of track width)
   const mapValueToX = (
@@ -135,35 +172,114 @@ export function WellLogViewer({
     return ((d - minDepth) / depthSpan) * (svgHeight - 60) + 30;
   };
 
-  // Render SVG Polyline for a curve
+  const mapYToDepth = (y: number) => {
+    return minDepth + ((y - 30) / (svgHeight - 60)) * depthSpan;
+  };
+
+  // --- Windowing: only the visible depth range (+ overscan) gets rendered ---
+  // Recomputed on scroll (rAF-throttled above) and on zoom/data changes.
+  const { visStartIdx, visEndIdx, visStartDepth, visEndDepth } = useMemo(() => {
+    const clampedTop = Math.min(scrollTop, Math.max(0, svgHeight - VIEWPORT_HEIGHT));
+    const yTop = Math.max(0, clampedTop - OVERSCAN_PX);
+    const yBottom = Math.min(svgHeight, clampedTop + VIEWPORT_HEIGHT + OVERSCAN_PX);
+    const dTop = mapYToDepth(yTop);
+    const dBottom = mapYToDepth(yBottom);
+    const startIdx = Math.max(0, findDepthIndex(dTop, depthArr) - 1);
+    const endIdx = Math.min(depthArr.length - 1, findDepthIndex(dBottom, depthArr) + 1);
+    return {
+      visStartIdx: startIdx,
+      visEndIdx: Math.max(startIdx, endIdx),
+      visStartDepth: depthArr[startIdx] ?? minDepth,
+      visEndDepth: depthArr[endIdx] ?? maxDepth,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollTop, svgHeight, depthArr, minDepth, depthSpan]);
+
+  const overlapsVisible = (aStart: number, aEnd: number) => aEnd >= visStartDepth && aStart <= visEndDepth;
+
+  // Render SVG polyline points for a curve, restricted to [startIdx, endIdx].
   const renderSvgCurve = (
     series: number[],
     minVal: number,
     maxVal: number,
     trackWidth: number,
-    color: string,
-    isLogScale: boolean = false
+    isLogScale: boolean,
+    startIdx: number,
+    endIdx: number
   ) => {
     const points: string[] = [];
-    series.forEach((val, idx) => {
+    for (let idx = startIdx; idx <= endIdx && idx < series.length; idx++) {
+      const val = series[idx];
       if (val !== -999.25 && val !== -9999 && !isNaN(val) && val !== null && val !== undefined) {
         const x = mapValueToX(val, minVal, maxVal, trackWidth, isLogScale);
         const y = mapDepthToY(depthArr[idx]);
         points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
       }
-    });
+    }
     return points.join(" ");
   };
 
-  // Generate depth tick marks (every 50 ft/m)
-  const depthTicks: number[] = [];
-  const startStep = Math.ceil(minDepth / 50) * 50;
-  for (let d = startStep; d <= maxDepth; d += 50) {
-    depthTicks.push(d);
-  }
+  // Only the active theme's curves are computed — previously both Classic
+  // and Dark variants were memoized on every zoom change even though just
+  // one is ever displayed at a time.
+  const isDark = viewMode === "DARK_MODERN";
+  const grTrackWidth = isDark ? 240 : 220;
+  const rtTrackWidth = isDark ? 240 : 300;
+  const dtTrackWidth = isDark ? 240 : 220;
+  const grColor = isDark ? "#10b981" : "#15803d";
+  const rtColor = isDark ? "#ef4444" : "#dc2626";
+  const dtColor = isDark ? "#06b6d4" : "#1d4ed8";
+
+  const grPoints = useMemo(
+    () => renderSvgCurve(grValues, 0, 150, grTrackWidth, false, visStartIdx, visEndIdx),
+    [grValues, depthArr, zoomLevel, visStartIdx, visEndIdx, grTrackWidth]
+  );
+  const rtPoints = useMemo(
+    () => renderSvgCurve(rtValues, 0.2, 2000, rtTrackWidth, true, visStartIdx, visEndIdx),
+    [rtValues, depthArr, zoomLevel, visStartIdx, visEndIdx, rtTrackWidth]
+  );
+  const dtPoints = useMemo(
+    () => renderSvgCurve(dtValues, 40, 240, dtTrackWidth, false, visStartIdx, visEndIdx),
+    [dtValues, depthArr, zoomLevel, visStartIdx, visEndIdx, dtTrackWidth]
+  );
+
+  // Generate depth tick marks (every 50 ft/m), filtered to the visible window
+  const depthTicks: number[] = useMemo(() => {
+    const ticks: number[] = [];
+    const lo = Math.max(minDepth, visStartDepth - 50);
+    const hi = Math.min(maxDepth, visEndDepth + 50);
+    const startStep = Math.ceil(lo / 50) * 50;
+    for (let d = startStep; d <= hi; d += 50) ticks.push(d);
+    return ticks;
+  }, [minDepth, maxDepth, visStartDepth, visEndDepth]);
+
+  const grGaps = useMemo(
+    () => grGapsAll.filter((g) => overlapsVisible(g.startDepth, g.endDepth)),
+    [grGapsAll, visStartDepth, visEndDepth]
+  );
+  const rtGaps = useMemo(
+    () => rtGapsAll.filter((g) => overlapsVisible(g.startDepth, g.endDepth)),
+    [rtGapsAll, visStartDepth, visEndDepth]
+  );
+  const dtGaps = useMemo(
+    () => dtGapsAll.filter((g) => overlapsVisible(g.startDepth, g.endDepth)),
+    [dtGapsAll, visStartDepth, visEndDepth]
+  );
+
+  const visibleSpikeAnomalies = useMemo(
+    () =>
+      anomalies.filter(
+        (a) =>
+          (a.anomalyType === "EXTREME_SPIKE" || a.anomalyType === "IMPOSSIBLE_VALUE") &&
+          overlapsVisible(a.depthStart, a.depthEnd ?? a.depthStart)
+      ),
+    [anomalies, visStartDepth, visEndDepth]
+  );
 
   // Graphical Log Rendering
   const renderGraphLog = () => {
+    const paneHeight = Math.min(svgHeight, VIEWPORT_HEIGHT);
+
     if (viewMode === "CLASSIC_PAPER") {
       return (
         <div className="bg-white text-black p-4 border-4 border-red-600 rounded-lg shadow-2xl overflow-x-auto select-none font-serif">
@@ -234,154 +350,150 @@ export function WellLogViewer({
             </div>
           </div>
 
-          {/* Main Log Grid Body (Vertical Wireline Plot) */}
-          <div className="relative border-2 border-t-0 border-black bg-white overflow-hidden min-w-[580px]" style={{ height: `${svgHeight}px` }}>
-            {/* Background Graph Grid Pattern */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                backgroundImage: `
-                  linear-gradient(to right, #cbd5e1 1px, transparent 1px),
-                  linear-gradient(to bottom, #94a3b8 1px, transparent 1px),
-                  linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)
-                `,
-                backgroundSize: `16.66% 40px, 100% 40px, 100% 10px`,
-              }}
-            />
-
-            {/* Selected Depth Marker Line */}
-            {selectedDepth !== null && selectedDepth >= minDepth && selectedDepth <= maxDepth && (
+          {/* Main Log Grid Body — fixed-height scroll viewport (windowed rendering) */}
+          <div
+            ref={undefined}
+            onScroll={handleTrackScroll}
+            className="relative border-2 border-t-0 border-black bg-white overflow-y-auto overflow-x-hidden min-w-[580px]"
+            style={{ height: `${paneHeight}px` }}
+          >
+            <div className="relative" style={{ height: `${svgHeight}px` }}>
+              {/* Background Graph Grid Pattern */}
               <div
-                className="absolute left-0 right-0 border-b-2 border-cyan-500 z-30 pointer-events-none flex items-center justify-end pr-2"
-                style={{ top: `${mapDepthToY(selectedDepth)}px` }}
-              >
-                <span className="bg-cyan-600 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
-                  Target Depth: {selectedDepth.toFixed(1)} {depthUnit}
-                </span>
-              </div>
-            )}
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  backgroundImage: `
+                    linear-gradient(to right, #cbd5e1 1px, transparent 1px),
+                    linear-gradient(to bottom, #94a3b8 1px, transparent 1px),
+                    linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)
+                  `,
+                  backgroundSize: `16.66% 40px, 100% 40px, 100% 10px`,
+                }}
+              />
 
-            <div className="grid grid-cols-12 h-full relative z-10 font-sans">
-              {/* Depth Column */}
-              <div className="col-span-2 border-r-2 border-black bg-slate-50/50 relative">
-                {depthTicks.map((d) => {
-                  const y = mapDepthToY(d);
-                  return (
-                    <div
-                      key={d}
-                      className="absolute left-0 right-0 flex items-center justify-between px-2 text-xs font-mono font-bold text-black border-t border-black/40"
-                      style={{ top: `${y}px`, transform: 'translateY(-50%)' }}
-                    >
-                      <span className="text-sm">{d}</span>
-                      <span className="text-[10px] text-slate-500">—</span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* TRACK 1 (GAMMA RAY - Green) */}
-              <div className="col-span-3 border-r-2 border-black relative">
-                <svg className="w-full h-full overflow-visible">
-                  <polyline
-                    fill="none"
-                    stroke="#15803d"
-                    strokeWidth="2.5"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    points={renderSvgCurve(grValues, 0, 150, 220, "#15803d")}
-                  />
-                </svg>
-
-                {/* Missing Gap Banner Overlay for Track 1 */}
-                {grGaps.map((gap, i) => {
-                  const topY = mapDepthToY(gap.startDepth);
-                  const botY = mapDepthToY(gap.endDepth);
-                  const h = Math.max(35, botY - topY);
-
-                  return (
-                    <div
-                      key={i}
-                      className="absolute left-2 right-2 border-2 border-black bg-white flex items-center justify-center font-black font-sans text-xs shadow-md"
-                      style={{ top: `${topY}px`, height: `${h}px` }}
-                    >
-                      <span>MISSING GAP</span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* TRACK 2 (RESISTIVITY - Red, Logarithmic Scale) */}
-              <div className="col-span-4 border-r-2 border-black relative">
-                {/* Logarithmic Decade Vertical Grid Lines */}
-                <div className="absolute inset-0 pointer-events-none flex justify-between px-0">
-                  <div className="border-r border-red-200/60 h-full w-[25%]" />
-                  <div className="border-r border-red-200/60 h-full w-[25%]" />
-                  <div className="border-r border-red-200/60 h-full w-[25%]" />
-                  <div className="h-full w-[25%]" />
+              {/* Selected Depth Marker Line */}
+              {selectedDepth !== null && selectedDepth >= minDepth && selectedDepth <= maxDepth && (
+                <div
+                  className="absolute left-0 right-0 border-b-2 border-cyan-500 z-30 pointer-events-none flex items-center justify-end pr-2"
+                  style={{ top: `${mapDepthToY(selectedDepth)}px` }}
+                >
+                  <span className="bg-cyan-600 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
+                    Target Depth: {selectedDepth.toFixed(1)} {depthUnit}
+                  </span>
                 </div>
-                <svg className="w-full h-full overflow-visible relative z-10">
-                  <polyline
-                    fill="none"
-                    stroke="#dc2626"
-                    strokeWidth="2.5"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    points={renderSvgCurve(rtValues, 0.2, 2000, 300, "#dc2626", true)}
-                  />
-                </svg>
+              )}
 
-                {/* Missing Gap Banner Overlay for Track 2 */}
-                {rtGaps.map((gap, i) => {
-                  const topY = mapDepthToY(gap.startDepth);
-                  const botY = mapDepthToY(gap.endDepth);
-                  const h = Math.max(35, botY - topY);
+              <div className="grid grid-cols-12 h-full relative z-10 font-sans">
+                {/* Depth Column — only visible-window ticks rendered */}
+                <div className="col-span-2 border-r-2 border-black bg-slate-50/50 relative">
+                  {depthTicks.map((d) => {
+                    const y = mapDepthToY(d);
+                    return (
+                      <div
+                        key={d}
+                        className="absolute left-0 right-0 flex items-center justify-between px-2 text-xs font-mono font-bold text-black border-t border-black/40"
+                        style={{ top: `${y}px`, transform: "translateY(-50%)" }}
+                      >
+                        <span className="text-sm">{d}</span>
+                        <span className="text-[10px] text-slate-500">—</span>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                  return (
-                    <div
-                      key={i}
-                      className="absolute left-2 right-2 border-2 border-black bg-white flex items-center justify-center font-black font-sans text-xs shadow-md"
-                      style={{ top: `${topY}px`, height: `${h}px` }}
-                    >
-                      <span>MISSING GAP</span>
-                    </div>
-                  );
-                })}
-              </div>
+                {/* TRACK 1 (GAMMA RAY - Green) */}
+                <div className="col-span-3 border-r-2 border-black relative">
+                  <svg className="w-full h-full overflow-visible">
+                    <polyline
+                      fill="none"
+                      stroke={grColor}
+                      strokeWidth="2.5"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      points={grPoints}
+                    />
+                  </svg>
 
-              {/* TRACK 3 (SONIC - Blue & Anomaly Callouts) */}
-              <div className="col-span-3 relative">
-                <svg className="w-full h-full overflow-visible">
-                  <polyline
-                    fill="none"
-                    stroke="#1d4ed8"
-                    strokeWidth="2.5"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    points={renderSvgCurve(dtValues, 40, 240, 220, "#1d4ed8")}
-                  />
-                </svg>
+                  {grGaps.map((gap, i) => {
+                    const topY = mapDepthToY(gap.startDepth);
+                    const botY = mapDepthToY(gap.endDepth);
+                    const h = Math.max(35, botY - topY);
+                    return (
+                      <div
+                        key={i}
+                        className="absolute left-2 right-2 border-2 border-black bg-white flex items-center justify-center font-black font-sans text-xs shadow-md"
+                        style={{ top: `${topY}px`, height: `${h}px` }}
+                      >
+                        <span>MISSING GAP</span>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                {/* Missing Gap Banner Overlay for Track 3 */}
-                {dtGaps.map((gap, i) => {
-                  const topY = mapDepthToY(gap.startDepth);
-                  const botY = mapDepthToY(gap.endDepth);
-                  const h = Math.max(35, botY - topY);
+                {/* TRACK 2 (RESISTIVITY - Red, Logarithmic Scale) */}
+                <div className="col-span-4 border-r-2 border-black relative">
+                  <div className="absolute inset-0 pointer-events-none flex justify-between px-0">
+                    <div className="border-r border-red-200/60 h-full w-[25%]" />
+                    <div className="border-r border-red-200/60 h-full w-[25%]" />
+                    <div className="border-r border-red-200/60 h-full w-[25%]" />
+                    <div className="h-full w-[25%]" />
+                  </div>
+                  <svg className="w-full h-full overflow-visible relative z-10">
+                    <polyline
+                      fill="none"
+                      stroke={rtColor}
+                      strokeWidth="2.5"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      points={rtPoints}
+                    />
+                  </svg>
 
-                  return (
-                    <div
-                      key={i}
-                      className="absolute left-2 right-2 border-2 border-black bg-white flex items-center justify-center font-black font-sans text-xs shadow-md"
-                      style={{ top: `${topY}px`, height: `${h}px` }}
-                    >
-                      <span>MISSING GAP</span>
-                    </div>
-                  );
-                })}
+                  {rtGaps.map((gap, i) => {
+                    const topY = mapDepthToY(gap.startDepth);
+                    const botY = mapDepthToY(gap.endDepth);
+                    const h = Math.max(35, botY - topY);
+                    return (
+                      <div
+                        key={i}
+                        className="absolute left-2 right-2 border-2 border-black bg-white flex items-center justify-center font-black font-sans text-xs shadow-md"
+                        style={{ top: `${topY}px`, height: `${h}px` }}
+                      >
+                        <span>MISSING GAP</span>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                {/* Anomaly Pointer Callout Labels */}
-                {anomalies
-                  .filter((a) => a.anomalyType === "EXTREME_SPIKE" || a.anomalyType === "IMPOSSIBLE_VALUE")
-                  .map((an, i) => {
+                {/* TRACK 3 (SONIC - Blue & Anomaly Callouts) */}
+                <div className="col-span-3 relative">
+                  <svg className="w-full h-full overflow-visible">
+                    <polyline
+                      fill="none"
+                      stroke={dtColor}
+                      strokeWidth="2.5"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      points={dtPoints}
+                    />
+                  </svg>
+
+                  {dtGaps.map((gap, i) => {
+                    const topY = mapDepthToY(gap.startDepth);
+                    const botY = mapDepthToY(gap.endDepth);
+                    const h = Math.max(35, botY - topY);
+                    return (
+                      <div
+                        key={i}
+                        className="absolute left-2 right-2 border-2 border-black bg-white flex items-center justify-center font-black font-sans text-xs shadow-md"
+                        style={{ top: `${topY}px`, height: `${h}px` }}
+                      >
+                        <span>MISSING GAP</span>
+                      </div>
+                    );
+                  })}
+
+                  {visibleSpikeAnomalies.map((an, i) => {
                     const y = mapDepthToY(an.depthStart);
                     return (
                       <div
@@ -394,9 +506,13 @@ export function WellLogViewer({
                       </div>
                     );
                   })}
+                </div>
               </div>
             </div>
           </div>
+          <p className="text-[10px] text-slate-400 font-mono mt-1 px-1">
+            Showing depths {visStartDepth.toFixed(0)}–{visEndDepth.toFixed(0)} {depthUnit} · scroll to view more · {totalPoints.toLocaleString()} total samples
+          </p>
         </div>
       );
     }
@@ -417,15 +533,16 @@ export function WellLogViewer({
               <span>TRACK 1: GAMMA RAY (GR)</span>
               <span>0 – 150 GAPI</span>
             </div>
-            <div className="h-96 relative bg-wellqc-dark rounded-lg overflow-hidden p-2 border border-wellqc-border">
-              <svg className="w-full h-full overflow-visible">
-                <polyline
-                  fill="none"
-                  stroke="#10b981"
-                  strokeWidth="2"
-                  points={renderSvgCurve(grValues, 0, 150, 240, "#10b981")}
-                />
-              </svg>
+            <div
+              className="relative bg-wellqc-dark rounded-lg overflow-y-auto overflow-x-hidden p-2 border border-wellqc-border"
+              style={{ height: `${Math.min(svgHeight, VIEWPORT_HEIGHT)}px` }}
+              onScroll={handleTrackScroll}
+            >
+              <div style={{ height: `${svgHeight}px`, position: "relative" }}>
+                <svg className="w-full h-full overflow-visible">
+                  <polyline fill="none" stroke={grColor} strokeWidth="2" points={grPoints} />
+                </svg>
+              </div>
             </div>
           </div>
 
@@ -435,22 +552,22 @@ export function WellLogViewer({
               <span>TRACK 2: RESISTIVITY (RT) [LOG]</span>
               <span>0.2 – 2000 OHMM (Logarithmic)</span>
             </div>
-            <div className="h-96 relative bg-wellqc-dark rounded-lg overflow-hidden p-2 border border-wellqc-border">
-              {/* Decade guide lines */}
-              <div className="absolute inset-0 pointer-events-none flex justify-between px-0">
-                <div className="border-r border-red-500/10 h-full w-[25%]" />
-                <div className="border-r border-red-500/10 h-full w-[25%]" />
-                <div className="border-r border-red-500/10 h-full w-[25%]" />
-                <div className="h-full w-[25%]" />
+            <div
+              className="relative bg-wellqc-dark rounded-lg overflow-y-auto overflow-x-hidden p-2 border border-wellqc-border"
+              style={{ height: `${Math.min(svgHeight, VIEWPORT_HEIGHT)}px` }}
+              onScroll={handleTrackScroll}
+            >
+              <div style={{ height: `${svgHeight}px`, position: "relative" }}>
+                <div className="absolute inset-0 pointer-events-none flex justify-between px-0">
+                  <div className="border-r border-red-500/10 h-full w-[25%]" />
+                  <div className="border-r border-red-500/10 h-full w-[25%]" />
+                  <div className="border-r border-red-500/10 h-full w-[25%]" />
+                  <div className="h-full w-[25%]" />
+                </div>
+                <svg className="w-full h-full overflow-visible relative z-10">
+                  <polyline fill="none" stroke={rtColor} strokeWidth="2" points={rtPoints} />
+                </svg>
               </div>
-              <svg className="w-full h-full overflow-visible relative z-10">
-                <polyline
-                  fill="none"
-                  stroke="#ef4444"
-                  strokeWidth="2"
-                  points={renderSvgCurve(rtValues, 0.2, 2000, 240, "#ef4444", true)}
-                />
-              </svg>
             </div>
           </div>
 
@@ -460,18 +577,22 @@ export function WellLogViewer({
               <span>TRACK 3: SONIC (DT)</span>
               <span>40 – 240 &mu;s/ft</span>
             </div>
-            <div className="h-96 relative bg-wellqc-dark rounded-lg overflow-hidden p-2 border border-wellqc-border">
-              <svg className="w-full h-full overflow-visible">
-                <polyline
-                  fill="none"
-                  stroke="#06b6d4"
-                  strokeWidth="2"
-                  points={renderSvgCurve(dtValues, 40, 240, 240, "#06b6d4")}
-                />
-              </svg>
+            <div
+              className="relative bg-wellqc-dark rounded-lg overflow-y-auto overflow-x-hidden p-2 border border-wellqc-border"
+              style={{ height: `${Math.min(svgHeight, VIEWPORT_HEIGHT)}px` }}
+              onScroll={handleTrackScroll}
+            >
+              <div style={{ height: `${svgHeight}px`, position: "relative" }}>
+                <svg className="w-full h-full overflow-visible">
+                  <polyline fill="none" stroke={dtColor} strokeWidth="2" points={dtPoints} />
+                </svg>
+              </div>
             </div>
           </div>
         </div>
+        <p className="text-[10px] text-wellqc-muted font-mono">
+          Showing depths {visStartDepth.toFixed(0)}–{visEndDepth.toFixed(0)} {depthUnit} · scroll a track to view more · {totalPoints.toLocaleString()} total samples
+        </p>
       </div>
     );
   };
@@ -653,4 +774,3 @@ export function WellLogViewer({
 }
 
 export const LogViewer = WellLogViewer;
-

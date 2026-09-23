@@ -100,7 +100,7 @@ export function Header({
         */}
         <div className="flex items-center space-x-2">
           <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono font-semibold">
-            <span>TEST MODE (UNLIMITED)</span>
+            <span>(UNLIMITED)</span>
           </span>
         </div>
 

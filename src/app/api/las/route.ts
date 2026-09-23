@@ -151,9 +151,8 @@ export async function POST(request: Request) {
     });
 
     const saved = await db.$transaction(async (tx) => {
-      // Atomic freemium check-and-increment — the actual enforcement.
-      // A single conditional UPDATE closes the race two concurrent requests
-      // could otherwise exploit by both reading "under limit" before either writes.
+      // Atomic freemium check-and-increment (Commented out for free testing - uncomment when payment option is implemented)
+      /*
       if (userTier === "FREE") {
         const consumed = await tx.user.updateMany({
           where: { id: user.id, tier: "FREE", freeChecksUsed: { lt: 2 } },
@@ -163,6 +162,7 @@ export async function POST(request: Request) {
           throw new FreemiumLimitError(2);
         }
       }
+      */
 
       await tx.operator.upsert({
         where: { name: operatorName },

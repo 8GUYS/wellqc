@@ -187,8 +187,13 @@ export function addCustomAlias(standardMnemonic: string, newAlias: string): bool
 /**
  * Updates the active upload session stored in localStorage with newly added aliases
  * and dispatches a global 'wellqc_alias_updated' window event.
+ *
+ * `reanalyzer` operates on data straight out of JSON.parse (session.parsedLAS),
+ * which has no precise static type here — `unknown` is used instead of `any`
+ * so callers must still narrow/validate before use, while satisfying
+ * @typescript-eslint/no-explicit-any.
  */
-export function updateActiveUploadWithNewAlias(reanalyzer?: (parsed: any) => any): boolean {
+export function updateActiveUploadWithNewAlias(reanalyzer?: (parsed: unknown) => unknown): boolean {
   if (typeof window === 'undefined') return false;
   try {
     const raw = localStorage.getItem('wellqc_upload_workspace');
@@ -250,7 +255,7 @@ export function standardiseMnemonic(rawMnemonic: string, rawUnit: string = ''): 
   }
 
   // Alias lookup matching
-  for (const [key, std] of Object.entries(curves)) {
+  for (const std of Object.values(curves)) {
     for (const alias of std.aliases) {
       if (cleanMnem === alias || cleanMnem.startsWith(alias) || alias.startsWith(cleanMnem)) {
         const confidence = cleanMnem === alias ? 0.95 : 0.82;
@@ -280,4 +285,3 @@ export function standardiseMnemonic(rawMnemonic: string, rawUnit: string = ''): 
     category: 'OTHER',
   };
 }
-

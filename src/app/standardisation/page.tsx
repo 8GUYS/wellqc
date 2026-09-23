@@ -14,7 +14,10 @@ export default function StandardisationPage() {
   const [newAlias, setNewAlias] = useState("");
 
   useEffect(() => {
-    setCurves(Object.values(getMergedStandardCurves()));
+    function loadCurves() {
+      setCurves(Object.values(getMergedStandardCurves()));
+    }
+    loadCurves();
   }, []);
 
   const filteredCurves = curves.filter((c) =>

@@ -189,11 +189,15 @@ export function addCustomAlias(standardMnemonic: string, newAlias: string): bool
  * and dispatches a global 'wellqc_alias_updated' window event.
  *
  * `reanalyzer` operates on data straight out of JSON.parse (session.parsedLAS),
- * which has no precise static type here — `unknown` is used instead of `any`
- * so callers must still narrow/validate before use, while satisfying
- * @typescript-eslint/no-explicit-any.
+ * which has no precise static type at this point in the code. Rather than
+ * widening it to `unknown` (which would then reject any caller passing a
+ * specifically-typed function, e.g. `(las: ParsedLAS) => QualityAnalysisResult`),
+ * the parameter is generic: TypeScript infers T/R from whatever function the
+ * caller actually passes, and no `any` is used anywhere.
  */
-export function updateActiveUploadWithNewAlias(reanalyzer?: (parsed: unknown) => unknown): boolean {
+export function updateActiveUploadWithNewAlias<T = unknown, R = unknown>(
+  reanalyzer?: (parsed: T) => R,
+): boolean {
   if (typeof window === 'undefined') return false;
   try {
     const raw = localStorage.getItem('wellqc_upload_workspace');
@@ -202,7 +206,7 @@ export function updateActiveUploadWithNewAlias(reanalyzer?: (parsed: unknown) =>
     if (!session || !session.parsedLAS) return false;
 
     if (typeof reanalyzer === 'function') {
-      session.qaResult = reanalyzer(session.parsedLAS);
+      session.qaResult = reanalyzer(session.parsedLAS as T);
     }
     session.updatedAt = Date.now();
     localStorage.setItem('wellqc_upload_workspace', JSON.stringify(session));

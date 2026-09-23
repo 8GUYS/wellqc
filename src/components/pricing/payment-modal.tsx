@@ -58,8 +58,8 @@ export function PaymentModal({
   // This is one of the few legitimate uses of setState-in-effect: `document`
   // does not exist during the server render pass, so we can't compute this
   // value during render itself — it must be detected after mount.
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe portal mount check, cannot be derived during render
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe portal mount check, cannot be derived during render
     setMounted(true);
   }, []);
 

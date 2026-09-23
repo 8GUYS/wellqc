@@ -6,7 +6,7 @@ import Link from "next/link";
 import { parseLASContent, ParsedLAS } from "@/lib/las/parser";
 import { analyzeWellLogQuality, QualityAnalysisResult } from "@/lib/las/quality-engine";
 import { generateAIAnalysis, AIAnalysisOutput } from "@/lib/las/ai-analyzer";
-import { buildCleanedDataExport } from "@/lib/las/exporter";
+import { buildCleanedDataExport, reconstructRawLASText } from "@/lib/las/exporter";
 import { WellLogViewer } from "@/components/well-log/log-viewer";
 import { CurveInventoryTable } from "@/components/well-log/curve-inventory-table";
 import {
@@ -289,11 +289,11 @@ export default function LASUploadPage() {
   };
 
   const handleCommitToDatabase = async () => {
-    // 1. Resolve LAS content: direct rawText, queued item content, or reconstructed valid LAS
+    // 1. Resolve raw LAS content: direct rawText, queued item content, or reconstructed raw LAS without auto-cleaning
     const contentToCommit =
       rawText ||
       uploadQueue.find((f) => f.name === fileName)?.content ||
-      (parsedLAS && qaResult ? buildCleanedDataExport(parsedLAS, qaResult).lasContent : "");
+      (parsedLAS ? reconstructRawLASText(parsedLAS) : "");
 
     if (!contentToCommit || !parsedLAS || !qaResult) {
       setSaveError("No LAS log content is available to upload. Please re-select or drag-and-drop your LAS file.");
@@ -352,7 +352,7 @@ export default function LASUploadPage() {
       try {
         const fileContent =
           file.content ||
-          (file.parsed && file.qa ? buildCleanedDataExport(file.parsed, file.qa).lasContent : "");
+          (file.parsed ? reconstructRawLASText(file.parsed) : "");
         if (!fileContent) {
           throw new Error(`File ${file.name} has no content to commit.`);
         }

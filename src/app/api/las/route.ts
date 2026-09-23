@@ -108,8 +108,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
     }
 
-    const cleaned = buildCleanedDataExport(parsed, qa);
-    const cleanedCurves = new Map(cleaned.curves.map((curve) => [curve.originalMnemonic, curve]));
+    // Automatic cleaner is disabled on upload per workflow requirements:
+    // Raw log data is preserved as uploaded so that selective cleaning can be performed
+    // manually from the QA engine in the next sprint.
     const operatorName = fallback(parsed.wellInfo.company, "Unknown Operator");
     const fieldName = fallback(parsed.wellInfo.field, "Uploaded Field");
     const country = fallback(parsed.wellInfo.country, "Unknown");
@@ -125,8 +126,8 @@ export async function POST(request: Request) {
     const curveRows = qa.curveSummaries.map((summary) => {
       const curveMeta = parsed.curves.find((curve) => curve.mnemonic === summary.mnemonic);
       const standard = standardiseMnemonic(summary.mnemonic, summary.unit);
-      const cleanedCurve = cleanedCurves.get(summary.mnemonic);
-      const values = cleanedCurve?.values || parsed.data.curves[summary.mnemonic] || [];
+      // Store RAW unmutated curve values
+      const values = parsed.data.curves[summary.mnemonic] || [];
 
       const sampledRows: Array<{ depth: number; value: number }> = [];
       for (let i = 0; i < totalDepthPoints; i += step) {
@@ -144,8 +145,8 @@ export async function POST(request: Request) {
 
       return {
         originalMnemonic: summary.mnemonic,
-        standardMnemonic: cleanedCurve?.exportMnemonic || summary.standardMnemonic,
-        unit: cleanedCurve?.unit || summary.unit,
+        standardMnemonic: summary.standardMnemonic,
+        unit: curveMeta?.unit || summary.unit || "",
         description: curveMeta?.description || standard.matchedName,
         nullCount: summary.nullCount,
         totalPoints: summary.totalPoints,

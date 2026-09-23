@@ -124,7 +124,7 @@ export default function WellDetailPage({ params }: { params: Promise<{ id: strin
             <div className="p-4 bg-wellqc-card border border-cyan-500/30 rounded-xl space-y-2">
               <div className="flex items-center space-x-2 text-xs font-bold text-cyan-300">
                 <Sparkles className="w-4 h-4 text-cyan-400" />
-                <span>AI Petrophysical Summary</span>
+                <span>Petrophysical Summary</span>
               </div>
               <p className="text-xs text-slate-300 font-mono">{detail.aiSummary}</p>
               {detail.recommendations.length > 0 && (

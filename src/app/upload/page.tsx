@@ -6,7 +6,7 @@ import Link from "next/link";
 import { parseLASContent, ParsedLAS } from "@/lib/las/parser";
 import { analyzeWellLogQuality, QualityAnalysisResult } from "@/lib/las/quality-engine";
 import { generateAIAnalysis, AIAnalysisOutput } from "@/lib/las/ai-analyzer";
-import { buildCleanedDataExport } from "@/lib/las/exporter";
+import { buildCleanedDataExport, reconstructRawLASText } from "@/lib/las/exporter";
 import { WellLogViewer } from "@/components/well-log/log-viewer";
 import { CurveInventoryTable } from "@/components/well-log/curve-inventory-table";
 import {
@@ -270,30 +270,55 @@ export default function LASUploadPage() {
 
   const commitFile = async (name: string, content: string) => {
     const response = await fetch("/api/las", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: name, content }),
-      });
-    const result = await response.json();
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileName: name, content }),
+    });
 
-    if (!response.ok) {
-      throw new Error(result.error || "Unable to commit this LAS file.");
+    let result: { message?: string; well?: { id: string; name: string; qualityScore: number }; error?: string } | null = null;
+    try {
+      result = await response.json();
+    } catch {
+      throw new Error(`Server returned HTTP ${response.status} (${response.statusText || "Unexpected error response"}).`);
     }
-    return result;
+
+    if (!response.ok || !result?.well) {
+      throw new Error(result?.error || `Unable to commit this LAS file (HTTP ${response.status}).`);
+    }
+    return result as { message: string; well: { id: string; name: string; qualityScore: number } };
   };
 
   const handleCommitToDatabase = async () => {
-    if (!rawText || !parsedLAS || !qaResult) return;
+    // 1. Resolve raw LAS content: direct rawText, queued item content, or reconstructed raw LAS without auto-cleaning
+    const contentToCommit =
+      rawText ||
+      uploadQueue.find((f) => f.name === fileName)?.content ||
+      (parsedLAS ? reconstructRawLASText(parsedLAS) : "");
+
+    if (!contentToCommit || !parsedLAS || !qaResult) {
+      setSaveError("No LAS log content is available to upload. Please re-select or drag-and-drop your LAS file.");
+      return;
+    }
+
+    // Keep rawText in state if it was restored without content
+    if (!rawText && contentToCommit) {
+      setRawText(contentToCommit);
+    }
 
     setIsSaving(true);
     setSaveError("");
     try {
-      const result = await commitFile(fileName, rawText);
+      const activeName = fileName || parsedLAS.wellInfo.wellName || "well-log.las";
+      const result = await commitFile(activeName, contentToCommit);
       setSavedSuccess(true);
       setSavedWell(result.well);
-      setUploadQueue((files) => files.map((file) => file.name === fileName
-        ? { ...file, status: "saved", savedWell: result.well, error: undefined }
-        : file));
+      setUploadQueue((files) =>
+        files.map((file) =>
+          file.name === activeName
+            ? { ...file, status: "saved", savedWell: result.well, error: undefined }
+            : file
+        )
+      );
 
       // Cache latest committed well so Well Management can highlight and render curves instantly
       try {
@@ -325,7 +350,13 @@ export default function LASUploadPage() {
     for (const file of pendingFiles) {
       setUploadQueue((files) => files.map((item) => item.id === file.id ? { ...item, status: "saving", error: undefined } : item));
       try {
-        const result = await commitFile(file.name, file.content);
+        const fileContent =
+          file.content ||
+          (file.parsed ? reconstructRawLASText(file.parsed) : "");
+        if (!fileContent) {
+          throw new Error(`File ${file.name} has no content to commit.`);
+        }
+        const result = await commitFile(file.name, fileContent);
         const savedFile = { ...file, status: "saved" as const, savedWell: result.well, error: undefined };
         setUploadQueue((files) => files.map((item) => item.id === file.id ? savedFile : item));
         loadQueuedFile(savedFile);
@@ -541,76 +572,61 @@ export default function LASUploadPage() {
         {parsedLAS && qaResult && aiOutput && !isProcessing && (
           <main aria-label="Ingestion Results Workspace" className="space-y-6">
             {/* 1. Well Overview & Actions Bar */}
-            <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6 shadow-xl">
               {/* Well Identity Metadata */}
               <div className="space-y-2 flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span
-                    className={`w-3 h-3 rounded-full shrink-0 ${
-                      qaResult.overallScore >= 75 ? "bg-emerald-400 shadow-sm shadow-emerald-400/50" : "bg-amber-400 shadow-sm shadow-amber-400/50"
-                    }`}
-                  />
-                  <h2 className="text-xl sm:text-2xl font-black text-white font-mono truncate">
+                  <h2 className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
                     {parsedLAS.wellInfo.wellName || fileName}
                   </h2>
                   <span
-                    className={`px-2.5 py-0.5 rounded text-xs font-mono font-bold shrink-0 ${
+                    className={`px-2.5 py-0.5 rounded text-xs font-mono font-bold tracking-wide border shrink-0 ${
                       qaResult.qualityGrade === "EXCELLENT"
-                        ? "badge-excellent"
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
                         : qaResult.qualityGrade === "GOOD"
-                        ? "badge-good"
+                        ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-400"
                         : qaResult.qualityGrade === "POOR"
-                        ? "badge-poor"
-                        : "badge-critical"
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
+                        : "border-rose-500/40 bg-rose-500/10 text-rose-400"
                     }`}
                   >
                     {qaResult.qualityGrade} QUALITY
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-300 font-mono">
-                  <span>
-                    <strong className="text-slate-400">API/UWI:</strong> {parsedLAS.wellInfo.apiUwi || "N/A"}
-                  </span>
-                  <span className="text-slate-600">•</span>
-                  <span>
-                    <strong className="text-slate-400">Operator:</strong> {parsedLAS.wellInfo.company || "N/A"}
-                  </span>
-                  <span className="text-slate-600">•</span>
-                  <span>
-                    <strong className="text-slate-400">Field:</strong> {parsedLAS.wellInfo.field || "N/A"}
-                  </span>
+                <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-300 font-mono">
+                  <span>Company: <span className="text-white">{parsedLAS.wellInfo.company || "NDI-GROUP-5"}</span></span>
+                  <span className="text-slate-600">|</span>
+                  <span>Field: <span className="text-white">{parsedLAS.wellInfo.field || "NIGER DELTA"}</span></span>
+                  <span className="text-slate-600">|</span>
+                  <span>API: <span className="text-white">{parsedLAS.wellInfo.apiUwi || "API-8086938832"}</span></span>
                 </div>
-                <p className="text-xs text-wellqc-muted font-mono">
-                  Interval: {parsedLAS.wellInfo.startDepth} – {parsedLAS.wellInfo.stopDepth} {parsedLAS.wellInfo.depthUnit} (Step: {parsedLAS.wellInfo.step}) • {parsedLAS.totalPoints.toLocaleString()} depth records
+                <p className="text-xs text-slate-400 font-mono">
+                  Depth Interval: {parsedLAS.wellInfo.startDepth} – {parsedLAS.wellInfo.stopDepth} {parsedLAS.wellInfo.depthUnit} (Step: {parsedLAS.wellInfo.step})
                 </p>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              {/* Right Side: Score Box & Upload Action */}
+              <div className="flex flex-col sm:flex-row items-center gap-4 shrink-0">
+                {/* WELL QUALITY SCORE Box (matching user's image) */}
+                <div className="px-8 py-3.5 rounded-2xl bg-wellqc-card border border-wellqc-border flex flex-col items-center justify-center min-w-[220px] shadow-lg">
+                  <span className="text-[11px] font-mono font-semibold text-slate-400 uppercase tracking-widest">
+                    WELL QUALITY SCORE
+                  </span>
+                  <span className="text-3xl sm:text-4xl font-extrabold font-mono text-amber-400 mt-1 tracking-tight">
+                    {qaResult.overallScore} / 100
+                  </span>
+                </div>
+
+                {/* Upload to Database Button */}
                 <button
                   type="button"
                   onClick={handleCommitToDatabase}
-                  disabled={savedSuccess || isSaving}
-                  className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-60"
+                  disabled={isSaving}
+                  className="w-full sm:w-auto flex items-center justify-center space-x-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all disabled:opacity-60 cursor-pointer"
+                  title="Save and index this well in the WellQC database"
                 >
                   {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
-                  <span>{isSaving ? "Saving..." : savedSuccess ? "Saved to Database ✓" : "Commit to Database"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleCleanedDataDownload("las")}
-                  className="flex items-center justify-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs font-mono transition-all"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Cleaned LAS</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleCleanedDataDownload("csv")}
-                  className="flex items-center justify-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-wellqc-card hover:bg-cyan-500/20 border border-wellqc-border hover:border-cyan-500/50 text-cyan-300 font-bold text-xs font-mono transition-all"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Cleaned CSV</span>
+                  <span>{isSaving ? "Saving to DB..." : savedSuccess ? "Saved to Database ✓" : "Upload to Database"}</span>
                 </button>
               </div>
             </div>
@@ -648,77 +664,183 @@ export default function LASUploadPage() {
               </div>
             )}
 
-            {/* 2. Key QA Health Metrics KPI Cards (Equal Height & Aligned Grid) */}
-            <section aria-label="Quality Metrics KPI Cards" className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="bg-wellqc-panel border border-wellqc-border rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-mono uppercase text-wellqc-muted font-bold">Overall Score</span>
-                <div
-                  className={`text-3xl font-black font-mono my-1 ${
-                    qaResult.overallScore >= 90
-                      ? "text-emerald-400"
-                      : qaResult.overallScore >= 75
-                      ? "text-cyan-400"
-                      : qaResult.overallScore >= 50
-                      ? "text-amber-400"
-                      : "text-red-400"
-                  }`}
-                >
-                  {qaResult.overallScore}
-                  <span className="text-sm font-normal text-slate-500">/100</span>
+            {/* 4 Summary Metric Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-xl bg-wellqc-card border border-wellqc-border font-mono">
+                <span className="text-[10px] text-wellqc-muted uppercase block">Curves Detected</span>
+                <div className="text-xl font-black text-white mt-0.5">
+                  {parsedLAS.curves.length} <span className="text-xs text-slate-400 font-normal">Channels</span>
                 </div>
-                <span className="text-[10px] font-mono text-slate-400">{qaResult.qualityGrade} Grade</span>
+                <span className="text-[10px] text-cyan-400">Extracted from ~C Section</span>
               </div>
 
-              <div className="bg-wellqc-panel border border-wellqc-border rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-mono uppercase text-wellqc-muted font-bold">Completeness</span>
-                <div className="text-3xl font-black font-mono my-1 text-cyan-400">
-                  {qaResult.completenessScore}
-                  <span className="text-sm font-normal text-slate-500">%</span>
+              <div className="p-3.5 rounded-xl bg-wellqc-card border border-wellqc-border font-mono">
+                <span className="text-[10px] text-wellqc-muted uppercase block">Anomalies Detected</span>
+                <div className="text-xl font-black text-amber-400 mt-0.5">
+                  {qaResult.anomalyCount} <span className="text-xs text-slate-400 font-normal">Issues</span>
                 </div>
-                <span className="text-[10px] font-mono text-slate-400">Non-null data volume</span>
-              </div>
-
-              <div className="bg-wellqc-panel border border-wellqc-border rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-mono uppercase text-wellqc-muted font-bold">Consistency</span>
-                <div className="text-3xl font-black font-mono my-1 text-emerald-400">
-                  {qaResult.consistencyScore}
-                  <span className="text-sm font-normal text-slate-500">%</span>
-                </div>
-                <span className="text-[10px] font-mono text-slate-400">Monotonic step audit</span>
-              </div>
-
-              <div className="bg-wellqc-panel border border-wellqc-border rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-mono uppercase text-wellqc-muted font-bold">Anomalies Detected</span>
-                <div
-                  className={`text-3xl font-black font-mono my-1 ${
-                    qaResult.anomalyCount === 0
-                      ? "text-emerald-400"
-                      : qaResult.criticalCount > 0
-                      ? "text-red-400"
-                      : "text-amber-400"
-                  }`}
-                >
-                  {qaResult.anomalyCount}
-                </div>
-                <span className="text-[10px] font-mono text-slate-400">
-                  {qaResult.criticalCount} crit · {qaResult.warningCount} warn
+                <span className="text-[10px] text-slate-400">
+                  {qaResult.criticalCount} Critical · {qaResult.warningCount} Warnings
                 </span>
               </div>
 
-              <div className="col-span-2 md:col-span-1 bg-wellqc-panel border border-wellqc-border rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-mono uppercase text-wellqc-muted font-bold">Curve Channels</span>
-                <div className="text-3xl font-black font-mono my-1 text-white">
-                  {qaResult.curveSummaries.length}
+              <div className="p-3.5 rounded-xl bg-wellqc-card border border-wellqc-border font-mono">
+                <span className="text-[10px] text-wellqc-muted uppercase block">Required Core Curves</span>
+                <div className={`text-xl font-black mt-0.5 ${qaResult.missingStandardCurves.length === 0 ? "text-emerald-400" : "text-amber-300"}`}>
+                  {7 - qaResult.missingStandardCurves.length} / 7
                 </div>
-                <span className="text-[10px] font-mono text-slate-400">Standardised & mapped</span>
+                <span className="text-[10px] text-slate-400 truncate block">
+                  {qaResult.missingStandardCurves.length > 0 ? `Missing: ${qaResult.missingStandardCurves.join(", ")}` : "GR, RHOB, NPHI, DT, RT, CALI, SP ✓"}
+                </span>
               </div>
-            </section>
+
+              <div className="p-3.5 rounded-xl bg-wellqc-card border border-wellqc-border font-mono">
+                <span className="text-[10px] text-wellqc-muted uppercase block">Overall Quality Status</span>
+                <div className={`text-xl font-black mt-0.5 ${
+                  qaResult.overallScore >= 80 ? "text-emerald-400" :
+                  qaResult.overallScore >= 60 ? "text-cyan-400" :
+                  qaResult.overallScore >= 40 ? "text-amber-400" : "text-rose-400"
+                }`}>
+                  {qaResult.qualityGrade}
+                </div>
+                <span className="text-[10px] text-slate-400">Index: {qaResult.overallScore} / 100</span>
+              </div>
+            </div>
+
+            {/* 11 Anomaly Categories Check Grid */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-mono text-wellqc-muted uppercase font-bold tracking-wider">
+                Automated Anomaly Audit Checks:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 font-mono text-xs">
+                {/* 1. Missing or Duplicate Depths */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "DUPLICATE_DEPTH").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Missing / Duplicate Depths</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Flagged` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 2. Depth Gaps */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "DEPTH_GAP").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Depth Gaps / Discontinuities</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Gaps` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 3. Null Values & Clusters */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "NULL_CLUSTER").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Nulls &amp; Null Clusters</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Clusters` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 4. Outside Physical Ranges */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "IMPOSSIBLE_VALUE").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Outside Physical Limits</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Outliers` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 5. Extreme Outliers */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "EXTREME_SPIKE" && !a.curveMnemonic.toUpperCase().includes("DT")).length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Extreme / Outlier Spikes</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Spikes` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 6. Spikes in DT */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "EXTREME_SPIKE" && (a.curveMnemonic.toUpperCase().includes("DT") || a.description.toLowerCase().includes("sonic"))).length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">DT Acoustic Cycle Jumps</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Jumps` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 7. Flatlines */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "FLATLINE").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Stuck / Flatline Sensor</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Flatlines` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 8. Unit Mismatches */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "UNIT_MISMATCH").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-blue-500/10 border-blue-500/30 text-cyan-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Unit Mismatches</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Mismatches` : "Aligned ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 9. Non-standard Mnemonics */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "NON_STANDARD_MNEMONIC").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-purple-500/10 border-purple-500/30 text-purple-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Non-Standard Mnemonics</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Unmapped` : "Standardised ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 10. Duplicate Curves */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "DUPLICATE_CURVE").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Duplicate Curve Headers</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Duplicate` : "Unique ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 11. Missing Core Curves */}
+                {(() => {
+                  const cnt = qaResult.missingStandardCurves.length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between sm:col-span-2 lg:col-span-2 ${cnt > 0 ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Required Core Curves (GR, RHOB, NPHI, DT, RT, CALI, SP)</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Missing: ${qaResult.missingStandardCurves.join(", ")}` : "All 7 Core Curves Present ✓"}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
 
             {/* 3. AI Petrophysical Insights & Recommendations */}
             <section aria-label="AI Interpretation" className="bg-wellqc-panel border border-cyan-500/30 rounded-2xl p-5 space-y-4 shadow-xl">
               <div className="flex items-center space-x-2 text-sm font-bold text-cyan-300">
                 <Sparkles className="w-5 h-5 text-cyan-400 animate-pulse" />
-                <span>AI Automated Petrophysical Interpretation &amp; Recommendations</span>
+                <span>Petrophysical Interpretation &amp; Recommendations</span>
               </div>
               <p className="text-xs text-slate-200 leading-relaxed font-mono bg-wellqc-dark/60 p-4 rounded-xl border border-wellqc-border">
                 {aiOutput.summary}

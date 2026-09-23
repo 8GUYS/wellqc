@@ -40,7 +40,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const curveSummaries = extractCurveSummaries(latestReport, latestLasFile);
     const response: WellDetailResponse = {
       well: toWellListItem(well, curveSummaries),
-      aiSummary: latestReport?.aiSummary || "Upload and commit a LAS file to generate an AI petrophysical summary.",
+      aiSummary: latestReport?.aiSummary || "Upload and commit a LAS file to generate an petrophysical summary.",
       recommendations: parseRecommendations(latestReport?.recommendations),
       curvesData,
       curveSummaries,

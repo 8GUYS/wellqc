@@ -71,24 +71,6 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           <Field icon={<Mail className="w-4 h-4" />} label="Email address" value={email} onChange={setEmail} type="email" autoComplete="email" />
           <Field icon={<KeyRound className="w-4 h-4" />} label="Password" value={password} onChange={setPassword} type="password" autoComplete={isRegister ? "new-password" : "current-password"} hint={isRegister ? "At least 8 characters" : undefined} />
 
-          {isRegister && (
-            <div>
-              <span className="flex items-center gap-2 text-xs font-semibold text-slate-200 mb-1.5">
-                <UserRound className="w-4 h-4 text-cyan-400" />
-                Account Role
-              </span>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full bg-wellqc-card border border-wellqc-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-400 font-mono"
-              >
-                <option value="PETROPHYSICIST">Petrophysicist (Default)</option>
-                <option value="DATA_ENGINEER">Data Engineer</option>
-                <option value="GEOSCIENTIST">Geoscientist</option>
-                <option value="VIEWER">Viewer (Read-Only)</option>
-              </select>
-            </div>
-          )}
 
           {isRegister && (
             <label className="flex items-start gap-2 text-xs text-slate-300">

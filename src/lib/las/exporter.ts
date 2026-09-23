@@ -114,6 +114,61 @@ export function makeCleanedFileStem(las: ParsedLAS): string {
     .slice(0, 80) || "well_log";
 }
 
+/**
+ * Reconstructs raw, uncleaned LAS file text directly from parsed LAS data
+ * Preserves original recorded readings, mnemonics, and units without mutation.
+ */
+export function reconstructRawLASText(las: ParsedLAS): string {
+  const nonDepthCurves = las.curves.filter((c) => c.mnemonic !== "DEPT");
+  const nullValue = Number.isFinite(las.wellInfo.nullValue) ? las.wellInfo.nullValue : -999.25;
+  const depthUnit = cleanHeaderText(las.wellInfo.depthUnit || "FT");
+
+  if (las.rawHeader && las.rawHeader.trim().length > 0 && las.data.depth.length > 0) {
+    const lines = [
+      las.rawHeader.trim(),
+      "~ASCII",
+      ...las.data.depth.map((depth, idx) =>
+        [
+          formatNumber(depth),
+          ...nonDepthCurves.map((c) => formatNumber(las.data.curves[c.mnemonic]?.[idx] ?? nullValue)),
+        ]
+          .map((v) => v.padStart(12))
+          .join(" "),
+      ),
+    ];
+    return `${lines.join("\n")}\n`;
+  }
+
+  const lasLines = [
+    "~VERSION INFORMATION",
+    "VERS.                 2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0",
+    "WRAP.                  NO : ONE LINE PER DEPTH STEP",
+    "~WELL INFORMATION",
+    formatHeaderLine("STRT", depthUnit, las.wellInfo.startDepth, "START DEPTH"),
+    formatHeaderLine("STOP", depthUnit, las.wellInfo.stopDepth, "STOP DEPTH"),
+    formatHeaderLine("STEP", depthUnit, las.wellInfo.step, "STEP VALUE"),
+    formatHeaderLine("NULL", "", nullValue, "NULL VALUE"),
+    formatHeaderLine("WELL", "", las.wellInfo.wellName, "WELL NAME"),
+    formatHeaderLine("COMP", "", las.wellInfo.company, "COMPANY"),
+    formatHeaderLine("FLD", "", las.wellInfo.field, "FIELD"),
+    formatHeaderLine("LOC", "", las.wellInfo.location, "LOCATION"),
+    formatHeaderLine("API", "", las.wellInfo.apiUwi, "API / UWI"),
+    "~CURVE INFORMATION",
+    formatCurveLine("DEPT", depthUnit, "1 MEASURED DEPTH"),
+    ...nonDepthCurves.map((c, idx) => formatCurveLine(c.mnemonic, c.unit, `${idx + 2} ${c.description || c.mnemonic}`)),
+    "~ASCII",
+    ...las.data.depth.map((depth, idx) =>
+      [
+        formatNumber(depth),
+        ...nonDepthCurves.map((c) => formatNumber(las.data.curves[c.mnemonic]?.[idx] ?? nullValue)),
+      ]
+        .map((v) => v.padStart(12))
+        .join(" "),
+    ),
+  ];
+  return `${lasLines.join("\n")}\n`;
+}
+
 function buildCleanedCurves(las: ParsedLAS, nullValue: number): CleanedCurveExport[] {
   const usedMnemonics = new Set<string>(["DEPT"]);
 

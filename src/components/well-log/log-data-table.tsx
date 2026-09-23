@@ -274,16 +274,6 @@ export function WellLogDataTable({
             </button>
           </div>
 
-          {/* CSV Export Button */}
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-wellqc-card hover:bg-wellqc-border/60 border border-wellqc-border rounded-lg text-slate-200 hover:text-cyan-300 font-bold transition-colors"
-            title="Download full well log dataset as CSV"
-          >
-            <Download className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Export CSV</span>
-          </button>
         </div>
       </div>
 

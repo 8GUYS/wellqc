@@ -10,6 +10,7 @@ import { buildCleanedDataExport } from "@/lib/las/exporter";
 interface CommitLASRequest {
   fileName?: string;
   content?: string;
+  lasText?: string;
 }
 
 class FreemiumLimitError extends Error {
@@ -20,9 +21,79 @@ class FreemiumLimitError extends Error {
 
 export async function POST(request: Request) {
   try {
+    const url = new URL(request.url);
+    const action = url.searchParams.get("action");
+
+    const body = (await request.json()) as CommitLASRequest;
+    const content = (body.content || body.lasText)?.trim();
+    const fileName = body.fileName?.trim() || "uploaded-well-log.las";
+
+    if (!content) {
+      return NextResponse.json({ error: "LAS file content is required." }, { status: 400 });
+    }
+
+    const parsed = parseLASContent(content);
+    const qa = analyzeWellLogQuality(parsed);
+    const ai = generateAIAnalysis(parsed, qa);
+
+    // ── Pre-check mode: return in-memory QA & AI analysis without DB write ──
+    if (action === "precheck") {
+      const curveMappings = parsed.curves.map((c) => {
+        const std = standardiseMnemonic(c.mnemonic, c.unit);
+        return {
+          rawMnemonic: c.mnemonic,
+          standardMnemonic: std.standardMnemonic,
+          confidence: std.confidence,
+          unit: c.unit,
+          unitMismatch: std.unitMismatch,
+        };
+      });
+
+      const anomalies = qa.anomalies.map((a) => ({
+        curveMnemonic: a.curveMnemonic,
+        depthStart: a.depthStart,
+        depthEnd: a.depthEnd,
+        anomalyType: a.anomalyType,
+        severity: a.severity,
+        description: a.description,
+        suggestedCorrection: a.suggestedCorrection,
+      }));
+
+      return NextResponse.json(
+        {
+          wellName: parsed.wellInfo.wellName,
+          company: parsed.wellInfo.company,
+          field: parsed.wellInfo.field,
+          apiUwi: parsed.wellInfo.apiUwi,
+          startDepth: parsed.wellInfo.startDepth,
+          stopDepth: parsed.wellInfo.stopDepth,
+          step: parsed.wellInfo.step,
+          depthUnit: parsed.wellInfo.depthUnit,
+          totalPoints: parsed.totalPoints,
+          curveCount: parsed.curves.length,
+          overallScore: qa.overallScore,
+          qualityGrade: qa.qualityGrade,
+          completenessScore: qa.completenessScore,
+          consistencyScore: qa.consistencyScore,
+          anomalyCount: qa.anomalyCount,
+          criticalCount: qa.criticalCount,
+          warningCount: qa.warningCount,
+          curveMappings,
+          anomalies,
+          aiSummary: ai.summary,
+          recommendations: ai.recommendations,
+          curveSummaries: qa.curveSummaries,
+        },
+        { status: 200 },
+      );
+    }
+
+    // ── Commit mode: Requires authentication & DB transaction ───────────────
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
 
+    // Check freemium check limit (Commented out for free testing - uncomment when payment option is implemented)
+    /*
     const userTier = user.tier || "FREE";
 
     // Cheap early check — good UX, avoids wasting CPU on parsing for an obviously-over-limit user.
@@ -39,20 +110,10 @@ export async function POST(request: Request) {
         { status: 402 },
       );
     }
+    */
 
-    const body = (await request.json()) as CommitLASRequest;
-    const content = body.content?.trim();
-    const fileName = body.fileName?.trim() || "uploaded-well-log.las";
-
-    if (!content) {
-      return NextResponse.json({ error: "LAS file content is required." }, { status: 400 });
-    }
-
-    const parsed = parseLASContent(content);
-    const qa = analyzeWellLogQuality(parsed);
     const cleaned = buildCleanedDataExport(parsed, qa);
     const cleanedCurves = new Map(cleaned.curves.map((curve) => [curve.originalMnemonic, curve]));
-    const ai = generateAIAnalysis(parsed, qa);
     const operatorName = fallback(parsed.wellInfo.company, "Unknown Operator");
     const fieldName = fallback(parsed.wellInfo.field, "Uploaded Field");
     const country = fallback(parsed.wellInfo.country, "Unknown");
@@ -90,9 +151,8 @@ export async function POST(request: Request) {
     });
 
     const saved = await db.$transaction(async (tx) => {
-      // Atomic freemium check-and-increment — the actual enforcement.
-      // A single conditional UPDATE closes the race two concurrent requests
-      // could otherwise exploit by both reading "under limit" before either writes.
+      // Atomic freemium check-and-increment (Commented out for free testing - uncomment when payment option is implemented)
+      /*
       if (userTier === "FREE") {
         const consumed = await tx.user.updateMany({
           where: { id: user.id, tier: "FREE", freeChecksUsed: { lt: 2 } },
@@ -102,6 +162,7 @@ export async function POST(request: Request) {
           throw new FreemiumLimitError(2);
         }
       }
+      */
 
       await tx.operator.upsert({
         where: { name: operatorName },
@@ -237,6 +298,16 @@ export async function POST(request: Request) {
           details: `Committed ${fileName} for ${well.name}. Quality score: ${qa.overallScore}/100 (${qa.qualityGrade}).`,
         },
       });
+
+      // Increment usage count for free tier users (Commented out for free testing)
+      /*
+      if ((user.tier || "FREE") === "FREE") {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { freeChecksUsed: { increment: 1 } },
+        });
+      }
+      */
 
       return { well, lasFile, report };
     }, { maxWait: 10_000, timeout: 30_000 });

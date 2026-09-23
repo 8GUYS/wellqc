@@ -37,7 +37,8 @@ import {
 } from "lucide-react";
 
 export default function LandingPage() {
-  const [pricingCurrency, setPricingCurrency] = useState<"NGN" | "USD">("NGN");
+  // Payment & pricing currency state (Commented out for free testing - re-enable with payment option)
+  // const [pricingCurrency, setPricingCurrency] = useState<"NGN" | "USD">("NGN");
 
   // Contact form state
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -100,26 +101,28 @@ export default function LandingPage() {
                 href="/register"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl text-base font-bold text-slate-950 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/35 hover:-translate-y-0.5 transition-all duration-200"
               >
-                <span>Check 2 Log Files for Free</span>
+                <span>Check Log Files for Free</span>
                 <ArrowRight className="w-5 h-5" />
               </Link>
 
+              {/* Pricing button commented out for free testing - re-enable with payment option
               <Link
                 href="#pricing"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-semibold text-slate-200 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-600 transition-all duration-200"
               >
                 <span>View Pricing Plans</span>
               </Link>
+              */}
             </div>
 
             {/* Freemium Trust Note */}
             <p className="text-xs text-slate-400 flex items-center justify-center gap-2 pt-1">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>No credit card required for your first 2 log file checks</span>
+              <span>No credit card required for your free log file checks</span>
             </p>
           </div>
 
-          {/* Hero Visual Mockup Preview */}
+          {/* Hero Visual Mockup Preview — Privacy-Safe & Anonymized */}
           <div className="mt-14 relative max-w-5xl mx-auto">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4 shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
               <div className="bg-slate-950 rounded-xl p-4 sm:p-6 space-y-6">
@@ -130,12 +133,16 @@ export default function LandingPage() {
                     <div className="w-3 h-3 rounded-full bg-amber-500/80" />
                     <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
                     <span className="text-xs text-slate-400 font-mono ml-2">
-                      LAS Audit Workspace &mdash; Well: ND-DELTA-07X
+                      LAS Automated Audit Workspace &mdash; Well: ND-DEMO-01X (Synthetic Benchmark)
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 text-xs font-semibold">
                       94% EXCELLENT GRADE
+                    </span>
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-cyan-500/10 text-cyan-300 text-xs font-mono border border-cyan-500/20">
+                      <Lock className="w-3 h-3 text-cyan-400" />
+                      <span>Encrypted Tenant Sandbox</span>
                     </span>
                   </div>
                 </div>
@@ -155,28 +162,52 @@ export default function LandingPage() {
                   <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
                     <span className="text-xs text-slate-400 block">Anomalies Detected</span>
                     <span className="text-2xl font-bold text-amber-400">2 Spikes</span>
-                    <span className="text-[11px] text-amber-400/80 block mt-1">Depth: 7,420 - 7,425 FT</span>
+                    <span className="text-[11px] text-amber-400/80 block mt-1">Sonic Cycle Skips Flagged</span>
                   </div>
                   <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
                     <span className="text-xs text-slate-400 block">Missing Data Imputed</span>
                     <span className="text-2xl font-bold text-emerald-400">KNN ML</span>
-                    <span className="text-[11px] text-slate-400 block mt-1">R² Score: 0.94</span>
+                    <span className="text-[11px] text-slate-400 block mt-1">R² Score: 0.94 Preserved</span>
                   </div>
                 </div>
 
-                {/* Mock Curve Row */}
-                <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
-                  <div className="flex items-center gap-3">
-                    <Activity className="w-5 h-5 text-emerald-400" />
-                    <div>
-                      <span className="font-semibold text-slate-200">Gamma Ray (GR)</span>
-                      <span className="text-slate-400 block text-[11px]">Mapped from GAPI &bull; Range: 15.2 - 138.4 GAPI</span>
+                {/* Mock Curve Rows */}
+                <div className="space-y-2">
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
+                    <div className="flex items-center gap-3">
+                      <Activity className="w-4 h-4 text-emerald-400" />
+                      <div>
+                        <span className="font-semibold text-slate-200">Gamma Ray (GR)</span>
+                        <span className="text-slate-400 block text-[11px]">Mapped from GAPI &bull; Range: 15.2 - 138.4 GAPI</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">0.0% Nulls</span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono text-[11px]">VALID</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">0.0% Nulls</span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono">VALID</span>
+
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
+                    <div className="flex items-center gap-3">
+                      <Layers className="w-4 h-4 text-cyan-400" />
+                      <div>
+                        <span className="font-semibold text-slate-200">Deep Resistivity (RT)</span>
+                        <span className="text-slate-400 block text-[11px]">Mapped from OHMM &bull; Logarithmic Range: 0.2 - 2000 &Omega;.m</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">100% Quality</span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono text-[11px]">VALID</span>
+                    </div>
                   </div>
+                </div>
+
+                {/* Enterprise Confidentiality Assurance Banner */}
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/40 border border-slate-800/80 text-[11px] text-slate-400 font-mono">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    Enterprise Privacy Guarantee: Real customer well logs remain private and encrypted (AES-256), accessible exclusively within authenticated corporate workspaces.
+                  </span>
                 </div>
               </div>
             </div>
@@ -507,7 +538,7 @@ export default function LandingPage() {
               <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
                 <Database className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">KNN Data Imputation</h3>
+              <h3 className="text-lg font-bold text-white mb-2">ML Data Imputation</h3>
               <p className="text-slate-400 text-sm leading-relaxed">
                 Benchmark 5 data imputation strategies (KNN, Cubic Spline, Linear Interpolation) with cross-validation RMSE &amp; R² preservation metrics.
               </p>
@@ -539,8 +570,9 @@ export default function LandingPage() {
       </section>
 
       {/* ========================================================================= */}
-      {/* 4. PRICING SECTION (#pricing)                                            */}
+      {/* 4. PRICING SECTION (#pricing) - Commented out for free testing           */}
       {/* ========================================================================= */}
+      {/*
       <section id="pricing" className="py-24 bg-slate-900/30 relative border-b border-slate-800/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
@@ -555,7 +587,6 @@ export default function LandingPage() {
               Try WellQC+ completely free for your first 2 log files. Upgrade seamlessly with Nigerian &amp; Global Cards, Bank Transfer, or USSD.
             </p>
 
-            {/* Currency Switcher */}
             <div className="inline-flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-2xl shadow-inner mt-2">
               <span className="text-xs text-slate-400 font-mono px-2">Currency:</span>
               <button
@@ -583,9 +614,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Pricing Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
-            {/* Free Tier Card */}
             <div className="bg-slate-900 rounded-2xl border border-slate-800 p-8 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -628,7 +657,6 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            {/* Pro Tier Card (Highlighted) */}
             <div className="bg-slate-900 rounded-2xl border-2 border-emerald-500 p-8 flex flex-col justify-between relative shadow-2xl shadow-emerald-500/10">
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 text-xs font-extrabold tracking-wider uppercase shadow-md flex items-center gap-1">
                 <Zap className="w-3.5 h-3.5 fill-current" />
@@ -692,7 +720,6 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Enterprise Tier Card */}
             <div className="bg-slate-900 rounded-2xl border border-slate-800 p-8 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -740,7 +767,6 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Paystack Trust Badge Banner on Landing Page */}
           <div className="max-w-4xl mx-auto mt-12 p-4 sm:p-5 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-300">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
@@ -760,6 +786,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      */}
 
       {/* ========================================================================= */}
       {/* 5. CONTACT US SECTION (#contact)                                          */}
@@ -916,7 +943,7 @@ export default function LandingPage() {
               <Link href="#home" className="hover:text-emerald-400 transition-colors">Home</Link>
               <Link href="#about" className="hover:text-emerald-400 transition-colors">About Us</Link>
               <Link href="#services" className="hover:text-emerald-400 transition-colors">Services</Link>
-              <Link href="#pricing" className="hover:text-emerald-400 transition-colors">Pricing</Link>
+              {/* <Link href="#pricing" className="hover:text-emerald-400 transition-colors">Pricing</Link> */}
               <Link href="#contact" className="hover:text-emerald-400 transition-colors">Contact</Link>
               <Link href="/login" className="hover:text-emerald-400 transition-colors">Sign In</Link>
             </div>

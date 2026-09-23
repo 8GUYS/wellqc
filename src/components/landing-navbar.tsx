@@ -20,17 +20,16 @@ export function LandingNavbar() {
     { name: "Home", href: "#home" },
     { name: "About Us", href: "#about" },
     { name: "Services & Features", href: "#services" },
-    { name: "Pricing", href: "#pricing" },
+    // { name: "Pricing", href: "#pricing" }, // Commented out for free testing - re-enable with payment option
     { name: "Contact Us", href: "#contact" },
   ];
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-xl py-3"
-          : "bg-transparent py-5"
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled
+        ? "bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-xl py-3"
+        : "bg-transparent py-5"
+        }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
@@ -76,7 +75,7 @@ export function LandingNavbar() {
               href="/register"
               className="relative group inline-flex items-center gap-2 text-sm font-semibold text-slate-950 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-200"
             >
-              <span>Try 2 Free Checks</span>
+              <span>Try for Free</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
@@ -120,7 +119,7 @@ export function LandingNavbar() {
               onClick={() => setMobileMenuOpen(false)}
               className="w-full text-center text-sm font-semibold text-slate-950 bg-gradient-to-r from-emerald-400 to-cyan-400 py-2.5 rounded-xl shadow-md transition-all"
             >
-              Start Free Trial (2 Checks)
+              Get Started For Free
             </Link>
           </div>
         </div>

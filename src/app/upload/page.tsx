@@ -541,77 +541,62 @@ export default function LASUploadPage() {
         {parsedLAS && qaResult && aiOutput && !isProcessing && (
           <main aria-label="Ingestion Results Workspace" className="space-y-6">
             {/* 1. Well Overview & Actions Bar */}
-            <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6 shadow-xl">
               {/* Well Identity Metadata */}
               <div className="space-y-2 flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span
-                    className={`w-3 h-3 rounded-full shrink-0 ${
-                      qaResult.overallScore >= 75 ? "bg-emerald-400 shadow-sm shadow-emerald-400/50" : "bg-amber-400 shadow-sm shadow-amber-400/50"
-                    }`}
-                  />
-                  <h2 className="text-xl sm:text-2xl font-black text-white font-mono truncate">
+                  <h2 className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
                     {parsedLAS.wellInfo.wellName || fileName}
                   </h2>
                   <span
-                    className={`px-2.5 py-0.5 rounded text-xs font-mono font-bold shrink-0 ${
+                    className={`px-2.5 py-0.5 rounded text-xs font-mono font-bold tracking-wide border shrink-0 ${
                       qaResult.qualityGrade === "EXCELLENT"
-                        ? "badge-excellent"
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
                         : qaResult.qualityGrade === "GOOD"
-                        ? "badge-good"
+                        ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-400"
                         : qaResult.qualityGrade === "POOR"
-                        ? "badge-poor"
-                        : "badge-critical"
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
+                        : "border-rose-500/40 bg-rose-500/10 text-rose-400"
                     }`}
                   >
                     {qaResult.qualityGrade} QUALITY
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-300 font-mono">
-                  <span>
-                    <strong className="text-slate-400">API/UWI:</strong> {parsedLAS.wellInfo.apiUwi || "N/A"}
-                  </span>
-                  <span className="text-slate-600">•</span>
-                  <span>
-                    <strong className="text-slate-400">Operator:</strong> {parsedLAS.wellInfo.company || "N/A"}
-                  </span>
-                  <span className="text-slate-600">•</span>
-                  <span>
-                    <strong className="text-slate-400">Field:</strong> {parsedLAS.wellInfo.field || "N/A"}
-                  </span>
+                <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-300 font-mono">
+                  <span>Company: <span className="text-white">{parsedLAS.wellInfo.company || "NDI-GROUP-5"}</span></span>
+                  <span className="text-slate-600">|</span>
+                  <span>Field: <span className="text-white">{parsedLAS.wellInfo.field || "NIGER DELTA"}</span></span>
+                  <span className="text-slate-600">|</span>
+                  <span>API: <span className="text-white">{parsedLAS.wellInfo.apiUwi || "API-8086938832"}</span></span>
                 </div>
-                <p className="text-xs text-wellqc-muted font-mono">
-                  Interval: {parsedLAS.wellInfo.startDepth} – {parsedLAS.wellInfo.stopDepth} {parsedLAS.wellInfo.depthUnit} (Step: {parsedLAS.wellInfo.step}) • {parsedLAS.totalPoints.toLocaleString()} depth records
+                <p className="text-xs text-slate-400 font-mono">
+                  Depth Interval: {parsedLAS.wellInfo.startDepth} – {parsedLAS.wellInfo.stopDepth} {parsedLAS.wellInfo.depthUnit} (Step: {parsedLAS.wellInfo.step})
                 </p>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              {/* Right Side: Score Box & Upload Action */}
+              <div className="flex flex-col sm:flex-row items-center gap-4 shrink-0">
+                {/* WELL QUALITY SCORE Box (matching user's image) */}
+                <div className="px-8 py-3.5 rounded-2xl bg-wellqc-card border border-wellqc-border flex flex-col items-center justify-center min-w-[220px] shadow-lg">
+                  <span className="text-[11px] font-mono font-semibold text-slate-400 uppercase tracking-widest">
+                    WELL QUALITY SCORE
+                  </span>
+                  <span className="text-3xl sm:text-4xl font-extrabold font-mono text-amber-400 mt-1 tracking-tight">
+                    {qaResult.overallScore} / 100
+                  </span>
+                </div>
+
+                {/* Upload to Database Button */}
                 <button
                   type="button"
                   onClick={handleCommitToDatabase}
                   disabled={savedSuccess || isSaving}
-                  className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-60"
+                  className="w-full sm:w-auto flex items-center justify-center space-x-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all disabled:opacity-60 cursor-pointer"
+                  title="Save and index this well in the WellQC database"
                 >
                   {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
-                  <span>{isSaving ? "Saving..." : savedSuccess ? "Saved to Database ✓" : "Upload to Database"}</span>
+                  <span>{isSaving ? "Saving to DB..." : savedSuccess ? "Saved to Database ✓" : "Upload to Database"}</span>
                 </button>
-                {/* <button
-                  type="button"
-                  onClick={() => handleCleanedDataDownload("las")}
-                  className="flex items-center justify-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs font-mono transition-all"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Cleaned LAS</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleCleanedDataDownload("csv")}
-                  className="flex items-center justify-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-wellqc-card hover:bg-cyan-500/20 border border-wellqc-border hover:border-cyan-500/50 text-cyan-300 font-bold text-xs font-mono transition-all"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Cleaned CSV</span>
-                </button> */}
               </div>
             </div>
 

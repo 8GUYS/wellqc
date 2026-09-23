@@ -594,9 +594,9 @@ export default function LASUploadPage() {
                   className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-60"
                 >
                   {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
-                  <span>{isSaving ? "Saving..." : savedSuccess ? "Saved to Database ✓" : "Commit to Database"}</span>
+                  <span>{isSaving ? "Saving..." : savedSuccess ? "Saved to Database ✓" : "Upload to Database"}</span>
                 </button>
-                <button
+                {/* <button
                   type="button"
                   onClick={() => handleCleanedDataDownload("las")}
                   className="flex items-center justify-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs font-mono transition-all"
@@ -611,7 +611,7 @@ export default function LASUploadPage() {
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Cleaned CSV</span>
-                </button>
+                </button> */}
               </div>
             </div>
 
@@ -648,77 +648,183 @@ export default function LASUploadPage() {
               </div>
             )}
 
-            {/* 2. Key QA Health Metrics KPI Cards (Equal Height & Aligned Grid) */}
-            <section aria-label="Quality Metrics KPI Cards" className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="bg-wellqc-panel border border-wellqc-border rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-mono uppercase text-wellqc-muted font-bold">Overall Score</span>
-                <div
-                  className={`text-3xl font-black font-mono my-1 ${
-                    qaResult.overallScore >= 90
-                      ? "text-emerald-400"
-                      : qaResult.overallScore >= 75
-                      ? "text-cyan-400"
-                      : qaResult.overallScore >= 50
-                      ? "text-amber-400"
-                      : "text-red-400"
-                  }`}
-                >
-                  {qaResult.overallScore}
-                  <span className="text-sm font-normal text-slate-500">/100</span>
+            {/* 4 Summary Metric Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-xl bg-wellqc-card border border-wellqc-border font-mono">
+                <span className="text-[10px] text-wellqc-muted uppercase block">Curves Detected</span>
+                <div className="text-xl font-black text-white mt-0.5">
+                  {parsedLAS.curves.length} <span className="text-xs text-slate-400 font-normal">Channels</span>
                 </div>
-                <span className="text-[10px] font-mono text-slate-400">{qaResult.qualityGrade} Grade</span>
+                <span className="text-[10px] text-cyan-400">Extracted from ~C Section</span>
               </div>
 
-              <div className="bg-wellqc-panel border border-wellqc-border rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-mono uppercase text-wellqc-muted font-bold">Completeness</span>
-                <div className="text-3xl font-black font-mono my-1 text-cyan-400">
-                  {qaResult.completenessScore}
-                  <span className="text-sm font-normal text-slate-500">%</span>
+              <div className="p-3.5 rounded-xl bg-wellqc-card border border-wellqc-border font-mono">
+                <span className="text-[10px] text-wellqc-muted uppercase block">Anomalies Detected</span>
+                <div className="text-xl font-black text-amber-400 mt-0.5">
+                  {qaResult.anomalyCount} <span className="text-xs text-slate-400 font-normal">Issues</span>
                 </div>
-                <span className="text-[10px] font-mono text-slate-400">Non-null data volume</span>
-              </div>
-
-              <div className="bg-wellqc-panel border border-wellqc-border rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-mono uppercase text-wellqc-muted font-bold">Consistency</span>
-                <div className="text-3xl font-black font-mono my-1 text-emerald-400">
-                  {qaResult.consistencyScore}
-                  <span className="text-sm font-normal text-slate-500">%</span>
-                </div>
-                <span className="text-[10px] font-mono text-slate-400">Monotonic step audit</span>
-              </div>
-
-              <div className="bg-wellqc-panel border border-wellqc-border rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-mono uppercase text-wellqc-muted font-bold">Anomalies Detected</span>
-                <div
-                  className={`text-3xl font-black font-mono my-1 ${
-                    qaResult.anomalyCount === 0
-                      ? "text-emerald-400"
-                      : qaResult.criticalCount > 0
-                      ? "text-red-400"
-                      : "text-amber-400"
-                  }`}
-                >
-                  {qaResult.anomalyCount}
-                </div>
-                <span className="text-[10px] font-mono text-slate-400">
-                  {qaResult.criticalCount} crit · {qaResult.warningCount} warn
+                <span className="text-[10px] text-slate-400">
+                  {qaResult.criticalCount} Critical · {qaResult.warningCount} Warnings
                 </span>
               </div>
 
-              <div className="col-span-2 md:col-span-1 bg-wellqc-panel border border-wellqc-border rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-[10px] font-mono uppercase text-wellqc-muted font-bold">Curve Channels</span>
-                <div className="text-3xl font-black font-mono my-1 text-white">
-                  {qaResult.curveSummaries.length}
+              <div className="p-3.5 rounded-xl bg-wellqc-card border border-wellqc-border font-mono">
+                <span className="text-[10px] text-wellqc-muted uppercase block">Required Core Curves</span>
+                <div className={`text-xl font-black mt-0.5 ${qaResult.missingStandardCurves.length === 0 ? "text-emerald-400" : "text-amber-300"}`}>
+                  {7 - qaResult.missingStandardCurves.length} / 7
                 </div>
-                <span className="text-[10px] font-mono text-slate-400">Standardised & mapped</span>
+                <span className="text-[10px] text-slate-400 truncate block">
+                  {qaResult.missingStandardCurves.length > 0 ? `Missing: ${qaResult.missingStandardCurves.join(", ")}` : "GR, RHOB, NPHI, DT, RT, CALI, SP ✓"}
+                </span>
               </div>
-            </section>
+
+              <div className="p-3.5 rounded-xl bg-wellqc-card border border-wellqc-border font-mono">
+                <span className="text-[10px] text-wellqc-muted uppercase block">Overall Quality Status</span>
+                <div className={`text-xl font-black mt-0.5 ${
+                  qaResult.overallScore >= 80 ? "text-emerald-400" :
+                  qaResult.overallScore >= 60 ? "text-cyan-400" :
+                  qaResult.overallScore >= 40 ? "text-amber-400" : "text-rose-400"
+                }`}>
+                  {qaResult.qualityGrade}
+                </div>
+                <span className="text-[10px] text-slate-400">Index: {qaResult.overallScore} / 100</span>
+              </div>
+            </div>
+
+            {/* 11 Anomaly Categories Check Grid */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-mono text-wellqc-muted uppercase font-bold tracking-wider">
+                Automated Anomaly Audit Checks:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 font-mono text-xs">
+                {/* 1. Missing or Duplicate Depths */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "DUPLICATE_DEPTH").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Missing / Duplicate Depths</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Flagged` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 2. Depth Gaps */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "DEPTH_GAP").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Depth Gaps / Discontinuities</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Gaps` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 3. Null Values & Clusters */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "NULL_CLUSTER").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Nulls &amp; Null Clusters</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Clusters` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 4. Outside Physical Ranges */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "IMPOSSIBLE_VALUE").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Outside Physical Limits</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Outliers` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 5. Extreme Outliers */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "EXTREME_SPIKE" && !a.curveMnemonic.toUpperCase().includes("DT")).length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Extreme / Outlier Spikes</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Spikes` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 6. Spikes in DT */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "EXTREME_SPIKE" && (a.curveMnemonic.toUpperCase().includes("DT") || a.description.toLowerCase().includes("sonic"))).length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">DT Acoustic Cycle Jumps</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Jumps` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 7. Flatlines */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "FLATLINE").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Stuck / Flatline Sensor</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Flatlines` : "Clean ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 8. Unit Mismatches */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "UNIT_MISMATCH").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-blue-500/10 border-blue-500/30 text-cyan-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Unit Mismatches</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Mismatches` : "Aligned ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 9. Non-standard Mnemonics */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "NON_STANDARD_MNEMONIC").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-purple-500/10 border-purple-500/30 text-purple-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Non-Standard Mnemonics</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Unmapped` : "Standardised ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 10. Duplicate Curves */}
+                {(() => {
+                  const cnt = qaResult.anomalies.filter((a) => a.anomalyType === "DUPLICATE_CURVE").length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between ${cnt > 0 ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Duplicate Curve Headers</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Duplicate` : "Unique ✓"}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* 11. Missing Core Curves */}
+                {(() => {
+                  const cnt = qaResult.missingStandardCurves.length;
+                  return (
+                    <div className={`p-2.5 rounded-lg border flex items-center justify-between sm:col-span-2 lg:col-span-2 ${cnt > 0 ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-wellqc-card/60 border-wellqc-border text-slate-300"}`}>
+                      <span className="truncate">Required Core Curves (GR, RHOB, NPHI, DT, RT, CALI, SP)</span>
+                      <span className="font-bold">{cnt > 0 ? `${cnt} Missing: ${qaResult.missingStandardCurves.join(", ")}` : "All 7 Core Curves Present ✓"}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
 
             {/* 3. AI Petrophysical Insights & Recommendations */}
             <section aria-label="AI Interpretation" className="bg-wellqc-panel border border-cyan-500/30 rounded-2xl p-5 space-y-4 shadow-xl">
               <div className="flex items-center space-x-2 text-sm font-bold text-cyan-300">
                 <Sparkles className="w-5 h-5 text-cyan-400 animate-pulse" />
-                <span>AI Automated Petrophysical Interpretation &amp; Recommendations</span>
+                <span>Petrophysical Interpretation &amp; Recommendations</span>
               </div>
               <p className="text-xs text-slate-200 leading-relaxed font-mono bg-wellqc-dark/60 p-4 rounded-xl border border-wellqc-border">
                 {aiOutput.summary}

@@ -593,13 +593,6 @@ export function WellLogViewer({
             </div>
           )}
 
-          <button
-            onClick={() => window.print()}
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-wellqc-card border border-wellqc-border text-slate-300 hover:text-white font-bold transition-colors"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Print Log</span>
-          </button>
         </div>
       </div>
 

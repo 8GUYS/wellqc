@@ -270,30 +270,55 @@ export default function LASUploadPage() {
 
   const commitFile = async (name: string, content: string) => {
     const response = await fetch("/api/las", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: name, content }),
-      });
-    const result = await response.json();
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileName: name, content }),
+    });
 
-    if (!response.ok) {
-      throw new Error(result.error || "Unable to commit this LAS file.");
+    let result: { message?: string; well?: { id: string; name: string; qualityScore: number }; error?: string } | null = null;
+    try {
+      result = await response.json();
+    } catch {
+      throw new Error(`Server returned HTTP ${response.status} (${response.statusText || "Unexpected error response"}).`);
     }
-    return result;
+
+    if (!response.ok || !result?.well) {
+      throw new Error(result?.error || `Unable to commit this LAS file (HTTP ${response.status}).`);
+    }
+    return result as { message: string; well: { id: string; name: string; qualityScore: number } };
   };
 
   const handleCommitToDatabase = async () => {
-    if (!rawText || !parsedLAS || !qaResult) return;
+    // 1. Resolve LAS content: direct rawText, queued item content, or reconstructed valid LAS
+    const contentToCommit =
+      rawText ||
+      uploadQueue.find((f) => f.name === fileName)?.content ||
+      (parsedLAS && qaResult ? buildCleanedDataExport(parsedLAS, qaResult).lasContent : "");
+
+    if (!contentToCommit || !parsedLAS || !qaResult) {
+      setSaveError("No LAS log content is available to upload. Please re-select or drag-and-drop your LAS file.");
+      return;
+    }
+
+    // Keep rawText in state if it was restored without content
+    if (!rawText && contentToCommit) {
+      setRawText(contentToCommit);
+    }
 
     setIsSaving(true);
     setSaveError("");
     try {
-      const result = await commitFile(fileName, rawText);
+      const activeName = fileName || parsedLAS.wellInfo.wellName || "well-log.las";
+      const result = await commitFile(activeName, contentToCommit);
       setSavedSuccess(true);
       setSavedWell(result.well);
-      setUploadQueue((files) => files.map((file) => file.name === fileName
-        ? { ...file, status: "saved", savedWell: result.well, error: undefined }
-        : file));
+      setUploadQueue((files) =>
+        files.map((file) =>
+          file.name === activeName
+            ? { ...file, status: "saved", savedWell: result.well, error: undefined }
+            : file
+        )
+      );
 
       // Cache latest committed well so Well Management can highlight and render curves instantly
       try {
@@ -325,7 +350,13 @@ export default function LASUploadPage() {
     for (const file of pendingFiles) {
       setUploadQueue((files) => files.map((item) => item.id === file.id ? { ...item, status: "saving", error: undefined } : item));
       try {
-        const result = await commitFile(file.name, file.content);
+        const fileContent =
+          file.content ||
+          (file.parsed && file.qa ? buildCleanedDataExport(file.parsed, file.qa).lasContent : "");
+        if (!fileContent) {
+          throw new Error(`File ${file.name} has no content to commit.`);
+        }
+        const result = await commitFile(file.name, fileContent);
         const savedFile = { ...file, status: "saved" as const, savedWell: result.well, error: undefined };
         setUploadQueue((files) => files.map((item) => item.id === file.id ? savedFile : item));
         loadQueuedFile(savedFile);
@@ -590,7 +621,7 @@ export default function LASUploadPage() {
                 <button
                   type="button"
                   onClick={handleCommitToDatabase}
-                  disabled={savedSuccess || isSaving}
+                  disabled={isSaving}
                   className="w-full sm:w-auto flex items-center justify-center space-x-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all disabled:opacity-60 cursor-pointer"
                   title="Save and index this well in the WellQC database"
                 >

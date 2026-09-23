@@ -118,11 +118,29 @@ export async function POST(request: Request) {
     const wellName = fallback(parsed.wellInfo.wellName, fileName.replace(/\.[^/.]+$/, ""));
     const depthUnit = fallback(parsed.wellInfo.depthUnit, "FT");
 
+    const maxDataPoints = 3000;
+    const totalDepthPoints = parsed.data.depth.length;
+    const step = totalDepthPoints > maxDataPoints ? Math.ceil(totalDepthPoints / maxDataPoints) : 1;
+
     const curveRows = qa.curveSummaries.map((summary) => {
       const curveMeta = parsed.curves.find((curve) => curve.mnemonic === summary.mnemonic);
       const standard = standardiseMnemonic(summary.mnemonic, summary.unit);
       const cleanedCurve = cleanedCurves.get(summary.mnemonic);
       const values = cleanedCurve?.values || parsed.data.curves[summary.mnemonic] || [];
+
+      const sampledRows: Array<{ depth: number; value: number }> = [];
+      for (let i = 0; i < totalDepthPoints; i += step) {
+        sampledRows.push({
+          depth: parsed.data.depth[i],
+          value: values[i] ?? parsed.wellInfo.nullValue,
+        });
+      }
+      if (step > 1 && totalDepthPoints > 0 && (totalDepthPoints - 1) % step !== 0) {
+        sampledRows.push({
+          depth: parsed.data.depth[totalDepthPoints - 1],
+          value: values[totalDepthPoints - 1] ?? parsed.wellInfo.nullValue,
+        });
+      }
 
       return {
         originalMnemonic: summary.mnemonic,
@@ -137,12 +155,7 @@ export async function POST(request: Request) {
         maxVal: summary.maxVal,
         meanVal: summary.meanVal,
         status: summary.status === "EXCELLENT" ? "VALID" : summary.status === "GOOD" ? "STANDARDISED" : "WARNING",
-        dataJson: JSON.stringify(
-          parsed.data.depth.map((depth, index) => ({
-            depth,
-            value: values[index] ?? parsed.wellInfo.nullValue,
-          })),
-        ),
+        dataJson: JSON.stringify(sampledRows),
       };
     });
 
@@ -258,7 +271,7 @@ export async function POST(request: Request) {
         await tx.anomaly.createMany({
           data: qa.anomalies.map((anomaly) => ({
             qualityReportId: report.id,
-            curveId: curveIdByMnemonic.get(anomaly.curveMnemonic),
+            curveId: curveIdByMnemonic.get(anomaly.curveMnemonic) ?? null,
             curveMnemonic: anomaly.curveMnemonic,
             depthStart: anomaly.depthStart,
             depthEnd: anomaly.depthEnd,

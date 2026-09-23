@@ -5,12 +5,17 @@ import { analyzeWellLogQuality } from "@/lib/las/quality-engine";
 import { generateAIAnalysis } from "@/lib/las/ai-analyzer";
 import { standardiseMnemonic } from "@/lib/las/standardiser";
 import { getCurrentUser } from "@/lib/auth";
-import { buildCleanedDataExport } from "@/lib/las/exporter";
 
 interface CommitLASRequest {
   fileName?: string;
   content?: string;
   lasText?: string;
+}
+
+class FreemiumLimitError extends Error {
+  constructor(public freeChecksUsed: number) {
+    super("Free limit reached. You have used your 2 free LAS log file checks. Upgrade to Pro for unlimited log checks.");
+  }
 }
 
 export async function POST(request: Request) {
@@ -82,10 +87,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // ── Commit mode: Requires authentication & DB transaction ───────────────
     let user = await getCurrentUser();
     if (!user) {
-      // Fallback to first existing user or create demo petrophysicist so uploads work seamlessly during test/dev
       const fallbackUser = await db.user.findFirst({ select: { id: true, email: true, name: true, role: true, department: true } });
       if (fallbackUser) {
         user = fallbackUser as NonNullable<typeof user>;
@@ -104,9 +107,7 @@ export async function POST(request: Request) {
       }
     }
 
-    if (!user) {
-      return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
-    }
+    if (!user) return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
 
     // Automatic cleaner is disabled on upload per workflow requirements:
     // Raw log data is preserved as uploaded so that selective cleaning can be performed
@@ -161,6 +162,19 @@ export async function POST(request: Request) {
     });
 
     const saved = await db.$transaction(async (tx) => {
+      // Atomic freemium check-and-increment (Commented out for free testing - uncomment when payment option is implemented)
+      /*
+      if (userTier === "FREE") {
+        const consumed = await tx.user.updateMany({
+          where: { id: user.id, tier: "FREE", freeChecksUsed: { lt: 2 } },
+          data: { freeChecksUsed: { increment: 1 } },
+        });
+        if (consumed.count === 0) {
+          throw new FreemiumLimitError(2);
+        }
+      }
+      */
+
       await tx.operator.upsert({
         where: { name: operatorName },
         update: {},
@@ -240,11 +254,12 @@ export async function POST(request: Request) {
           pointCount: parsed.totalPoints,
           status: "PROCESSED",
           uploadedById: user.id,
+          ownerId: user.id,
         },
       });
 
       await tx.curve.createMany({
-        data: curveRows.map((curve) => ({ ...curve, lasFileId: lasFile.id })),
+        data: curveRows.map((curve) => ({ ...curve, lasFileId: lasFile.id, ownerId: user.id })),
       });
 
       const savedCurves = await tx.curve.findMany({
@@ -265,6 +280,7 @@ export async function POST(request: Request) {
           aiSummary: ai.summary,
           recommendations: JSON.stringify(ai.recommendations),
           reportJson: JSON.stringify(qa),
+          ownerId: user.id,
         },
       });
 
@@ -280,6 +296,7 @@ export async function POST(request: Request) {
             severity: anomaly.severity,
             description: anomaly.description,
             suggestedCorrection: anomaly.suggestedCorrection,
+            ownerId: user.id,
           })),
         });
       }
@@ -322,6 +339,17 @@ export async function POST(request: Request) {
       reportId: saved.report.id,
     });
   } catch (error) {
+    if (error instanceof FreemiumLimitError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          limitReached: true,
+          freeChecksUsed: error.freeChecksUsed,
+          tier: "FREE",
+        },
+        { status: 402 },
+      );
+    }
     console.error("Failed to commit LAS file", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to commit LAS file." },

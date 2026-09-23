@@ -36,7 +36,8 @@ export default function ReportsPage() {
 
   useEffect(() => {
     // 1. Check if there's an active upload / QA session in localStorage
-    if (typeof window !== "undefined") {
+    function loadLocalSession() {
+      if (typeof window === "undefined") return;
       try {
         const uploadData = localStorage.getItem("wellqc_upload_workspace");
         if (uploadData) {
@@ -61,6 +62,8 @@ export default function ReportsPage() {
         console.warn("Could not load local session in reports", e);
       }
     }
+
+    loadLocalSession();
 
     // 2. Fetch wells from database
     fetch("/api/wells")

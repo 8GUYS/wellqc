@@ -53,18 +53,10 @@ export default function ComparisonPage() {
   }, []);
 
   useEffect(() => {
-    if (!well1) {
-      setDetail1(null);
-      return;
-    }
     loadDetail(well1, setDetail1, setError);
   }, [well1]);
 
   useEffect(() => {
-    if (!well2) {
-      setDetail2(null);
-      return;
-    }
     loadDetail(well2, setDetail2, setError);
   }, [well2]);
 
@@ -209,9 +201,14 @@ function ComparisonPane({ detail, accent }: { detail: WellDetailResponse | null;
 
 async function loadDetail(
   wellId: string,
-  setDetail: (detail: WellDetailResponse) => void,
+  setDetail: (detail: WellDetailResponse | null) => void,
   setError: (error: string) => void,
 ) {
+  if (!wellId) {
+    setDetail(null);
+    return;
+  }
+
   try {
     const response = await fetch(`/api/wells/${wellId}`, { cache: "no-store" });
     const data = await response.json();

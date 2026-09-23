@@ -56,7 +56,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Check for payment callback params in URL
-    if (typeof window !== "undefined") {
+    function checkPaymentCallback() {
+      if (typeof window === "undefined") return;
+
       const urlParams = new URLSearchParams(window.location.search);
       const payment = urlParams.get("payment");
       if (payment === "success") {
@@ -72,6 +74,8 @@ export default function DashboardPage() {
         });
       }
     }
+
+    checkPaymentCallback();
   }, []);
 
   useEffect(() => {

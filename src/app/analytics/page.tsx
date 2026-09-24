@@ -8,18 +8,16 @@ import {
   Building2,
   RefreshCw,
 } from "lucide-react";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+import dynamic from "next/dynamic";
+
+const OperatorScoreChart = dynamic(
+  () => import("@/components/analytics/charts").then((m) => m.OperatorScoreChart),
+  { ssr: false }
+);
+const AnomalyPieChart = dynamic(
+  () => import("@/components/analytics/charts").then((m) => m.AnomalyPieChart),
+  { ssr: false }
+);
 
 interface AnalyticsData {
   operatorScores: Array<{ operator: string; score: number; files: number }>;
@@ -109,15 +107,7 @@ export default function AnalyticsPage() {
               ) : analytics.operatorScores.length === 0 ? (
                 <EmptyPanel label="No committed wells available" />
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analytics.operatorScores} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#233252" />
-                    <XAxis dataKey="operator" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                    <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} domain={[0, 100]} />
-                    <Tooltip contentStyle={{ backgroundColor: "#131b2e", borderColor: "#233252", fontSize: "12px" }} />
-                    <Bar dataKey="score" fill="#06b6d4" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <OperatorScoreChart data={analytics.operatorScores} />
               )}
             </div>
           </div>
@@ -133,24 +123,7 @@ export default function AnalyticsPage() {
               ) : analytics.anomalyDistribution.length === 0 ? (
                 <EmptyPanel label="No anomalies recorded yet" />
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={analytics.anomalyDistribution}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {analytics.anomalyDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: "#131b2e", borderColor: "#233252", fontSize: "12px" }} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <AnomalyPieChart data={analytics.anomalyDistribution} />
               )}
             </div>
             {analytics.anomalyDistribution.length > 0 && (

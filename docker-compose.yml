@@ -1,0 +1,81 @@
+services:
+  # --- Real Postgres, running locally ---
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    command: "-d 1"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-main}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # --- Neon HTTP/WS proxy: lets @neondatabase/serverless + @prisma/adapter-neon
+  # talk to the plain Postgres container above. Without this, DATABASE_URL
+  # pointed at `postgres` directly will NOT work - the Neon serverless
+  # driver doesn't speak raw Postgres wire protocol. ---
+  neon-proxy:
+    image: ghcr.io/timowilhelm/local-neon-http-proxy:main
+    restart: unless-stopped
+    environment:
+      - PG_CONNECTION_STRING=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-main}
+    ports:
+      - "4444:4444"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  service:
+    build:
+      context: .
+      dockerfile: services/python_parser/Dockerfile
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/python_parser:/app/python_parser
+
+  frontend:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      neon-proxy:
+        condition: service_started
+      service:
+        condition: service_started
+    environment:
+      NODE_ENV: development
+      # Used by the app's Prisma adapter at runtime (src/lib/db.ts) - the
+      # actual routing to neon-proxy happens via the neonConfig overrides
+      # in that file, not this URL's host, but keep it consistent anyway.
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@neon-proxy/${POSTGRES_DB:-main}
+      # Used by prisma7.config.ts for CLI commands (migrate, db seed) - a
+      # direct TCP connection straight to Postgres, bypassing the proxy.
+      DIRECT_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-main}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-main}
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      # Shows the container the practice settings instead of your real
+      # .env and .env.local files
+      - ./.env.docker:/app/.env:ro
+      - ./.env.docker:/app/.env.local:ro
+      - frontend_node_modules:/app/node_modules
+
+volumes:
+  pgdata:
+  frontend_node_modules:

@@ -55,6 +55,7 @@ services:
         condition: service_started
     environment:
       NODE_ENV: development
+      USE_LOCAL_NEON_PROXY: "true"
       # Used by the app's Prisma adapter at runtime (src/lib/db.ts) - the
       # actual routing to neon-proxy happens via the neonConfig overrides
       # in that file, not this URL's host, but keep it consistent anyway.

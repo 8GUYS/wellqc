@@ -17,7 +17,7 @@ export default function QualityEnginePage() {
               </span>
               <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                <span>Current Sprint: Sprint 4</span>
+                <span>Next Sprint: Sprint 4</span>
               </span>
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight">
@@ -28,7 +28,7 @@ export default function QualityEnginePage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          {/* <div className="flex items-center gap-2.5 shrink-0">
             <Link
               href="/upload"
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold font-mono text-xs shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2"
@@ -36,7 +36,7 @@ export default function QualityEnginePage() {
               <Layers className="w-4 h-4" />
               <span>Explore Sprint 4 Wireline Viewer</span>
             </Link>
-          </div>
+          </div> */}
         </header>
 
         <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-8 space-y-6 text-center max-w-2xl mx-auto my-8">
@@ -45,32 +45,35 @@ export default function QualityEnginePage() {
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-white font-mono">Sprint 5 Roadmap: Quality Engine</h2>
+            <h2 className="text-xl font-bold text-white font-mono">Sprint 4 week 1 Deliverables:  Frontend Architecture, Telemetry Ingestion & Business Intelligence</h2>
             <p className="text-xs text-slate-400 font-mono leading-relaxed">
-              Interactive per-anomaly correction, type-isolated bulk action bar, transparent audit trail logging, and CWLS cleaned file generation will unlock in Sprint 5.
+            
+
             </p>
           </div>
 
           <div className="bg-wellqc-dark/70 border border-wellqc-border rounded-xl p-4 text-left space-y-2.5 font-mono text-xs text-slate-300">
             <div className="font-bold text-white text-[11px] uppercase tracking-wide">
-              Active Sprint 4 Deliverables:
+              Sprint 4 week 2 Roadmap: Quality Engine
+
             </div>
             <div className="flex items-center gap-2 text-emerald-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Multi-Track Wireline Display with 4-decade logarithmic resistivity (0.2–2000 Ω·m)</span>
+              <span>Industry-Standard Multi-Track Wireline Log Viewer.</span>
             </div>
             <div className="flex items-center gap-2 text-emerald-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Linear Gamma Ray (0–150 GAPI) and Sonic Log (40–140 µs/ft) scaling</span>
+              <span>Scientific Missing-Value & Imputation Engine</span>
             </div>
             <div className="flex items-center gap-2 text-emerald-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>LAS Ingestion Workspace with real-time quality scoring and curve inventory</span>
+              <span>Strict Pipeline Demarcation (Upload vs. QA Engine vs. Reports).</span>
             </div>
             <div className="flex items-center gap-2 text-emerald-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>NUPRC / DPR Petrophysical Audit Certificate &amp; CSV Exports</span>
+              <span>Mnemonic Standardisation & Custom Alias Dictionary</span>
             </div>
+           
           </div>
 
           <Link

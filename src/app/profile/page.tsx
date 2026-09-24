@@ -221,7 +221,7 @@ export default function UserProfilePage() {
             <span>Compliance & NDA</span>
           </button>
 
-          <button
+          {/* <button
             onClick={() => setActiveTab("security")}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
               activeTab === "security"
@@ -231,7 +231,7 @@ export default function UserProfilePage() {
           >
             <Key className="w-4 h-4" />
             <span>Security & API Tokens</span>
-          </button>
+          </button> */}
         </div>
 
         {/* Feedback Alert Banner */}
@@ -313,7 +313,7 @@ export default function UserProfilePage() {
                     />
                   </div>
 
-                  <div>
+                  {/* <div>
                     <label className="block text-xs font-medium text-slate-300 mb-1">
                       Platform Access Role
                     </label>
@@ -335,7 +335,7 @@ export default function UserProfilePage() {
                         * Note: Self-assignment of Administrator (ADMIN) role is restricted.
                       </p>
                     )}
-                  </div>
+                  </div> */}
                 </div>
 
                 <div className="border-t border-wellqc-border pt-4 mt-6">
@@ -475,7 +475,7 @@ export default function UserProfilePage() {
         )}
 
         {/* Tab 4: Security & API Tokens */}
-        {activeTab === "security" && (
+        {/* {activeTab === "security" && (
           <div className="bg-wellqc-card border border-wellqc-border rounded-2xl p-6 shadow-xl space-y-6">
             <div className="flex items-center justify-between border-b border-wellqc-border pb-4">
               <div>
@@ -501,7 +501,7 @@ export default function UserProfilePage() {
               </p>
             </div>
           </div>
-        )}
+        )} */}
       </div>
     </AppShell>
   );

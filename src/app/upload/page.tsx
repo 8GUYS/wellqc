@@ -472,12 +472,12 @@ export default function LASUploadPage() {
               <span className="px-2.5 py-1 rounded bg-slate-900 border border-wellqc-border text-[11px] font-mono text-slate-300">
                 Batch Ingestion
               </span>
-              <span className="px-2.5 py-1 rounded bg-slate-900 border border-wellqc-border text-[11px] font-mono text-slate-300">
+              {/* <span className="px-2.5 py-1 rounded bg-slate-900 border border-wellqc-border text-[11px] font-mono text-slate-300">
                 Mnemonic Mapping
               </span>
               <span className="px-2.5 py-1 rounded bg-slate-900 border border-wellqc-border text-[11px] font-mono text-slate-300">
                 AI QA Engine
-              </span>
+              </span> */}
             </div>
           </label>
         </section>

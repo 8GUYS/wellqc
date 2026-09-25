@@ -4,6 +4,7 @@ import { parseLASContent } from "@/lib/las/parser";
 import { analyzeWellLogQuality } from "@/lib/las/quality-engine";
 import { generateAIAnalysis } from "@/lib/las/ai-analyzer";
 import { standardiseMnemonic } from "@/lib/las/standardiser";
+import { readCustomAliasesFromFile } from "@/lib/las/alias-storage";
 import { getCurrentUser } from "@/lib/auth";
 
 interface CommitLASRequest {
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "LAS file content is required." }, { status: 400 });
     }
 
+    const serverAliases = readCustomAliasesFromFile();
     const parsed = parseLASContent(content);
     const qa = analyzeWellLogQuality(parsed);
     const ai = generateAIAnalysis(parsed, qa);
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
     // ── Pre-check mode: return in-memory QA & AI analysis without DB write ──
     if (action === "precheck") {
       const curveMappings = parsed.curves.map((c) => {
-        const std = standardiseMnemonic(c.mnemonic, c.unit);
+        const std = standardiseMnemonic(c.mnemonic, c.unit, serverAliases);
         return {
           rawMnemonic: c.mnemonic,
           standardMnemonic: std.standardMnemonic,
@@ -126,7 +128,7 @@ export async function POST(request: Request) {
 
     const curveRows = qa.curveSummaries.map((summary) => {
       const curveMeta = parsed.curves.find((curve) => curve.mnemonic === summary.mnemonic);
-      const standard = standardiseMnemonic(summary.mnemonic, summary.unit);
+      const standard = standardiseMnemonic(summary.mnemonic, summary.unit, serverAliases);
       // Store RAW unmutated curve values
       const values = parsed.data.curves[summary.mnemonic] || [];
 

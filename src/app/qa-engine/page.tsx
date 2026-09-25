@@ -45,9 +45,10 @@ export default function QualityEnginePage() {
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-white font-mono">Sprint 4 week 1 Deliverables:  Frontend Architecture, Telemetry Ingestion & Business Intelligence</h2>
+            <h2 className="text-xl font-bold text-white font-mono">Sprint 4 week 2 Deliverables:  Transform raw petrophysical data into actionable, visual intelligence through an industry-grade wireline multi-track viewer, scientific missing-value imputation benchmarking, basin analytics telemetry, and multi-format compliance reporting.
+            </h2>
             <p className="text-xs text-slate-400 font-mono leading-relaxed">
-            
+
 
             </p>
           </div>
@@ -73,7 +74,7 @@ export default function QualityEnginePage() {
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>Mnemonic Standardisation & Custom Alias Dictionary</span>
             </div>
-           
+
           </div>
 
           <Link

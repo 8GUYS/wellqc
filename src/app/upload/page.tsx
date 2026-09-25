@@ -52,6 +52,37 @@ function downloadTextFile(fileName: string, content: string, mimeType: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+function downsampleParsedLASForStorage(parsed: ParsedLAS, maxPoints: number = 300): ParsedLAS {
+  if (!parsed || !parsed.data || !parsed.data.depth) return parsed;
+  const total = parsed.data.depth.length;
+  if (total <= maxPoints) {
+    return parsed;
+  }
+
+  const step = Math.ceil(total / maxPoints);
+  const sampledDepth: number[] = [];
+  const sampledCurves: Record<string, number[]> = {};
+
+  for (const mnem of Object.keys(parsed.data.curves)) {
+    sampledCurves[mnem] = [];
+  }
+
+  for (let i = 0; i < total; i += step) {
+    sampledDepth.push(parsed.data.depth[i]);
+    for (const [mnem, values] of Object.entries(parsed.data.curves)) {
+      sampledCurves[mnem].push(values[i] ?? parsed.wellInfo.nullValue);
+    }
+  }
+
+  return {
+    ...parsed,
+    data: {
+      depth: sampledDepth,
+      curves: sampledCurves,
+    },
+  };
+}
+
 function getInitialUploadWorkspace(): {
   fileName: string;
   rawText: string;
@@ -72,7 +103,13 @@ function getInitialUploadWorkspace(): {
           return {
             fileName: session.fileName || "restored-well-log.las",
             rawText: session.rawText || "",
-            parsedLAS: session.parsedLAS,
+            parsedLAS: {
+              ...session.parsedLAS,
+              data: {
+                depth: Array.isArray(session.parsedLAS.data?.depth) ? session.parsedLAS.data.depth : [],
+                curves: session.parsedLAS.data?.curves || {},
+              },
+            },
             qaResult: session.qaResult,
             aiOutput: session.aiOutput || null,
             savedSuccess: Boolean(session.savedSuccess),
@@ -119,33 +156,38 @@ export default function LASUploadPage() {
   const [restoredFromStorage, setRestoredFromStorage] = useState(initialWorkspace.restoredFromStorage);
   const [activeTab, setActiveTab] = useState<"curves" | "anomalies" | "headers" | "raw" | "viewer">("curves");
 
-  // 2. Persist state to localStorage on changes
+  // 2. Persist state to localStorage on changes with quota protection
   useEffect(() => {
     if (!parsedLAS || !qaResult) return;
 
     try {
+      const lightweightParsed = downsampleParsedLASForStorage(parsedLAS, 300);
       const payload = {
         fileName,
-        rawText: rawText.length > 2_000_000 ? "" : rawText,
-        parsedLAS,
+        rawText: rawText.length > 50_000 ? "" : rawText,
+        parsedLAS: lightweightParsed,
         qaResult,
         aiOutput,
         savedSuccess,
         savedWell,
         uploadQueue: uploadQueue.map((item) => ({
           ...item,
-          content: item.content.length > 500_000 ? "" : item.content,
+          content: "",
+          parsed: downsampleParsedLASForStorage(item.parsed, 50),
         })),
         updatedAt: Date.now(),
       };
       localStorage.setItem("wellqc_upload_workspace", JSON.stringify(payload));
-    } catch (err) {
-      console.warn("Storage quota exceeded or storage unavailable, falling back to lightweight payload", err);
+    } catch {
+      // Fallback to minimal payload without any raw curves if storage is tight
       try {
         const minimal = {
           fileName,
           rawText: "",
-          parsedLAS,
+          parsedLAS: {
+            ...parsedLAS,
+            data: { depth: [], curves: {} },
+          },
           qaResult,
           aiOutput,
           savedSuccess,
@@ -154,7 +196,9 @@ export default function LASUploadPage() {
           updatedAt: Date.now(),
         };
         localStorage.setItem("wellqc_upload_workspace", JSON.stringify(minimal));
-      } catch {}
+      } catch {
+        // If localStorage is completely full or disabled in incognito, suppress silently
+      }
     }
   }, [parsedLAS, qaResult, aiOutput, rawText, fileName, savedSuccess, savedWell, uploadQueue]);
 

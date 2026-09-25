@@ -28,7 +28,7 @@ export function CurveInventoryTable({
         <thead className="bg-wellqc-card border-b border-wellqc-border text-[11px] text-wellqc-muted uppercase">
           <tr>
             <th className="py-3 px-4">Raw Mnemonic</th>
-            <th className="py-3 px-4">Standard Mnemonic</th>
+            <th className="py-3 px-4">Standard Name</th>
             <th className="py-3 px-4">Description</th>
             <th className="py-3 px-4">Unit</th>
             <th className="py-3 px-4">Null Count / Total</th>

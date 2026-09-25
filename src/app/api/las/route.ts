@@ -3,8 +3,8 @@ import { db } from "@/lib/db";
 import { parseLASContent } from "@/lib/las/parser";
 import { analyzeWellLogQuality } from "@/lib/las/quality-engine";
 import { generateAIAnalysis } from "@/lib/las/ai-analyzer";
-import { standardiseMnemonic } from "@/lib/las/standardiser";
-import { readCustomAliasesFromFile } from "@/lib/las/alias-storage";
+import { standardiseMnemonic, setCustomAliases } from "@/lib/las/standardiser";
+import { readCustomAliasesForUser } from "@/lib/las/alias-storage";
 import { getCurrentUser } from "@/lib/auth";
 
 interface CommitLASRequest {
@@ -32,9 +32,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "LAS file content is required." }, { status: 400 });
     }
 
-    const serverAliases = readCustomAliasesFromFile();
+    let userContext = null;
+    try {
+      userContext = await getCurrentUser();
+    } catch {
+      // ignore
+    }
+
+    const serverAliases = readCustomAliasesForUser(userContext);
+    setCustomAliases(serverAliases);
     const parsed = parseLASContent(content);
-    const qa = analyzeWellLogQuality(parsed);
+    const qa = analyzeWellLogQuality(parsed, serverAliases);
     const ai = generateAIAnalysis(parsed, qa);
 
     // ── Pre-check mode: return in-memory QA & AI analysis without DB write ──

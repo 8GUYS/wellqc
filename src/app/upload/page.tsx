@@ -333,11 +333,26 @@ export default function LASUploadPage() {
   };
 
   const handleCommitToDatabase = async () => {
-    // 1. Resolve raw LAS content: direct rawText, queued item content, or reconstructed raw LAS without auto-cleaning
+    // 1. Verify that we have full raw LAS content and not a downsampled preview
+    const isDownsampled = Boolean(
+      parsedLAS &&
+      parsedLAS.data?.depth &&
+      parsedLAS.totalPoints > parsedLAS.data.depth.length
+    );
+
+    if (!rawText && isDownsampled) {
+      setSaveError(
+        "Only a downsampled preview is currently in browser memory. Please re-select or drop the original LAS file to ensure the complete, untouched raw log is committed to the database."
+      );
+      return;
+    }
+
     const contentToCommit =
       rawText ||
       uploadQueue.find((f) => f.name === fileName)?.content ||
-      (parsedLAS ? reconstructRawLASText(parsedLAS) : "");
+      (parsedLAS && parsedLAS.data?.depth && parsedLAS.data.depth.length === parsedLAS.totalPoints
+        ? reconstructRawLASText(parsedLAS)
+        : "");
 
     if (!contentToCommit || !parsedLAS || !qaResult) {
       setSaveError("No LAS log content is available to upload. Please re-select or drag-and-drop your LAS file.");
@@ -394,9 +409,20 @@ export default function LASUploadPage() {
     for (const file of pendingFiles) {
       setUploadQueue((files) => files.map((item) => item.id === file.id ? { ...item, status: "saving", error: undefined } : item));
       try {
+        const isDownsampled = Boolean(
+          file.parsed &&
+          file.parsed.data?.depth &&
+          file.parsed.totalPoints > file.parsed.data.depth.length
+        );
+        if (!file.content && isDownsampled) {
+          throw new Error(`File ${file.name} only has a preview in memory. Please re-select the file to upload full raw data.`);
+        }
+
         const fileContent =
           file.content ||
-          (file.parsed ? reconstructRawLASText(file.parsed) : "");
+          (file.parsed && file.parsed.data?.depth && file.parsed.data.depth.length === file.parsed.totalPoints
+            ? reconstructRawLASText(file.parsed)
+            : "");
         if (!fileContent) {
           throw new Error(`File ${file.name} has no content to commit.`);
         }

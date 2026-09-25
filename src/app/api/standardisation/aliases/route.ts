@@ -6,13 +6,22 @@ import {
   setCustomAliases,
 } from "@/lib/las/standardiser";
 import {
-  readCustomAliasesFromFile,
-  writeCustomAliasesToFile,
+  readCustomAliasesForUser,
+  saveUserCustomAlias,
+  updateUserCustomAlias,
+  deleteUserCustomAlias,
 } from "@/lib/las/alias-storage";
 
 export async function GET() {
   try {
-    const aliases = readCustomAliasesFromFile();
+    let currentUser = null;
+    try {
+      currentUser = await getCurrentUser();
+    } catch {
+      // outside request store or unauthenticated
+    }
+
+    const aliases = readCustomAliasesForUser(currentUser);
     // Sync in-memory cache for server-side standardisation
     setCustomAliases(aliases);
     return NextResponse.json({ aliases });
@@ -48,24 +57,27 @@ export async function POST(request: Request) {
     const cleanCurve = standardMnemonic.trim().toUpperCase();
 
     // Determine who added it: authenticated user > explicit requested name > default
-    let currentUserName: string | undefined;
+    let currentUser = null;
     try {
-      const currentUser = await getCurrentUser();
-      currentUserName = currentUser?.name || currentUser?.email?.split("@")[0];
+      currentUser = await getCurrentUser();
     } catch {
       // outside request store or unauthenticated
     }
 
-    const addedBy = requestedAddedBy?.trim() || currentUserName || "Lead Petrophysicist";
+    const addedBy =
+      requestedAddedBy?.trim() ||
+      currentUser?.name ||
+      currentUser?.email?.split("@")[0] ||
+      "Lead Petrophysicist";
 
-    const currentAliases = readCustomAliasesFromFile();
+    // Scope duplicate validation to the current user's account dictionary + built-in standards
+    const userAliases = readCustomAliasesForUser(currentUser);
 
-    // Check for duplicate across all standard curves (built-in and custom)
     const validation = validateAliasForCurve(
       cleanAlias,
       cleanCurve,
       undefined,
-      currentAliases
+      userAliases
     );
 
     if (!validation.valid) {
@@ -81,17 +93,18 @@ export async function POST(request: Request) {
       standardMnemonic: cleanCurve,
       addedBy,
       addedAt: new Date().toISOString(),
+      userId: currentUser?.id || "demo-petrophysicist-uuid",
+      userEmail: currentUser?.email || "",
     };
 
-    const updatedAliases = [...currentAliases, newEntry];
-    writeCustomAliasesToFile(updatedAliases);
-    setCustomAliases(updatedAliases);
+    const updatedUserAliases = saveUserCustomAlias(currentUser, newEntry);
+    setCustomAliases(updatedUserAliases);
 
     return NextResponse.json(
       {
         message: `Alias ${cleanAlias} successfully mapped to ${cleanCurve}.`,
         entry: newEntry,
-        aliases: updatedAliases,
+        aliases: updatedUserAliases,
       },
       { status: 201 }
     );
@@ -120,16 +133,23 @@ export async function PUT(request: Request) {
     const cleanOld = oldAlias.trim().toUpperCase();
     const cleanNew = newAlias.trim().toUpperCase();
 
-    const currentAliases = readCustomAliasesFromFile();
-    const index = currentAliases.findIndex(
+    let currentUser = null;
+    try {
+      currentUser = await getCurrentUser();
+    } catch {
+      // outside request store
+    }
+
+    const userAliases = readCustomAliasesForUser(currentUser);
+    const existing = userAliases.find(
       (e) =>
         e.standardMnemonic.toUpperCase() === cleanCurve &&
         e.alias.toUpperCase() === cleanOld
     );
 
-    if (index === -1) {
+    if (!existing) {
       return NextResponse.json(
-        { error: `Alias "${oldAlias}" not found under curve ${cleanCurve}.` },
+        { error: `Alias "${oldAlias}" not found under curve ${cleanCurve} in your account.` },
         { status: 404 }
       );
     }
@@ -139,7 +159,7 @@ export async function PUT(request: Request) {
         cleanNew,
         cleanCurve,
         cleanOld,
-        currentAliases
+        userAliases
       );
 
       if (!validation.valid) {
@@ -150,34 +170,27 @@ export async function PUT(request: Request) {
       }
     }
 
-    let updaterName = currentAliases[index].addedBy;
-    try {
-      const currentUser = await getCurrentUser();
-      if (currentUser?.name) {
-        updaterName = currentUser.name;
-      }
-    } catch {
-      // outside request store
+    const updateResult = updateUserCustomAlias(
+      currentUser,
+      cleanCurve,
+      cleanOld,
+      cleanNew
+    );
+
+    if (!updateResult.success) {
+      return NextResponse.json(
+        { error: updateResult.error || "Failed to update alias." },
+        { status: 400 }
+      );
     }
 
-    const updatedEntry: CustomAliasEntry = {
-      ...currentAliases[index],
-      alias: cleanNew,
-      addedBy: updaterName,
-      addedAt: new Date().toISOString(),
-    };
-
-    const updatedAliases = [...currentAliases];
-    updatedAliases[index] = updatedEntry;
-
-    writeCustomAliasesToFile(updatedAliases);
-    setCustomAliases(updatedAliases);
+    setCustomAliases(updateResult.aliases);
 
     return NextResponse.json(
       {
         message: `Alias updated successfully to ${cleanNew}.`,
-        entry: updatedEntry,
-        aliases: updatedAliases,
+        entry: updateResult.entry,
+        aliases: updateResult.aliases,
       },
       { status: 200 }
     );
@@ -212,29 +225,28 @@ export async function DELETE(request: Request) {
     const cleanCurve = standardMnemonic.trim().toUpperCase();
     const cleanAlias = alias.trim().toUpperCase();
 
-    const currentAliases = readCustomAliasesFromFile();
-    const updatedAliases = currentAliases.filter(
-      (e) =>
-        !(
-          e.standardMnemonic.toUpperCase() === cleanCurve &&
-          e.alias.toUpperCase() === cleanAlias
-        )
-    );
+    let currentUser = null;
+    try {
+      currentUser = await getCurrentUser();
+    } catch {
+      // outside request store
+    }
 
-    if (updatedAliases.length === currentAliases.length) {
+    const deleteResult = deleteUserCustomAlias(currentUser, cleanCurve, cleanAlias);
+
+    if (!deleteResult.success) {
       return NextResponse.json(
-        { error: `Alias "${alias}" was not found under ${cleanCurve}.` },
+        { error: deleteResult.error || `Alias "${alias}" was not found under ${cleanCurve}.` },
         { status: 404 }
       );
     }
 
-    writeCustomAliasesToFile(updatedAliases);
-    setCustomAliases(updatedAliases);
+    setCustomAliases(deleteResult.aliases);
 
     return NextResponse.json(
       {
         message: `Alias ${cleanAlias} removed from ${cleanCurve}.`,
-        aliases: updatedAliases,
+        aliases: deleteResult.aliases,
       },
       { status: 200 }
     );

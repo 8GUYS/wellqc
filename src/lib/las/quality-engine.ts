@@ -1,5 +1,5 @@
 import { ParsedLAS } from './parser';
-import { standardiseMnemonic, STANDARD_CURVES } from './standardiser';
+import { standardiseMnemonic, STANDARD_CURVES, CustomAliasEntry } from './standardiser';
 import { convertToStandardUnit } from './exporter';
 
 export type AnomalyType =
@@ -57,7 +57,10 @@ export interface QualityAnalysisResult {
 /**
  * Enterprise Well Log Quality Assurance Engine
  */
-export function analyzeWellLogQuality(las: ParsedLAS): QualityAnalysisResult {
+export function analyzeWellLogQuality(
+  las: ParsedLAS,
+  customAliases?: CustomAliasEntry[]
+): QualityAnalysisResult {
   const depthArray = las.data.depth;
   const nullValue = las.wellInfo.nullValue;
   const totalPoints = depthArray.length;
@@ -104,7 +107,7 @@ export function analyzeWellLogQuality(las: ParsedLAS): QualityAnalysisResult {
   // 3. Process Each Log Curve Channel
   for (const cMeta of las.curves) {
     const rawValues = las.data.curves[cMeta.mnemonic] || [];
-    const stdRes = standardiseMnemonic(cMeta.mnemonic, cMeta.unit);
+    const stdRes = standardiseMnemonic(cMeta.mnemonic, cMeta.unit, customAliases);
     
     if (stdRes.standardMnemonic !== 'UNKNOWN') {
       presentStandardMnemonics.add(stdRes.standardMnemonic);

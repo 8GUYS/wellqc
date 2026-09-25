@@ -4,6 +4,8 @@ export interface CustomAliasEntry {
   standardMnemonic: string;
   addedBy: string;
   addedAt: string; // ISO 8601 string
+  userId?: string;
+  userEmail?: string;
 }
 
 export interface StandardCurveDef {

@@ -38,6 +38,9 @@ export default function StandardisationPage() {
   // Active Popover on Click
   const [activePopoverAlias, setActivePopoverAlias] = useState<string | null>(null);
 
+  // Manage All Custom Overrides Modal
+  const [manageModalOpen, setManageModalOpen] = useState(false);
+
   // Add Alias Modal State
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [selectedCurve, setSelectedCurve] = useState<string | null>(null);
@@ -116,8 +119,45 @@ export default function StandardisationPage() {
   }, []);
 
   useEffect(() => {
-    loadSharedAliases();
-  }, [loadSharedAliases]);
+    // Reset in-memory custom aliases to ensure clean state per logged-in account
+    setCustomAliases([]);
+    let isMounted = true;
+
+    async function init() {
+      try {
+        const res = await fetch("/api/standardisation/aliases", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) {
+            const serverAliases: CustomAliasEntry[] = Array.isArray(data.aliases) ? data.aliases : [];
+            setCustomAliases(serverAliases);
+            setCustomAliasesState(serverAliases);
+            const merged = getMergedStandardCurves(serverAliases);
+            setCurves(Object.values(merged));
+          }
+        } else if (isMounted) {
+          const merged = getMergedStandardCurves();
+          setCurves(Object.values(merged));
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.warn("Could not load aliases from server, using local fallback:", err);
+          const merged = getMergedStandardCurves();
+          setCurves(Object.values(merged));
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void init();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Close popover when clicking outside
   useEffect(() => {
@@ -138,7 +178,13 @@ export default function StandardisationPage() {
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.aliases.some((a) => a.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesCategory = selectedCategory === "ALL" || c.category === selectedCategory;
+    const matchesCategory =
+      selectedCategory === "ALL"
+        ? true
+        : selectedCategory === "CUSTOM_ONLY"
+        ? Boolean(c.customAliases && c.customAliases.length > 0)
+        : c.category === selectedCategory;
+
     return matchesSearch && matchesCategory;
   });
 
@@ -429,15 +475,32 @@ export default function StandardisationPage() {
             </div>
           </div>
 
-          <div className="bg-wellqc-panel/80 border border-wellqc-border p-4 rounded-xl flex items-center justify-between font-mono text-xs">
+          <button
+            type="button"
+            onClick={() => setManageModalOpen(true)}
+            className="bg-wellqc-panel/80 hover:bg-wellqc-card border border-purple-500/40 hover:border-purple-400 p-4 rounded-xl flex items-center justify-between font-mono text-xs text-left transition-all group cursor-pointer shadow-lg hover:shadow-purple-500/10 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+            title="Click to view and manage all custom overrides"
+          >
             <div>
-              <span className="text-[10px] text-wellqc-muted uppercase tracking-wider block">Custom Team Aliases (Shared)</span>
-              <span className="text-xl font-bold text-purple-300 mt-0.5 block">{customAliases.length} Custom Overrides</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-purple-300 uppercase tracking-wider block font-bold">
+                  Custom Team Aliases
+                </span>
+                <span className="text-[9px] bg-purple-500/30 text-purple-200 border border-purple-500/50 px-1.5 py-0.5 rounded font-mono font-semibold">
+                  Manage ↗
+                </span>
+              </div>
+              <span className="text-xl font-bold text-purple-300 mt-1 block group-hover:text-purple-100 transition-colors">
+                {customAliases.length} Custom Override{customAliases.length === 1 ? "" : "s"}
+              </span>
+              <span className="text-[10px] text-slate-400 mt-0.5 block group-hover:text-cyan-300 transition-colors">
+                Click to view, edit, or delete →
+              </span>
             </div>
-            <div className="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400">
+            <div className="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 group-hover:scale-110 group-hover:bg-purple-500/20 transition-all">
               <Sparkles className="w-5 h-5" />
             </div>
-          </div>
+          </button>
 
           <div className="bg-wellqc-panel/80 border border-wellqc-border p-4 rounded-xl flex flex-col justify-center font-mono text-xs space-y-1.5">
             <span className="text-[10px] text-wellqc-muted uppercase tracking-wider">Alias Visual Legend</span>
@@ -491,8 +554,150 @@ export default function StandardisationPage() {
                 {cat}
               </button>
             ))}
+
+            {/* Quick Filter for Curves with Custom Overrides */}
+            <button
+              type="button"
+              onClick={() =>
+                setSelectedCategory(selectedCategory === "CUSTOM_ONLY" ? "ALL" : "CUSTOM_ONLY")
+              }
+              className={`px-2.5 py-1 rounded-md transition-all shrink-0 flex items-center gap-1.5 font-bold ${
+                selectedCategory === "CUSTOM_ONLY"
+                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                  : "bg-purple-950/50 text-purple-300 hover:text-purple-100 hover:bg-purple-900/60 border border-purple-500/40"
+              }`}
+            >
+              <Sparkles className="w-3 h-3 text-purple-400" />
+              <span>Custom Overrides ({customAliases.length})</span>
+            </button>
           </div>
         </div>
+
+        {/* Manage Custom Overrides Modal */}
+        {manageModalOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div className="bg-wellqc-panel border border-purple-500/40 rounded-2xl p-6 max-w-2xl w-full space-y-4 font-mono text-xs shadow-2xl relative max-h-[85vh] flex flex-col animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between pb-3 border-b border-wellqc-border shrink-0">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300">
+                    <Sparkles className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      Custom Curve Overrides
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 border border-purple-500/40 text-purple-300">
+                        {customAliases.length} Active
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-wellqc-muted">
+                      Custom mnemonic aliases registered to your account
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setManageModalOpen(false)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-wellqc-card"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto space-y-3 pr-1 py-1 flex-1">
+                {customAliases.length === 0 ? (
+                  <div className="text-center py-10 space-y-2 bg-wellqc-card/40 border border-wellqc-border rounded-xl">
+                    <p className="text-slate-300 font-semibold">No custom overrides saved for this account</p>
+                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                      You can add custom aliases to any standard curve using the &quot;Add Alias&quot; button in the main dictionary table.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="border border-wellqc-border rounded-xl overflow-hidden bg-wellqc-card/50">
+                    <table className="w-full text-left font-mono text-xs">
+                      <thead className="bg-wellqc-card border-b border-wellqc-border text-slate-400 uppercase text-[10px]">
+                        <tr>
+                          <th className="p-3">Custom Alias</th>
+                          <th className="p-3">Standard Curve</th>
+                          <th className="p-3">Added By</th>
+                          <th className="p-3">Date Added</th>
+                          <th className="p-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-wellqc-border">
+                        {customAliases.map((entry) => {
+                          const curveDef = curves.find((c) => c.standardMnemonic === entry.standardMnemonic);
+                          return (
+                            <tr key={`${entry.standardMnemonic}_${entry.alias}`} className="hover:bg-wellqc-card/70 transition-colors">
+                              <td className="p-3">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-purple-950/80 border border-purple-500/60 text-purple-200 font-bold">
+                                  <Sparkles className="w-3 h-3 text-purple-400 shrink-0" />
+                                  {entry.alias}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <div className="font-bold text-cyan-300">{entry.standardMnemonic}</div>
+                                {curveDef && (
+                                  <div className="text-[10px] text-wellqc-muted truncate max-w-[150px]">
+                                    {curveDef.name}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="p-3 text-slate-300 truncate max-w-[120px]">
+                                {entry.addedBy || "You"}
+                              </td>
+                              <td className="p-3 text-[10px] text-slate-400 whitespace-nowrap">
+                                {formatTimestamp(entry.addedAt)}
+                              </td>
+                              <td className="p-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setManageModalOpen(false);
+                                      openEditModal(entry.standardMnemonic, entry.alias);
+                                    }}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-wellqc-card hover:bg-cyan-500/20 text-cyan-300 border border-wellqc-border text-[11px] font-bold transition-colors cursor-pointer"
+                                  >
+                                    <Edit2 className="w-3 h-3" />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setManageModalOpen(false);
+                                      openDeleteModal(entry.standardMnemonic, entry.alias);
+                                    }}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-[11px] font-bold transition-colors cursor-pointer shadow-sm"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-wellqc-border flex items-center justify-between shrink-0">
+                <span className="text-[11px] text-slate-400">
+                  Custom overrides automatically standardise your curve mnemonics during LAS upload.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setManageModalOpen(false)}
+                  className="px-4 py-2 rounded-lg bg-wellqc-card hover:bg-wellqc-card/80 text-slate-300 transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Add Alias Modal (Issues 1 & 2) */}
         {addModalOpen && selectedCurve && (
@@ -828,23 +1033,37 @@ export default function StandardisationPage() {
                                     className="relative inline-block"
                                     data-alias-pill="true"
                                   >
-                                    {/* Custom Pill with Distinct Color (Issue 4) */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setActivePopoverAlias(
-                                          isPopoverOpen ? null : popoverKey
-                                        );
-                                      }}
-                                      className="group/pill inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-mono font-medium transition-all shadow-sm bg-purple-950/70 border border-purple-500/60 text-purple-200 hover:border-purple-300 hover:bg-purple-900/80 cursor-pointer"
-                                      title={`Custom alias added by ${customEntry.addedBy} on ${formatTimestamp(customEntry.addedAt)}. Click for options.`}
-                                    >
-                                      <Sparkles className="w-2.5 h-2.5 text-purple-400 shrink-0" />
-                                      <span className="font-bold">{cleanAlias}</span>
-                                      <span className="text-[9px] text-purple-400/80 font-normal">
-                                        ● Custom
-                                      </span>
-                                    </button>
+                                    {/* Custom Pill with Distinct Color & Quick Delete */}
+                                    <div className="group/pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-medium transition-all shadow-sm bg-purple-950/70 border border-purple-500/60 text-purple-200 hover:border-purple-300 hover:bg-purple-900/80">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActivePopoverAlias(
+                                            isPopoverOpen ? null : popoverKey
+                                          );
+                                        }}
+                                        className="inline-flex items-center gap-1 text-purple-200 hover:text-white cursor-pointer"
+                                        title={`Custom alias added by ${customEntry.addedBy} on ${formatTimestamp(customEntry.addedAt)}. Click for info & edit.`}
+                                      >
+                                        <Sparkles className="w-2.5 h-2.5 text-purple-400 shrink-0" />
+                                        <span className="font-bold">{cleanAlias}</span>
+                                        <span className="text-[9px] text-purple-400/80 font-normal">
+                                          ● Custom
+                                        </span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openDeleteModal(c.standardMnemonic, cleanAlias);
+                                        }}
+                                        className="text-rose-400 hover:text-rose-200 hover:bg-rose-500/30 rounded p-1 transition-colors cursor-pointer flex items-center"
+                                        title={`Delete custom alias ${cleanAlias}`}
+                                        aria-label={`Delete custom alias ${cleanAlias}`}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                      </button>
+                                    </div>
 
                                     {/* Interactive Popover / Tooltip on Click or Hover (Issues 3 & 4) */}
                                     {isPopoverOpen && (

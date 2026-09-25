@@ -1,4 +1,5 @@
 import { GET, POST, PUT, DELETE } from "@/app/api/standardisation/aliases/route";
+import { saveUserCustomAlias, readCustomAliasesForUser } from "@/lib/las/alias-storage";
 import fs from "fs";
 import path from "path";
 
@@ -141,5 +142,43 @@ describe("/api/standardisation/aliases Route", () => {
     const getRes = await GET();
     const getData = await getRes.json();
     expect(getData.aliases).toHaveLength(0);
+  });
+
+  it("enforces strict account isolation between different user accounts", () => {
+    const userA = { id: "user_a_123", email: "alice@company.com", name: "Alice" };
+    const userB = { id: "user_b_456", email: "bob@company.com", name: "Bob" };
+
+    // Alice adds a custom alias for GR
+    saveUserCustomAlias(userA, {
+      id: "alias_alice_1",
+      alias: "ALICE_GAMMA_V1",
+      standardMnemonic: "GR",
+      addedBy: "Alice",
+      addedAt: new Date().toISOString(),
+    });
+
+    // Bob adds a custom alias for DT
+    saveUserCustomAlias(userB, {
+      id: "alias_bob_1",
+      alias: "BOB_SONIC_V1",
+      standardMnemonic: "DT",
+      addedBy: "Bob",
+      addedAt: new Date().toISOString(),
+    });
+
+    // Alice should only see her alias
+    const aliceAliases = readCustomAliasesForUser(userA);
+    expect(aliceAliases).toHaveLength(1);
+    expect(aliceAliases[0].alias).toBe("ALICE_GAMMA_V1");
+
+    // Bob should only see his alias (not Alice's)
+    const bobAliases = readCustomAliasesForUser(userB);
+    expect(bobAliases).toHaveLength(1);
+    expect(bobAliases[0].alias).toBe("BOB_SONIC_V1");
+
+    // A brand new user C should see 0 custom aliases
+    const userC = { id: "user_c_789", email: "charlie@company.com", name: "Charlie" };
+    const charlieAliases = readCustomAliasesForUser(userC);
+    expect(charlieAliases).toHaveLength(0);
   });
 });

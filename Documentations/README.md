@@ -296,7 +296,7 @@ Payment channels supported: **Verve, Mastercard, Visa**, **Bank Transfer**, **US
 
 ## 📊 Supported LAS Mnemonics
 
-| Standard Mnemonic | Description | Typical Range |
+| Standard Names | Description | Typical Range |
 |---|---|---|
 | GR | Gamma Ray | 0–300 GAPI |
 | RHOB | Bulk Density | 1.00–3.20 g/cc |

@@ -52,6 +52,37 @@ function downloadTextFile(fileName: string, content: string, mimeType: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+function downsampleParsedLASForStorage(parsed: ParsedLAS, maxPoints: number = 300): ParsedLAS {
+  if (!parsed || !parsed.data || !parsed.data.depth) return parsed;
+  const total = parsed.data.depth.length;
+  if (total <= maxPoints) {
+    return parsed;
+  }
+
+  const step = Math.ceil(total / maxPoints);
+  const sampledDepth: number[] = [];
+  const sampledCurves: Record<string, number[]> = {};
+
+  for (const mnem of Object.keys(parsed.data.curves)) {
+    sampledCurves[mnem] = [];
+  }
+
+  for (let i = 0; i < total; i += step) {
+    sampledDepth.push(parsed.data.depth[i]);
+    for (const [mnem, values] of Object.entries(parsed.data.curves)) {
+      sampledCurves[mnem].push(values[i] ?? parsed.wellInfo.nullValue);
+    }
+  }
+
+  return {
+    ...parsed,
+    data: {
+      depth: sampledDepth,
+      curves: sampledCurves,
+    },
+  };
+}
+
 function getInitialUploadWorkspace(): {
   fileName: string;
   rawText: string;
@@ -72,7 +103,13 @@ function getInitialUploadWorkspace(): {
           return {
             fileName: session.fileName || "restored-well-log.las",
             rawText: session.rawText || "",
-            parsedLAS: session.parsedLAS,
+            parsedLAS: {
+              ...session.parsedLAS,
+              data: {
+                depth: Array.isArray(session.parsedLAS.data?.depth) ? session.parsedLAS.data.depth : [],
+                curves: session.parsedLAS.data?.curves || {},
+              },
+            },
             qaResult: session.qaResult,
             aiOutput: session.aiOutput || null,
             savedSuccess: Boolean(session.savedSuccess),
@@ -119,33 +156,38 @@ export default function LASUploadPage() {
   const [restoredFromStorage, setRestoredFromStorage] = useState(initialWorkspace.restoredFromStorage);
   const [activeTab, setActiveTab] = useState<"curves" | "anomalies" | "headers" | "raw" | "viewer">("curves");
 
-  // 2. Persist state to localStorage on changes
+  // 2. Persist state to localStorage on changes with quota protection
   useEffect(() => {
     if (!parsedLAS || !qaResult) return;
 
     try {
+      const lightweightParsed = downsampleParsedLASForStorage(parsedLAS, 300);
       const payload = {
         fileName,
-        rawText: rawText.length > 2_000_000 ? "" : rawText,
-        parsedLAS,
+        rawText: rawText.length > 50_000 ? "" : rawText,
+        parsedLAS: lightweightParsed,
         qaResult,
         aiOutput,
         savedSuccess,
         savedWell,
         uploadQueue: uploadQueue.map((item) => ({
           ...item,
-          content: item.content.length > 500_000 ? "" : item.content,
+          content: "",
+          parsed: downsampleParsedLASForStorage(item.parsed, 50),
         })),
         updatedAt: Date.now(),
       };
       localStorage.setItem("wellqc_upload_workspace", JSON.stringify(payload));
-    } catch (err) {
-      console.warn("Storage quota exceeded or storage unavailable, falling back to lightweight payload", err);
+    } catch {
+      // Fallback to minimal payload without any raw curves if storage is tight
       try {
         const minimal = {
           fileName,
           rawText: "",
-          parsedLAS,
+          parsedLAS: {
+            ...parsedLAS,
+            data: { depth: [], curves: {} },
+          },
           qaResult,
           aiOutput,
           savedSuccess,
@@ -154,7 +196,9 @@ export default function LASUploadPage() {
           updatedAt: Date.now(),
         };
         localStorage.setItem("wellqc_upload_workspace", JSON.stringify(minimal));
-      } catch {}
+      } catch {
+        // If localStorage is completely full or disabled in incognito, suppress silently
+      }
     }
   }, [parsedLAS, qaResult, aiOutput, rawText, fileName, savedSuccess, savedWell, uploadQueue]);
 
@@ -289,11 +333,26 @@ export default function LASUploadPage() {
   };
 
   const handleCommitToDatabase = async () => {
-    // 1. Resolve raw LAS content: direct rawText, queued item content, or reconstructed raw LAS without auto-cleaning
+    // 1. Verify that we have full raw LAS content and not a downsampled preview
+    const isDownsampled = Boolean(
+      parsedLAS &&
+      parsedLAS.data?.depth &&
+      parsedLAS.totalPoints > parsedLAS.data.depth.length
+    );
+
+    if (!rawText && isDownsampled) {
+      setSaveError(
+        "Only a downsampled preview is currently in browser memory. Please re-select or drop the original LAS file to ensure the complete, untouched raw log is committed to the database."
+      );
+      return;
+    }
+
     const contentToCommit =
       rawText ||
       uploadQueue.find((f) => f.name === fileName)?.content ||
-      (parsedLAS ? reconstructRawLASText(parsedLAS) : "");
+      (parsedLAS && parsedLAS.data?.depth && parsedLAS.data.depth.length === parsedLAS.totalPoints
+        ? reconstructRawLASText(parsedLAS)
+        : "");
 
     if (!contentToCommit || !parsedLAS || !qaResult) {
       setSaveError("No LAS log content is available to upload. Please re-select or drag-and-drop your LAS file.");
@@ -350,9 +409,20 @@ export default function LASUploadPage() {
     for (const file of pendingFiles) {
       setUploadQueue((files) => files.map((item) => item.id === file.id ? { ...item, status: "saving", error: undefined } : item));
       try {
+        const isDownsampled = Boolean(
+          file.parsed &&
+          file.parsed.data?.depth &&
+          file.parsed.totalPoints > file.parsed.data.depth.length
+        );
+        if (!file.content && isDownsampled) {
+          throw new Error(`File ${file.name} only has a preview in memory. Please re-select the file to upload full raw data.`);
+        }
+
         const fileContent =
           file.content ||
-          (file.parsed ? reconstructRawLASText(file.parsed) : "");
+          (file.parsed && file.parsed.data?.depth && file.parsed.data.depth.length === file.parsed.totalPoints
+            ? reconstructRawLASText(file.parsed)
+            : "");
         if (!fileContent) {
           throw new Error(`File ${file.name} has no content to commit.`);
         }

@@ -28,7 +28,7 @@ export function CurveInventoryTable({
         <thead className="bg-wellqc-card border-b border-wellqc-border text-[11px] text-wellqc-muted uppercase">
           <tr>
             <th className="py-3 px-4">Raw Mnemonic</th>
-            <th className="py-3 px-4">Standard Mnemonic</th>
+            <th className="py-3 px-4">Standard Name</th>
             <th className="py-3 px-4">Description</th>
             <th className="py-3 px-4">Unit</th>
             <th className="py-3 px-4">Null Count / Total</th>
@@ -89,15 +89,14 @@ export function CurveInventoryTable({
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        curve.status === "EXCELLENT"
-                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                          : curve.status === "GOOD"
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${curve.status === "EXCELLENT"
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                        : curve.status === "GOOD"
                           ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
                           : curve.status === "POOR"
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                          : "bg-red-500/20 text-red-300 border border-red-500/30"
-                      }`}
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                            : "bg-red-500/20 text-red-300 border border-red-500/30"
+                        }`}
                     >
                       {curve.status} ({curve.healthScore}/100)
                     </span>

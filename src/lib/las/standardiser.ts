@@ -22,7 +22,7 @@ export interface StandardCurveDef {
 }
 
 export const STANDARD_CURVES: Record<string, StandardCurveDef> = {
-  DEPTH: {
+  DEPT: {
     standardMnemonic: 'DEPT',
     name: 'Measured Depth',
     category: 'DEPTH',
@@ -145,6 +145,15 @@ export const STANDARD_CURVES: Record<string, StandardCurveDef> = {
   },
 };
 
+// Ensure backward compatibility for lookups by DEPTH without duplicating entries in Object.values()
+Object.defineProperty(STANDARD_CURVES, "DEPTH", {
+  get() {
+    return STANDARD_CURVES.DEPT;
+  },
+  enumerable: false,
+  configurable: true,
+});
+
 export interface StandardisationResult {
   originalMnemonic: string;
   standardMnemonic: string;
@@ -248,7 +257,8 @@ export function validateAliasForCurve(
   customAliasesList?: CustomAliasEntry[]
 ): AliasValidationResult {
   const cleanAlias = alias.trim().toUpperCase();
-  const cleanTarget = targetCurve.trim().toUpperCase();
+  const cleanTargetRaw = targetCurve.trim().toUpperCase();
+  const cleanTarget = cleanTargetRaw === "DEPTH" ? "DEPT" : cleanTargetRaw;
 
   if (!cleanAlias) {
     return { valid: false, error: "Alias cannot be empty." };
@@ -258,6 +268,7 @@ export function validateAliasForCurve(
 
   // 1. Search every standard curve's standard mnemonic and built-in aliases
   for (const [key, def] of Object.entries(STANDARD_CURVES)) {
+    if (key === "DEPTH" && STANDARD_CURVES["DEPT"]) continue;
     const curveMnem = def.standardMnemonic.toUpperCase();
 
     // Check if alias matches standard mnemonic directly
@@ -475,7 +486,12 @@ export function getMergedStandardCurves(customList?: CustomAliasEntry[]): Record
   const merged: Record<string, StandardCurveDef> = {};
 
   for (const [key, def] of Object.entries(STANDARD_CURVES)) {
-    const curveCustom = custom.filter((c) => c.standardMnemonic.toUpperCase() === key.toUpperCase());
+    if (key === "DEPTH" && STANDARD_CURVES["DEPT"]) continue;
+    const curveCustom = custom.filter(
+      (c) =>
+        c.standardMnemonic.toUpperCase() === def.standardMnemonic.toUpperCase() ||
+        c.standardMnemonic.toUpperCase() === key.toUpperCase()
+    );
     const customAliases = curveCustom.map((c) => c.alias);
     const combinedAliases = Array.from(new Set([...def.aliases, ...customAliases]));
     merged[key] = {
@@ -483,6 +499,16 @@ export function getMergedStandardCurves(customList?: CustomAliasEntry[]): Record
       aliases: combinedAliases,
       customAliases: curveCustom,
     };
+  }
+
+  if (merged["DEPT"]) {
+    Object.defineProperty(merged, "DEPTH", {
+      get() {
+        return merged["DEPT"];
+      },
+      enumerable: false,
+      configurable: true,
+    });
   }
 
   return merged;

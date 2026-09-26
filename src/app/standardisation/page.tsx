@@ -92,9 +92,10 @@ export default function StandardisationPage() {
     loadUser();
   }, []);
 
-  // Load custom aliases from server API (Issue 1: Shared across all browsers)
-  const loadSharedAliases = useCallback(async (showIndicator = false) => {
-    if (showIndicator) setIsSyncing(true);
+  // Sync Shared Aliases on demand (User click)
+  const handleSyncShared = async () => {
+    setIsSyncing(true);
+    const startTime = Date.now();
     try {
       const res = await fetch("/api/standardisation/aliases", { cache: "no-store" });
       if (res.ok) {
@@ -104,26 +105,34 @@ export default function StandardisationPage() {
         setCustomAliasesState(serverAliases);
         const merged = getMergedStandardCurves(serverAliases);
         setCurves(Object.values(merged));
+
+        const elapsed = Date.now() - startTime;
+        if (elapsed < 500) {
+          await new Promise((r) => setTimeout(r, 500 - elapsed));
+        }
+        showToast(
+          `Synchronized ${serverAliases.length} custom override${serverAliases.length === 1 ? "" : "s"} across your account!`,
+          "success"
+        );
       } else {
         const merged = getMergedStandardCurves();
         setCurves(Object.values(merged));
+        showToast("Failed to sync shared aliases from server.", "error");
       }
     } catch (err) {
       console.warn("Could not load aliases from server, using local fallback:", err);
       const merged = getMergedStandardCurves();
       setCurves(Object.values(merged));
+      showToast("Network error syncing shared aliases.", "error");
     } finally {
-      setIsLoading(false);
-      if (showIndicator) setIsSyncing(false);
+      setIsSyncing(false);
     }
-  }, []);
+  };
 
+  // Initial load on mount
   useEffect(() => {
-    // Reset in-memory custom aliases to ensure clean state per logged-in account
-    setCustomAliases([]);
     let isMounted = true;
-
-    async function init() {
+    async function loadInitialAliases() {
       try {
         const res = await fetch("/api/standardisation/aliases", { cache: "no-store" });
         if (res.ok) {
@@ -152,8 +161,7 @@ export default function StandardisationPage() {
       }
     }
 
-    void init();
-
+    void loadInitialAliases();
     return () => {
       isMounted = false;
     };
@@ -351,14 +359,17 @@ export default function StandardisationPage() {
 
     setIsDeleting(true);
     try {
-      const res = await fetch("/api/standardisation/aliases", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          standardMnemonic: deletingCurve,
-          alias: deletingAlias,
-        }),
-      });
+      const res = await fetch(
+        `/api/standardisation/aliases?standardMnemonic=${encodeURIComponent(deletingCurve)}&alias=${encodeURIComponent(deletingAlias)}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            standardMnemonic: deletingCurve,
+            alias: deletingAlias,
+          }),
+        }
+      );
 
       const data = await res.json();
       if (!res.ok) {
@@ -452,7 +463,7 @@ export default function StandardisationPage() {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => loadSharedAliases(true)}
+              onClick={handleSyncShared}
               disabled={isSyncing}
               className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-wellqc-card hover:bg-wellqc-card/80 text-slate-300 hover:text-white border border-wellqc-border text-xs font-mono font-semibold transition-all disabled:opacity-50"
               title="Refresh shared aliases from server"
@@ -502,16 +513,63 @@ export default function StandardisationPage() {
             </div>
           </button>
 
-          <div className="bg-wellqc-panel/80 border border-wellqc-border p-4 rounded-xl flex flex-col justify-center font-mono text-xs space-y-1.5">
-            <span className="text-[10px] text-wellqc-muted uppercase tracking-wider">Alias Visual Legend</span>
-            <div className="flex items-center gap-3 text-[11px]">
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-wellqc-card border border-wellqc-border text-slate-300">
-                Built-in standard
+          <div className="bg-wellqc-panel/80 border border-wellqc-border p-4 rounded-xl flex flex-col justify-center font-mono text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-wellqc-muted uppercase tracking-wider font-bold">
+                Alias Visual Legend (Clickable)
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-purple-950/70 border border-purple-500/60 text-purple-200">
-                <Sparkles className="w-2.5 h-2.5 text-purple-400" />
-                Custom team alias
-              </span>
+              <span className="text-[9px] text-cyan-400">Interactive Filter</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              <button
+                type="button"
+                id="legend-builtin-filter"
+                onClick={() => {
+                  setSelectedCategory("ALL");
+                  showToast(`Showing all ${curves.length} standard curve families and built-in aliases`, "info");
+                }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer select-none ${
+                  selectedCategory === "ALL"
+                    ? "bg-slate-800 text-cyan-300 border-cyan-500/60 ring-1 ring-cyan-500/40 shadow-sm"
+                    : "bg-wellqc-card border-wellqc-border text-slate-300 hover:text-white hover:border-slate-500"
+                }`}
+                title="Click to show all standard curves with built-in aliases"
+              >
+                <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0"></span>
+                <span>Built-in standard</span>
+                {selectedCategory === "ALL" && (
+                  <span className="text-[9px] text-cyan-300 font-bold ml-0.5">✓ Active</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                id="legend-custom-filter"
+                onClick={() => {
+                  const next = selectedCategory === "CUSTOM_ONLY" ? "ALL" : "CUSTOM_ONLY";
+                  setSelectedCategory(next);
+                  if (next === "CUSTOM_ONLY") {
+                    showToast(`Filtered table to curves with custom team overrides (${customAliases.length} active)`, "info");
+                  } else {
+                    showToast("Showing all standard curves", "info");
+                  }
+                }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer select-none ${
+                  selectedCategory === "CUSTOM_ONLY"
+                    ? "bg-purple-900/90 text-purple-100 border-purple-400 ring-1 ring-purple-500/60 shadow-md shadow-purple-500/20 font-bold"
+                    : "bg-purple-950/70 border-purple-500/60 text-purple-200 hover:border-purple-300 hover:bg-purple-900/80"
+                }`}
+                title="Click to toggle filter for curves with custom team aliases"
+              >
+                <Sparkles className="w-3 h-3 text-purple-400 shrink-0" />
+                <span>Custom team alias</span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/30 text-purple-200 border border-purple-500/40 font-bold">
+                  {customAliases.length}
+                </span>
+                {selectedCategory === "CUSTOM_ONLY" && (
+                  <span className="text-[9px] text-purple-300 font-bold ml-0.5">✓ Filtered</span>
+                )}
+              </button>
             </div>
           </div>
         </div>

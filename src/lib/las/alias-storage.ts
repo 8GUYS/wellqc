@@ -168,6 +168,83 @@ export function updateUserCustomAlias(
 }
 
 /**
+ * Updates a custom alias in the shared enterprise dictionary.
+ */
+export function updateSharedCustomAlias(
+  standardMnemonic: string,
+  oldAlias: string,
+  newAlias: string
+): { success: boolean; error?: string; aliases: CustomAliasEntry[]; entry?: CustomAliasEntry } {
+  const all = readAllCustomAliasesFromFile();
+  const cleanMnem = standardMnemonic.trim().toUpperCase();
+  const cleanOld = oldAlias.trim().toUpperCase();
+  const cleanNew = newAlias.trim().toUpperCase();
+
+  const targetIndex = all.findIndex(
+    (e) =>
+      e.standardMnemonic.toUpperCase() === cleanMnem &&
+      e.alias.toUpperCase() === cleanOld
+  );
+
+  if (targetIndex === -1) {
+    return {
+      success: false,
+      error: `Alias "${oldAlias}" was not found under ${cleanMnem}.`,
+      aliases: all,
+    };
+  }
+
+  const updatedEntry: CustomAliasEntry = {
+    ...all[targetIndex],
+    alias: cleanNew,
+    addedAt: new Date().toISOString(),
+  };
+
+  all[targetIndex] = updatedEntry;
+  writeCustomAliasesToFile(all);
+
+  return {
+    success: true,
+    entry: updatedEntry,
+    aliases: all,
+  };
+}
+
+/**
+ * Deletes a custom alias from the shared enterprise dictionary.
+ */
+export function deleteSharedCustomAlias(
+  standardMnemonic: string,
+  alias: string
+): { success: boolean; error?: string; aliases: CustomAliasEntry[] } {
+  const all = readAllCustomAliasesFromFile();
+  const cleanMnem = standardMnemonic.trim().toUpperCase();
+  const cleanAlias = alias.trim().toUpperCase();
+
+  const target = all.find(
+    (e) =>
+      e.standardMnemonic.toUpperCase() === cleanMnem &&
+      e.alias.toUpperCase() === cleanAlias
+  );
+
+  if (!target) {
+    return {
+      success: false,
+      error: `Alias "${alias}" was not found under ${cleanMnem}.`,
+      aliases: all,
+    };
+  }
+
+  const updatedAll = all.filter((e) => e.id !== target.id);
+  writeCustomAliasesToFile(updatedAll);
+
+  return {
+    success: true,
+    aliases: updatedAll,
+  };
+}
+
+/**
  * Deletes a custom alias owned by the user's account.
  */
 export function deleteUserCustomAlias(
@@ -202,3 +279,4 @@ export function deleteUserCustomAlias(
     aliases: readCustomAliasesForUser(user),
   };
 }
+

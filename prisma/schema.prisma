@@ -226,3 +226,20 @@ model Webhook {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 }
+
+model CustomAlias {
+  id               String   @id @default(uuid())
+  alias            String
+  standardMnemonic String
+  addedBy          String
+  addedAt          DateTime @default(now())
+  userId           String?
+  userEmail        String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
+
+  @@unique([standardMnemonic, alias, userId])
+  @@index([userId])
+  @@index([userEmail])
+}

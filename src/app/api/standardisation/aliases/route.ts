@@ -6,10 +6,10 @@ import {
   setCustomAliases,
 } from "@/lib/las/standardiser";
 import {
-  readCustomAliasesForUser,
-  saveUserCustomAlias,
-  updateUserCustomAlias,
-  deleteUserCustomAlias,
+  getCustomAliasesForUserAsync,
+  saveUserCustomAliasAsync,
+  updateUserCustomAliasAsync,
+  deleteUserCustomAliasAsync,
 } from "@/lib/las/alias-storage";
 
 export async function GET() {
@@ -21,7 +21,7 @@ export async function GET() {
       // outside request store or unauthenticated
     }
 
-    const aliases = readCustomAliasesForUser(currentUser);
+    const aliases = await getCustomAliasesForUserAsync(currentUser);
     // Sync in-memory cache for server-side standardisation
     setCustomAliases(aliases);
     return NextResponse.json({ aliases });
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       "Lead Petrophysicist";
 
     // Scope duplicate validation to the current user's account dictionary + built-in standards
-    const userAliases = readCustomAliasesForUser(currentUser);
+    const userAliases = await getCustomAliasesForUserAsync(currentUser);
 
     const validation = validateAliasForCurve(
       cleanAlias,
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
       userEmail: currentUser?.email || "",
     };
 
-    const updatedUserAliases = saveUserCustomAlias(currentUser, newEntry);
+    const updatedUserAliases = await saveUserCustomAliasAsync(currentUser, newEntry);
     setCustomAliases(updatedUserAliases);
 
     return NextResponse.json(
@@ -140,7 +140,7 @@ export async function PUT(request: Request) {
       // outside request store
     }
 
-    const userAliases = readCustomAliasesForUser(currentUser);
+    const userAliases = await getCustomAliasesForUserAsync(currentUser);
     const existing = userAliases.find(
       (e) =>
         e.standardMnemonic.toUpperCase() === cleanCurve &&
@@ -170,7 +170,7 @@ export async function PUT(request: Request) {
       }
     }
 
-    const updateResult = updateUserCustomAlias(
+    const updateResult = await updateUserCustomAliasAsync(
       currentUser,
       cleanCurve,
       cleanOld,
@@ -232,7 +232,7 @@ export async function DELETE(request: Request) {
       // outside request store
     }
 
-    const deleteResult = deleteUserCustomAlias(currentUser, cleanCurve, cleanAlias);
+    const deleteResult = await deleteUserCustomAliasAsync(currentUser, cleanCurve, cleanAlias);
 
     if (!deleteResult.success) {
       return NextResponse.json(
@@ -258,5 +258,6 @@ export async function DELETE(request: Request) {
     );
   }
 }
+
 
 

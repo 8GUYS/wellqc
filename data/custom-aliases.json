@@ -5,5 +5,14 @@
     "standardMnemonic": "DEPT",
     "addedBy": "williams chuddy",
     "addedAt": "2026-09-25T20:02:33.167Z"
+  },
+  {
+    "id": "alias_1790439136860_zfja0q",
+    "alias": "GG",
+    "standardMnemonic": "DEPT",
+    "addedBy": "Alex Mercer",
+    "addedAt": "2026-09-26T16:12:16.860Z",
+    "userId": "251f53ed-9020-4fc7-b061-dee2d6a3045a",
+    "userEmail": "alex@gmail.com"
   }
 ]

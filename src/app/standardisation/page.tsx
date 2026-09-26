@@ -258,7 +258,7 @@ export default function StandardisationPage() {
 
       updateActiveUploadWithNewAlias(analyzeWellLogQuality);
 
-      showToast(`Alias "${newAlias.trim().toUpperCase()}" mapped to ${selectedCurve} across all users!`, "success");
+      showToast(`Alias "${newAlias.trim().toUpperCase()}" mapped to ${selectedCurve} for your account!`, "success");
       setAddModalOpen(false);
       setNewAlias("");
       setAddError(null);

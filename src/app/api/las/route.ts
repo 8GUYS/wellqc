@@ -4,7 +4,7 @@ import { parseLASContent } from "@/lib/las/parser";
 import { analyzeWellLogQuality } from "@/lib/las/quality-engine";
 import { generateAIAnalysis } from "@/lib/las/ai-analyzer";
 import { standardiseMnemonic, setCustomAliases } from "@/lib/las/standardiser";
-import { readCustomAliasesForUser } from "@/lib/las/alias-storage";
+import { getCustomAliasesForUserAsync } from "@/lib/las/alias-storage";
 import { getCurrentUser } from "@/lib/auth";
 
 interface CommitLASRequest {
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       // ignore
     }
 
-    const serverAliases = readCustomAliasesForUser(userContext);
+    const serverAliases = await getCustomAliasesForUserAsync(userContext);
     setCustomAliases(serverAliases);
     const parsed = parseLASContent(content);
     const qa = analyzeWellLogQuality(parsed, serverAliases);

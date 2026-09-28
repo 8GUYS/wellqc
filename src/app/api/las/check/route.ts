@@ -10,32 +10,37 @@ export async function POST(request: Request) {
     }
 
     const tier = user.tier || "FREE";
-    const checksUsed = user.freeChecksUsed ?? 0;
+    // eslint-disable-next-line prefer-const -- reassigned inside the freemium block below once it is uncommented
+    let updatedChecksUsed = user.freeChecksUsed ?? 0;
 
-    // Strict freemium limit check: max 2 free log checks
-    if (tier === "FREE" && checksUsed >= 2) {
-      return NextResponse.json(
-        {
-          error: "Free limit reached. You have used your 2 free LAS log file checks.",
-          limitReached: true,
-          freeChecksUsed: checksUsed,
-          maxFreeChecks: 2,
-          tier,
-        },
-        { status: 402 } // Payment Required
-      );
-    }
-
-    // Increment usage count for free tier user upon performing a log check
-    let updatedChecksUsed = checksUsed;
+    // Atomic freemium check-and-increment (Commented out for free testing - uncomment when payment option is implemented)
+    /*
     if (tier === "FREE") {
-      const updatedUser = await db.user.update({
-        where: { id: user.id },
+      const consumed = await db.user.updateMany({
+        where: { id: user.id, tier: "FREE", freeChecksUsed: { lt: 2 } },
         data: { freeChecksUsed: { increment: 1 } },
-        select: { freeChecksUsed: true, tier: true },
       });
-      updatedChecksUsed = updatedUser.freeChecksUsed;
+
+      if (consumed.count === 0) {
+        return NextResponse.json(
+          {
+            error: "Free limit reached. You have used your 2 free LAS log file checks.",
+            limitReached: true,
+            freeChecksUsed: updatedChecksUsed,
+            maxFreeChecks: 2,
+            tier,
+          },
+          { status: 402 } // Payment Required
+        );
+      }
+
+      const refreshedUser = await db.user.findUnique({
+        where: { id: user.id },
+        select: { freeChecksUsed: true },
+      });
+      updatedChecksUsed = refreshedUser?.freeChecksUsed ?? updatedChecksUsed + 1;
     }
+    */
 
     return NextResponse.json({
       allowed: true,

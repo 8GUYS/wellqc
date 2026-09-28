@@ -9,7 +9,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
     }
 
-        const tier = user.tier || "FREE";
+    const tier = user.tier || "FREE";
+    // eslint-disable-next-line prefer-const -- reassigned inside the freemium block below once it is uncommented
     let updatedChecksUsed = user.freeChecksUsed ?? 0;
 
     // Atomic freemium check-and-increment (Commented out for free testing - uncomment when payment option is implemented)

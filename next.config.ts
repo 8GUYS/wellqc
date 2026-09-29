@@ -19,6 +19,18 @@ const nextConfig: NextConfig = {
         source: '/api/:path*',
         destination: `${pythonBackendUrl}/api/:path*`,
       },
+      {
+        source: '/docs',
+        destination: `${pythonBackendUrl}/docs`,
+      },
+      {
+        source: '/redoc',
+        destination: `${pythonBackendUrl}/redoc`,
+      },
+      {
+        source: '/openapi.json',
+        destination: `${pythonBackendUrl}/openapi.json`,
+      },
     ];
   },
   async headers() {

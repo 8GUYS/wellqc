@@ -229,8 +229,14 @@ def get_well_detail(
     latest_report = latest_las_file.reports[0] if (latest_las_file and latest_las_file.reports) else None
     curve_summaries = _extract_curve_summaries(latest_report, latest_las_file)
 
-    # Build curves data for chart visualization
+    # Build curves data for chart visualization and multi-track wireline viewer
     curves_data = []
+    depth_array: List[float] = []
+    curves_dict: Dict[str, List[float]] = {}
+    start_depth = latest_las_file.startDepth if latest_las_file and latest_las_file.startDepth is not None else 0.0
+    stop_depth = latest_las_file.stopDepth if latest_las_file and latest_las_file.stopDepth is not None else (well.tdFt or 0.0)
+    depth_unit = latest_las_file.depthUnit if latest_las_file and latest_las_file.depthUnit else (well.depthUnit or "FT")
+
     if latest_las_file and latest_las_file.curves:
         for c in latest_las_file.curves:
             try:
@@ -243,6 +249,16 @@ def get_well_detail(
                 "unit": c.unit,
                 "points": pts,
             })
+
+            # Extract depth array from first curve with valid points
+            if not depth_array and pts:
+                depth_array = [float(p.get("depth", 0.0)) for p in pts if isinstance(p, dict) and "depth" in p]
+
+            # Populate curve arrays for Wireline Log Viewer
+            vals = [float(p.get("value", -999.25)) for p in pts if isinstance(p, dict) and "value" in p]
+            curves_dict[c.originalMnemonic.upper()] = vals
+            if c.standardMnemonic and c.standardMnemonic.upper() != c.originalMnemonic.upper():
+                curves_dict[c.standardMnemonic.upper()] = vals
 
     # Recommendations parsing
     recs: List[str] = []
@@ -270,11 +286,20 @@ def get_well_detail(
                 "suggestedCorrection": a.suggestedCorrection,
             })
 
+    curves_matrix = {
+        "depth": depth_array,
+        "curves": curves_dict,
+    }
+
     return {
         "well": _to_well_list_item(well),
         "aiSummary": latest_report.aiSummary if latest_report else "Upload and commit a LAS file to generate a petrophysical summary.",
         "recommendations": recs,
-        "curvesData": curves_data,
+        "curvesData": curves_matrix,
+        "curvesMatrix": curves_matrix,
+        "startDepth": start_depth,
+        "stopDepth": stop_depth,
+        "depthUnit": depth_unit,
         "curveSummaries": curve_summaries,
         "anomalies": anomalies_list,
     }

@@ -12,6 +12,7 @@ erDiagram
     USER ||--o{ LAS_FILE : "uploads (1:N via uploadedById)"
     USER ||--o{ ACTIVITY_LOG : "triggers (1:N via userId)"
     USER ||--o{ API_TOKEN : "generates (1:N via userId)"
+    USER ||--o{ CUSTOM_ALIAS : "registers (1:N via userId)"
 
     FIELD ||--o{ WELL : "contains (1:N via fieldName)"
     OPERATOR ||--o{ WELL : "operates (1:N via operatorName)"
@@ -24,6 +25,17 @@ erDiagram
 
     QUALITY_REPORT ||--o{ ANOMALY : "flags (1:N via qualityReportId)"
     CURVE ||--o{ ANOMALY : "associated with (1:N via curveId)"
+
+    CUSTOM_ALIAS {
+        string id PK
+        string alias
+        string standardMnemonic
+        string addedBy
+        datetime addedAt
+        string userId FK
+        string userEmail
+        datetime updatedAt
+    }
 
     WEBHOOK {
         string id PK
@@ -193,6 +205,7 @@ Every entity in WellQC+ uses **UUID v4 strings** as its primary key (`id`). The 
 | **`User`** | $1 : N$ | **`LASFile`** | `LASFile.uploadedById` | `User.id` | `SetNull` | Tracks which petrophysicist uploaded the raw dataset. |
 | **`User`** | $1 : N$ | **`ActivityLog`** | `ActivityLog.userId` | `User.id` | `SetNull` | Compliance and audit trail attribution. |
 | **`User`** | $1 : N$ | **`APIToken`** | `APIToken.userId` | `User.id` | `Cascade` | Deleting a user revokes all their programmatic API tokens. |
+| **`User`** | $1 : N$ | **`CustomAlias`** | `CustomAlias.userId` | `User.id` | `Cascade` | User-scoped petrophysical mnemonic aliases strictly isolated per account. |
 | **`Field`** | $1 : N$ | **`Well`** | `Well.fieldName` | `Field.name` | `NoAction` / Default | Categorizes wells by regional geological basin/field. |
 | **`Operator`** | $1 : N$ | **`Well`** | `Well.operatorName` | `Operator.name` | `NoAction` / Default | Tracks oilfield operating companies (e.g., Shell, Chevron). |
 | **`Well`** | $1 : N$ | **`LASFile`** | `LASFile.wellId` | `Well.id` | `Cascade` | A well can have multiple log runs/files over its lifecycle. |
@@ -204,28 +217,28 @@ Every entity in WellQC+ uses **UUID v4 strings** as its primary key (`id`). The 
 
 ---
 
-## 3. Data Lifecycle & Ingestion Flow
+## 3. Data Lifecycle & Ingestion Flow (Python FastAPI & SQLAlchemy)
 
-When an engineer uploads a LAS file via the **Upload Workspace** (`POST /api/las?action=commit`), an atomic `db.$transaction()` executes across the relational hierarchy in the following order:
+When an engineer uploads a LAS file via the **Upload Workspace** (`POST /api/las`), the request is routed through the Python FastAPI backend (`backend/app/api/las.py`), executing atomic persistence via **SQLAlchemy 2.0 with connection pooling (`psycopg2-binary`)**:
 
 ```
                   ┌──────────────┐
-                  │     USER     │ (Authenticated Owner)
+                  │     USER     │ (Authenticated Owner via HMAC-SHA256 session)
                   └──────┬───────┘
                          │
                          ▼
                   ┌──────────────┐
-                  │     WELL     │ (Upserted via apiNo / UWI)
+                  │     WELL     │ (Upserted via apiNo / UWI with ownerId isolation)
                   └──────┬───────┘
                          │
                          ▼
                   ┌──────────────┐
-                  │   LAS_FILE   │ (Metadata: Start, Stop, Step, Null)
+                  │   LAS_FILE   │ (Metadata: Start, Stop, Step, Null, Raw Header)
                   └──────┬───────┘
             ┌────────────┴────────────┐
             ▼                         ▼
      ┌──────────────┐          ┌──────────────┐
-     │    CURVE     │          │QUALITY_REPORT│ (Overall Score, AI Summary)
+     │    CURVE     │          │QUALITY_REPORT│ (Overall Score, Grade, AI Summary)
      │ (GR, RHOB...)│          └──────┬───────┘
      └──────┬───────┘                 │
             │                         │
@@ -237,17 +250,18 @@ When an engineer uploads a LAS file via the **Upload Workspace** (`POST /api/las
                    └──────────────┘
 ```
 
-1. **User Verification (`User.id`):** The session token resolves the caller's UUID.
+1. **User Verification (`User.id`):** The `wellqc_session` HMAC-SHA256 cookie resolves the caller's UUID.
 2. **Well Upsert (`Well.id`):** Look up by unique `apiNo`. If it exists, update metadata and quality score; otherwise, create a new record assigned to `User.id`.
 3. **LAS File Registration (`LASFile.id`):** Linked to `Well.id` and `User.id`.
-4. **Curves Creation (`Curve.id`):** Multiple curve rows created, each tied to `LASFile.id` with a downsampled `dataJson` array for SVG rendering.
+4. **Curves Creation (`Curve.id`):** Multiple curve rows created, each tied to `LASFile.id` with a downsampled `dataJson` array for SVG rendering and full-fidelity arrays for the multi-track wireline explorer.
 5. **Quality Report Commit (`QualityReport.id`):** Linked both to `Well.id` and `LASFile.id`.
 6. **Anomalies Batch Insert (`Anomaly.id`):** All identified flags inserted, referencing `QualityReport.id` and optionally `Curve.id`.
-7. **Audit Trail Logging (`ActivityLog.id`):** Recorded with `userId` and `targetId = lasFile.id`.
+7. **Audit Trail Logging (`ActivityLog.id`):** Recorded with `userId` and `targetId = well.id`.
 
 ---
 
 ## 4. Multi-Tenant Isolation Architecture
 
-* **Tenant Boundary:** The platform enforces strict isolation via `Well.ownerId = User.id`.
-* **Deep Cascades:** Because all child entities (`LASFile`, `Curve`, `QualityReport`, `Anomaly`) chain directly back to `Well.id`, querying by `well.ownerId == currentUser.id` guarantees zero data leakage between different operating companies or petrophysical teams.
+* **Workspace & Well Isolation:** The platform enforces strict isolation via `Well.ownerId == User.id`. Querying child entities (`LASFile`, `Curve`, `QualityReport`, `Anomaly`) through `Well.ownerId` guarantees zero data leakage between different organizations.
+* **Custom Alias Privacy:** Custom mnemonic mappings (`CustomAlias`) are strictly isolated to the creating user (`CustomAlias.userId == current_user.id` or `CustomAlias.userEmail == current_user.email`). Unauthenticated users and other tenants cannot view, edit, or track custom aliases added by other users.
+* **Activity & Audit Trail Isolation:** `ActivityLog` queries are scoped strictly to `ActivityLog.userId == current_user.id`, ensuring audit logs and user actions remain private to each individual account.

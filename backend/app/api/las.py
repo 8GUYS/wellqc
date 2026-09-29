@@ -383,6 +383,14 @@ def handle_las(
     db.commit()
 
     return {
+        "message": f"Successfully parsed and committed {file_name} for well {well.name}.",
+        "well": {
+            "id": well.id,
+            "name": well.name,
+            "apiNo": well.apiNo,
+            "qualityScore": well.qualityScore,
+            "qualityGrade": well.qualityGrade,
+        },
         "wellId": well.id,
         "lasFileId": las_file.id,
         "reportId": report.id,
@@ -390,7 +398,6 @@ def handle_las(
         "overallScore": qa.overallScore,
         "qualityGrade": qa.qualityGrade,
         "anomalyCount": qa.anomalyCount,
-        "message": f"Successfully parsed and committed {file_name} for well {well.name}.",
     }
 
 

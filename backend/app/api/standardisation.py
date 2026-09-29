@@ -4,6 +4,7 @@ import os
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user_optional
@@ -46,14 +47,14 @@ def _get_user_aliases(db: Session, user: Optional[User]) -> List[CustomAliasEntr
     user_id = user.id if user else "demo-petrophysicist-uuid"
     user_email = user.email if user else ""
 
-    # Query DB
+    # Strictly filter DB records by this user only — no cross-user leakage
+    conditions = [CustomAlias.userId == user_id]
+    if user_email:
+        conditions.append(CustomAlias.userEmail == user_email)
+
     db_records = (
         db.query(CustomAlias)
-        .filter(
-            (CustomAlias.userId == user_id)
-            | (CustomAlias.userEmail == user_email)
-            | (CustomAlias.userId.is_(None))
-        )
+        .filter(or_(*conditions))
         .all()
     )
 
@@ -68,29 +69,34 @@ def _get_user_aliases(db: Session, user: Optional[User]) -> List[CustomAliasEntr
                     id=r.id,
                     alias=r.alias,
                     standardMnemonic=r.standardMnemonic,
-                    addedBy=r.addedBy,
+                    addedBy=r.addedBy or "You",
                     addedAt=r.addedAt.isoformat() if r.addedAt else datetime.now(timezone.utc).isoformat(),
                     userId=r.userId,
                     userEmail=r.userEmail,
                 )
             )
 
-    # Merge with file aliases (for test compatibility)
+    # Strictly filter local file aliases by this user only
     for f in _read_file_aliases():
-        key = (f.get("standardMnemonic", "").upper(), f.get("alias", "").upper())
-        if key not in seen and f.get("standardMnemonic") and f.get("alias"):
-            seen.add(key)
-            db_entries.append(
-                CustomAliasEntry(
-                    id=f.get("id", str(uuid.uuid4())),
-                    alias=f["alias"],
-                    standardMnemonic=f["standardMnemonic"],
-                    addedBy=f.get("addedBy", "Petrophysicist"),
-                    addedAt=f.get("addedAt", datetime.now(timezone.utc).isoformat()),
-                    userId=f.get("userId"),
-                    userEmail=f.get("userEmail"),
+        f_user_id = f.get("userId")
+        f_user_email = f.get("userEmail")
+        # Only include if explicitly owned by this user
+        matches_user = (f_user_id == user_id) or (user_email and f_user_email == user_email)
+        if matches_user:
+            key = (f.get("standardMnemonic", "").upper(), f.get("alias", "").upper())
+            if key not in seen and f.get("standardMnemonic") and f.get("alias"):
+                seen.add(key)
+                db_entries.append(
+                    CustomAliasEntry(
+                        id=f.get("id", str(uuid.uuid4())),
+                        alias=f["alias"],
+                        standardMnemonic=f["standardMnemonic"],
+                        addedBy=f.get("addedBy", "You"),
+                        addedAt=f.get("addedAt", datetime.now(timezone.utc).isoformat()),
+                        userId=f_user_id,
+                        userEmail=f_user_email,
+                    )
                 )
-            )
 
     return db_entries
 
@@ -222,13 +228,19 @@ def update_alias(
                 detail=validation.error,
             )
 
-    # Update in DB
+    # Update in DB with user ownership enforcement
     user_id = current_user.id if current_user else "demo-petrophysicist-uuid"
+    user_email = current_user.email if current_user else ""
+    user_filter = [CustomAlias.userId == user_id]
+    if user_email:
+        user_filter.append(CustomAlias.userEmail == user_email)
+
     db_record = (
         db.query(CustomAlias)
         .filter(
             CustomAlias.standardMnemonic == clean_curve,
             CustomAlias.alias == clean_old,
+            or_(*user_filter),
         )
         .first()
     )
@@ -243,8 +255,10 @@ def update_alias(
     updated_file = []
     found_in_file = False
     for item in file_list:
+        is_user_item = (item.get("userId") == user_id) or (user_email and item.get("userEmail") == user_email)
         if (
-            item.get("standardMnemonic", "").upper() == clean_curve
+            is_user_item
+            and item.get("standardMnemonic", "").upper() == clean_curve
             and item.get("alias", "").upper() == clean_old
         ):
             item["alias"] = clean_new
@@ -311,19 +325,28 @@ def delete_alias(
             detail=f'Alias "{alias}" was not found under {clean_curve}.',
         )
 
-    # Delete from DB
+    # Delete from DB with user ownership enforcement
+    user_id = current_user.id if current_user else "demo-petrophysicist-uuid"
+    user_email = current_user.email if current_user else ""
+    user_filter = [CustomAlias.userId == user_id]
+    if user_email:
+        user_filter.append(CustomAlias.userEmail == user_email)
+
     db.query(CustomAlias).filter(
         CustomAlias.standardMnemonic == clean_curve,
         CustomAlias.alias == clean_alias,
+        or_(*user_filter),
     ).delete(synchronize_session=False)
     db.commit()
 
     # Delete from file
     file_list = _read_file_aliases()
-    filtered = [
-        f for f in file_list
-        if not (f.get("standardMnemonic", "").upper() == clean_curve and f.get("alias", "").upper() == clean_alias)
-    ]
+    filtered = []
+    for f in file_list:
+        is_user_item = (f.get("userId") == user_id) or (user_email and f.get("userEmail") == user_email)
+        is_target = (f.get("standardMnemonic", "").upper() == clean_curve and f.get("alias", "").upper() == clean_alias)
+        if not (is_user_item and is_target):
+            filtered.append(f)
     _write_file_aliases(filtered)
 
     updated_aliases = _get_user_aliases(db, current_user)

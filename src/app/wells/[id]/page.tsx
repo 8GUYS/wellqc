@@ -11,7 +11,9 @@ import {
   Download,
   RefreshCw,
   UploadCloud,
+  Layers,
 } from "lucide-react";
+import { WellLogViewer } from "@/components/well-log/log-viewer";
 
 export default function WellDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -56,6 +58,11 @@ export default function WellDetailPage({ params }: { params: Promise<{ id: strin
   }, [id]);
 
   const well = detail?.well;
+  const hasCurves = Boolean(
+    detail?.curvesData?.depth &&
+    detail.curvesData.depth.length > 0 &&
+    Object.keys(detail.curvesData.curves || {}).length > 0
+  );
 
   return (
     <AppShell>
@@ -136,20 +143,50 @@ export default function WellDetailPage({ params }: { params: Promise<{ id: strin
               )}
             </div>
 
-            <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-8 text-center space-y-3">
-              <Database className="w-8 h-8 text-cyan-400 mx-auto" />
-              <h2 className="text-base font-bold text-white">No LAS curves committed for this well</h2>
-              <p className="text-xs text-wellqc-muted font-mono">
-                Upload and validate a LAS file, then commit it to render curves and QA anomalies here.
-              </p>
-              <Link
-                href="/upload"
-                className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs"
-              >
-                <UploadCloud className="w-4 h-4" />
-                <span>Upload LAS</span>
-              </Link>
-            </div>
+            {hasCurves ? (
+              <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl overflow-hidden shadow-xl p-5 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-wellqc-border pb-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-white font-mono flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-cyan-400" />
+                      <span>Interactive Multi-Track Wireline Log Viewer</span>
+                    </h2>
+                    <p className="text-xs text-slate-400 font-mono">
+                      Synchronized 3-track petrophysical display with logarithmic resistivity and acoustic/gamma scales.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-mono text-cyan-300 bg-cyan-950/40 border border-cyan-800/40 px-3 py-1.5 rounded-lg">
+                    <span>Channels: {Object.keys(detail.curvesData.curves).length} curves</span>
+                    <span>•</span>
+                    <span>Samples: {detail.curvesData.depth.length.toLocaleString()} pts</span>
+                  </div>
+                </div>
+
+                <WellLogViewer
+                  wellName={well.name}
+                  depthUnit={well.depthUnit || "FT"}
+                  startDepth={detail.curvesData.depth[0] ?? 0}
+                  stopDepth={detail.curvesData.depth[detail.curvesData.depth.length - 1] ?? well.tdFt}
+                  curvesData={detail.curvesData}
+                  anomalies={detail.anomalies || []}
+                />
+              </div>
+            ) : (
+              <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-8 text-center space-y-3">
+                <Database className="w-8 h-8 text-cyan-400 mx-auto" />
+                <h2 className="text-base font-bold text-white">No LAS curves committed for this well</h2>
+                <p className="text-xs text-wellqc-muted font-mono">
+                  Upload and validate a LAS file, then commit it to render curves and QA anomalies here.
+                </p>
+                <Link
+                  href="/upload"
+                  className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs"
+                >
+                  <UploadCloud className="w-4 h-4" />
+                  <span>Upload LAS</span>
+                </Link>
+              </div>
+            )}
           </>
         )}
       </div>

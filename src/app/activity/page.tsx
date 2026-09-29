@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { ActivityListItem } from "@/lib/api-types";
+import { safeReadJson } from "@/lib/http-client";
 import { History, Search, RefreshCw } from "lucide-react";
 
 export default function ActivityLogPage() {
@@ -17,14 +18,14 @@ export default function ActivityLogPage() {
     async function loadActivity() {
       try {
         const response = await fetch("/api/activity", { cache: "no-store" });
-        const data = await response.json();
+        const res = await safeReadJson<{ activities: ActivityListItem[] }>(response, "Unable to load activity.");
 
-        if (!response.ok) {
-          throw new Error(data.error || "Unable to load activity.");
+        if (!res.ok || !res.data) {
+          throw new Error(res.error || "Unable to load activity.");
         }
 
         if (!cancelled) {
-          setActivities(data.activities || []);
+          setActivities(res.data.activities || []);
         }
       } catch (err) {
         if (!cancelled) {

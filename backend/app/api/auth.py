@@ -180,18 +180,30 @@ def demo_auth(
             "freeChecksUsed": 2,
         }
 
-    # Default quick demo login
-    demo_user_dict = {
-        "id": current_user.id if current_user else "demo-petrophysicist-uuid",
-        "email": current_user.email if current_user else "demo.petrophysicist@wellqc.com",
-        "name": current_user.name if current_user else "Demo Petrophysicist",
-        "role": "PETROPHYSICIST",
-        "department": "Subsurface Analytics",
-        "tier": "FREE",
-        "freeChecksUsed": 2,
-        "ndaAcceptedAt": datetime.now(timezone.utc).isoformat(),
-    }
+    # Ensure demo user exists in database so foreign keys succeed
+    demo_email = "demo.petrophysicist@wellqc.com"
+    demo_user = db.query(User).filter(User.email == demo_email).first()
+    if not demo_user:
+        demo_user = User(
+            id="demo-petrophysicist-uuid",
+            email=demo_email,
+            name="Demo Petrophysicist",
+            passwordHash=hash_password("DemoPassword123!"),
+            role="PETROPHYSICIST",
+            department="Subsurface Analytics",
+            tier="FREE",
+            freeChecksUsed=2,
+            ndaAcceptedAt=datetime.now(timezone.utc),
+        )
+        db.add(demo_user)
+        db.commit()
+        db.refresh(demo_user)
+    elif demo_user.freeChecksUsed is None:
+        demo_user.freeChecksUsed = 2
+        db.commit()
+        db.refresh(demo_user)
 
+    demo_user_dict = _format_user(demo_user)
     _set_session_cookie(response, demo_user_dict)
 
     return {

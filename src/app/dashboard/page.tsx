@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import Link from "next/link";
 import { DashboardSummary } from "@/lib/api-types";
+import { safeReadJson } from "@/lib/http-client";
 import {
   Database,
   UploadCloud,
@@ -81,14 +82,14 @@ export default function DashboardPage() {
     async function loadDashboard() {
       try {
         const response = await fetch("/api/dashboard", { cache: "no-store" });
-        const data = await response.json();
+        const res = await safeReadJson<DashboardSummary>(response, "Unable to load dashboard data.");
 
-        if (!response.ok) {
-          throw new Error(data.error || "Unable to load dashboard data.");
+        if (!res.ok || !res.data) {
+          throw new Error(res.error || "Unable to load dashboard data.");
         }
 
         if (!cancelled) {
-          setSummary(data);
+          setSummary(res.data);
           setError("");
         }
       } catch (err) {

@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import Link from "next/link";
 import { WellDetailResponse } from "@/lib/api-types";
+import { safeReadJson } from "@/lib/http-client";
 import {
   ArrowLeft,
   Database,
@@ -30,14 +31,14 @@ export default function WellDetailPage({ params }: { params: Promise<{ id: strin
 
       try {
         const response = await fetch(`/api/wells/${id}`, { cache: "no-store" });
-        const data = await response.json();
+        const res = await safeReadJson<WellDetailResponse>(response, "Unable to load well detail.");
 
-        if (!response.ok) {
-          throw new Error(data.error || "Unable to load well detail.");
+        if (!res.ok || !res.data) {
+          throw new Error(res.error || "Unable to load well detail.");
         }
 
         if (!cancelled) {
-          setDetail(data);
+          setDetail(res.data);
         }
       } catch (err) {
         if (!cancelled) {

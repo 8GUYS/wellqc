@@ -9,6 +9,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { safeReadJson } from "@/lib/http-client";
 
 const OperatorScoreChart = dynamic(
   () => import("@/components/analytics/charts").then((m) => m.OperatorScoreChart),
@@ -40,16 +41,16 @@ export default function AnalyticsPage() {
     async function loadAnalytics() {
       try {
         const response = await fetch("/api/analytics", { cache: "no-store" });
-        const data = await response.json();
+        const res = await safeReadJson<AnalyticsData>(response, "Unable to load analytics.");
 
-        if (!response.ok) {
-          throw new Error(data.error || "Unable to load analytics.");
+        if (!res.ok || !res.data) {
+          throw new Error(res.error || "Unable to load analytics.");
         }
 
         if (!cancelled) {
           setAnalytics({
-            operatorScores: data.operatorScores || [],
-            anomalyDistribution: data.anomalyDistribution || [],
+            operatorScores: res.data.operatorScores || [],
+            anomalyDistribution: res.data.anomalyDistribution || [],
           });
         }
       } catch (err) {

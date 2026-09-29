@@ -17,7 +17,7 @@ export default function QualityEnginePage() {
               </span>
               <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                <span>Next Sprint: Sprint 4</span>
+                <span>Next Sprint: Sprint 5</span>
               </span>
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight">
@@ -45,7 +45,7 @@ export default function QualityEnginePage() {
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-white font-mono">Sprint 4 week 2 Deliverables:  Transform raw petrophysical data into actionable, visual intelligence through an industry-grade wireline multi-track viewer, scientific missing-value imputation benchmarking, basin analytics telemetry, and multi-format compliance reporting.
+            <h2 className="text-xl font-bold text-white font-mono">Sprint 4 week 2 Deliverables: Backend Migration to Python and Database Refactorings.
             </h2>
             <p className="text-xs text-slate-400 font-mono leading-relaxed">
 
@@ -55,24 +55,28 @@ export default function QualityEnginePage() {
 
           <div className="bg-wellqc-dark/70 border border-wellqc-border rounded-xl p-4 text-left space-y-2.5 font-mono text-xs text-slate-300">
             <div className="font-bold text-white text-[11px] uppercase tracking-wide">
-              Sprint 4 week 2 Roadmap: Quality Engine
+              Sprint 4 week 2 Roadmap: Migration to python
 
             </div>
             <div className="flex items-center gap-2 text-emerald-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Industry-Standard Multi-Track Wireline Log Viewer.</span>
+              <span>The migration to the unified Python FastAPI backend.</span>
             </div>
             <div className="flex items-center gap-2 text-emerald-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Scientific Missing-Value & Imputation Engine</span>
+              <span>SQLAlchemy 2.0 ORM models and cryptographic session interoperability.</span>
             </div>
             <div className="flex items-center gap-2 text-emerald-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Strict Pipeline Demarcation (Upload vs. QA Engine vs. Reports).</span>
+              <span>Integration of the Multi-Track Wireline Log Viewer on the Well Detail view.</span>
             </div>
             <div className="flex items-center gap-2 text-emerald-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Mnemonic Standardisation & Custom Alias Dictionary</span>
+              <span>Strict multi-tenant isolation on custom aliases and activity logs.</span>
+            </div>
+            <div className="flex items-center gap-2 text-emerald-300">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>27-suite automated Pytest test harness with 100% pass rate.</span>
             </div>
 
           </div>

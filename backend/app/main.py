@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+import logging
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from backend.app.core.config import settings
 from backend.app.api import (
     activity,
@@ -13,11 +15,25 @@ from backend.app.api import (
     wells,
 )
 
+logger = logging.getLogger("uvicorn.error")
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="Enterprise Well Log Quality Assurance & Petrophysics API",
 )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": str(exc) or "An internal server error occurred.",
+            "error": str(exc) or "An internal server error occurred.",
+            "status": 500,
+        },
+    )
 
 # CORS configuration
 app.add_middleware(

@@ -17,6 +17,7 @@ import {
   Layers,
   History,
 } from "lucide-react";
+import { safeReadJson } from "@/lib/http-client";
 
 interface AuditReportItem {
   id: string;
@@ -67,10 +68,10 @@ export default function ReportsPage() {
 
     // 2. Fetch wells from database
     fetch("/api/wells")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && Array.isArray(data.wells)) {
-          const dbReports: AuditReportItem[] = data.wells.map((w: { id: string; name: string; qualityScore: number; qualityGrade: string; createdAt: string }) => ({
+      .then((res) => safeReadJson<{ wells: any[] }>(res))
+      .then((res) => {
+        if (res.ok && res.data && Array.isArray(res.data.wells)) {
+          const dbReports: AuditReportItem[] = res.data.wells.map((w: { id: string; name: string; qualityScore: number; qualityGrade: string; createdAt: string }) => ({
             id: w.id,
             wellName: w.name,
             timestamp: w.createdAt || new Date().toISOString(),

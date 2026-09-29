@@ -1,3 +1,11 @@
+"""
+Authentication and Authorization Dependencies for FastAPI.
+
+This module provides dependency injection callables for resolving the currently
+authenticated user from encrypted HTTP cookies or Bearer tokens, with automatic
+database provisioning to guarantee foreign-key referential integrity across all tables.
+"""
+
 from typing import Optional
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -10,6 +18,17 @@ def get_current_user_optional(
     request: Request,
     db: Session = Depends(get_db),
 ) -> Optional[User]:
+    """
+    Extracts and resolves the active user from the request context if present.
+    
+    Checks both:
+      1. HttpOnly cookie named `wellqc_session` (primary for Next.js browser sessions).
+      2. `Authorization: Bearer <token>` header (for programmatic API requests / tokens).
+    
+    If a valid decrypted session token is found, ensures that a corresponding record exists
+    in the database `User` table to guarantee that any child foreign keys (e.g. Well.ownerId,
+    ActivityLog.userId, LASFile.uploadedById) will succeed without constraint violations.
+    """
     token = request.cookies.get(settings.SESSION_COOKIE_NAME)
     if not token:
         # Also check Authorization: Bearer <token> for API flexibility
@@ -51,6 +70,10 @@ def get_current_user_optional(
 def get_current_user(
     current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> User:
+    """
+    Guarantees that the incoming request is authenticated.
+    Raises HTTP 401 Unauthorized if no active session or bearer token is present.
+    """
     if not current_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -61,6 +84,10 @@ def get_current_user(
 def get_current_admin_user(
     current_user: User = Depends(get_current_user),
 ) -> User:
+    """
+    Enforces Role-Based Access Control (RBAC) requiring ADMIN role privileges.
+    Raises HTTP 403 Forbidden if the user is authenticated but not an administrator.
+    """
     if current_user.role != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

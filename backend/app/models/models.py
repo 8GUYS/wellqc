@@ -1,3 +1,19 @@
+"""
+WellQC+ Domain Data Models.
+
+Defines SQLAlchemy 2.0 ORM models representing the subsurface analytics schema:
+- User: Multi-tenant user accounts with role-based access and subscription tiers.
+- Field: Geological basin and field location grouping.
+- Operator: E&P Operating companies.
+- Well: Core well asset metadata (API/UWI, coordinates, total depth).
+- LASFile: Uploaded CWLS LAS 2.0 log files with headers and depth ranges.
+- Curve: Individual wireline/LWD log curves with standardized mnemonics and telemetry.
+- QualityReport: Automated QA audit reports with numerical scores and petrophysical AI summaries.
+- Anomaly: Detected log anomalies (flatlines, null gaps, spikes, noise, boundary violations).
+- ActivityLog: Tenant activity and audit trail.
+- CustomAlias: Tenant-isolated custom mnemonic dictionary aliases.
+"""
+
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
@@ -17,12 +33,19 @@ from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
 def gen_uuid() -> str:
+    """Generate a standard UUID4 string for primary keys."""
     return str(uuid.uuid4())
 
 def now_utc() -> datetime:
+    """Return timezone-aware current UTC datetime."""
     return datetime.now(timezone.utc)
 
 class User(Base):
+    """
+    User Account Model.
+    Represents an authenticated user with role-based permissions (ADMIN, PETROPHYSICIST, etc.)
+    and freemium check usage tracking.
+    """
     __tablename__ = "User"
 
     id = Column(String, primary_key=True, default=gen_uuid)

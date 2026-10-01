@@ -79,25 +79,32 @@ def check_limit(
     tier = current_user.tier or "FREE"
     checks_used = current_user.freeChecksUsed or 0
 
-    if tier == "FREE" and checks_used >= 2:
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail="Free limit reached. You have used your 2 free LAS log file checks.",
-        )
-
-    updated_checks = checks_used
-    if tier == "FREE":
-        current_user.freeChecksUsed = checks_used + 1
-        db.commit()
-        db.refresh(current_user)
-        updated_checks = current_user.freeChecksUsed
+    # FREEMIUM ENFORCEMENT SUSPENDED for unrestricted testing.
+    # Sprint 5: uncomment this block (and add the matching check in handle_las)
+    # once the payment option is implemented. Atomic check-and-increment:
+    #
+    # if tier == "FREE":
+    #     result = db.execute(
+    #         update(User)
+    #         .where(User.id == current_user.id, User.freeChecksUsed < 2)
+    #         .values(freeChecksUsed=User.freeChecksUsed + 1)
+    #     )
+    #     db.commit()
+    #     if result.rowcount == 0:
+    #         raise HTTPException(
+    #             status_code=status.HTTP_402_PAYMENT_REQUIRED,
+    #             detail="Free limit reached. You have used your 2 free LAS log file checks.",
+    #         )
+    #     db.refresh(current_user)
+    #     checks_used = current_user.freeChecksUsed
+    # (also add `update` to the sqlalchemy import when re-enabling)
 
     return {
         "allowed": True,
         "tier": tier,
-        "freeChecksUsed": updated_checks,
+        "freeChecksUsed": checks_used,
         "maxFreeChecks": 2,
-        "remainingChecks": max(0, 2 - updated_checks) if tier == "FREE" else None,
+        "remainingChecks": max(0, 2 - checks_used) if tier == "FREE" else None,
     }
 
 
@@ -110,7 +117,7 @@ def get_check_status(current_user: User = Depends(get_current_user)):
         "freeChecksUsed": checks_used,
         "maxFreeChecks": 2,
         "remainingChecks": max(0, 2 - checks_used) if tier == "FREE" else None,
-        "limitReached": tier == "FREE" and checks_used >= 2,
+        "limitReached": False,  # FREEMIUM SUSPENDED for testing. Sprint 5: restore to: tier == "FREE" and checks_used >= 2
     }
 
 

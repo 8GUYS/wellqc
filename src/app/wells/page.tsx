@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react
 import { AppShell } from "@/components/layout/app-shell";
 import Link from "next/link";
 import { WellListItem } from "@/lib/api-types";
+import { safeReadJson } from "@/lib/http-client";
 import {
   Database,
   Plus,
@@ -55,7 +56,12 @@ export default function WellManagementPage() {
   const recentCommittedWell = useMemo(() => {
     if (!storedWellRaw) return null;
     try {
+      const activeUserId = typeof window !== "undefined" ? localStorage.getItem("wellqc_active_user_id") : null;
       const parsed = JSON.parse(storedWellRaw);
+      // Multi-tenant check: do not show another user's recently committed well banner
+      if (parsed && parsed.userId && activeUserId && parsed.userId !== activeUserId) {
+        return null;
+      }
       if (parsed && parsed.wellId && parsed.wellName) {
         if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
           return parsed as {
@@ -103,13 +109,13 @@ export default function WellManagementPage() {
 
     try {
       const response = await fetch("/api/wells", { cache: "no-store" });
-      const data = await response.json();
+      const res = await safeReadJson<{ wells: WellListItem[] }>(response, "Unable to load wells.");
 
-      if (!response.ok) {
-        throw new Error(data.error || "Unable to load wells.");
+      if (!res.ok || !res.data) {
+        throw new Error(res.error || "Unable to load wells.");
       }
 
-      const fetchedWells: WellListItem[] = data.wells || [];
+      const fetchedWells: WellListItem[] = res.data.wells || [];
       setWells(fetchedWells);
 
       // If URL has ?highlight=wellId or ?search=term, auto apply
@@ -152,10 +158,10 @@ export default function WellManagementPage() {
           tdFt: parseFloat(newTd) || 0,
         }),
       });
-      const data = await response.json();
+      const res = await safeReadJson<{ well: WellListItem }>(response, "Unable to create well.");
 
-      if (!response.ok) {
-        throw new Error(data.error || "Unable to create well.");
+      if (!res.ok || !res.data) {
+        throw new Error(res.error || "Unable to create well.");
       }
 
       setIsCreateOpen(false);
@@ -173,10 +179,10 @@ export default function WellManagementPage() {
 
     try {
       const response = await fetch(`/api/wells/${id}`, { method: "DELETE" });
-      const data = await response.json();
+      const res = await safeReadJson<{ success: boolean }>(response, "Unable to delete well.");
 
-      if (!response.ok) {
-        throw new Error(data.error || "Unable to delete well.");
+      if (!res.ok) {
+        throw new Error(res.error || "Unable to delete well.");
       }
 
       setWells((current) => current.filter((well) => well.id !== id));

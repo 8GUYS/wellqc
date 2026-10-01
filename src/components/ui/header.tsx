@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ActivityListItem } from "@/lib/api-types";
+import { safeReadJson } from "@/lib/http-client";
 import { Search, Bell, Globe, LogOut, Menu } from "lucide-react";
 
 interface HeaderProps {
@@ -34,10 +35,10 @@ export function Header({
     async function loadActivities() {
       try {
         const response = await fetch("/api/activity", { cache: "no-store" });
-        const data = await response.json();
+        const res = await safeReadJson<{ activities: ActivityListItem[] }>(response);
 
-        if (!cancelled && response.ok) {
-          setActivities((data.activities || []).slice(0, 3));
+        if (!cancelled && res.ok && res.data) {
+          setActivities((res.data.activities || []).slice(0, 3));
         }
       } catch {
         if (!cancelled) {

@@ -5,6 +5,7 @@
 > **Timeline:** 3 Months (12 Weeks) · 6 × 2-Week Sprints  
 > **Active Sprint:** Sprint 4 — Advanced Visualisation, Imputation & Analytics  
 > **Methodology:** Agile Scrum with 2-Week Sprint Cycles  
+> **User Stories Specification:** See [**user_stories.md**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/user_stories.md) for full acceptance criteria & personas  
 
 ---
 
@@ -123,16 +124,30 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
 
 ---
 
-### 🟠 SPRINT 4 (Weeks 7–8): Advanced Visualisation, Imputation & Analytics
-* **Theme:** Wireline multi-track log viewer, KNN imputation cross-validation, dashboard telemetry, and report generation.
-* **SE1:** Build Multi-Track Wireline Log Viewer (`log-viewer.tsx`) supporting Track 1 (`GR`), Track 2 (`RT` log scale), Track 3 (`DT`/`RHOB`/`NPHI`), and missing-null gap overlays in Classic Paper & Dark Subsurface views.
-* **SE2:** Build Command Dashboard (`dashboard/page.tsx`), QA Engine UI (`qa-engine/page.tsx`), and Standardisation Dictionary page (`standardisation/page.tsx`).
-* **DA1:** Build persistent custom alias registration (`addCustomAlias` stored in `localStorage`) in `standardiser.ts`.
-* **DA2:** Implement Multi-Method Imputation Benchmarking Engine in `imputation-engine.ts` (KNN, Cubic Spline, Linear, Mean, Median) with ground-truth cross-validation calculating RMSE, MAE, R², and variance preservation.
-* **DA3:** Build Field Performance ranking calculations and Anomaly Distribution aggregations for `analytics/page.tsx`.
-* **DA4:** Implement PDF Audit Certificate generator (jsPDF), Excel Workbook exporter (SheetJS), and CSV logger in `reports/page.tsx`.
-* **CE1:** Optimize client-side memory usage and SVG rendering performance for large log files (>10,000 depth samples).
-* **CE2:** Implement Python FastAPI microservice (`services/python_parser/main.py`) with `lasio`, `pandas`, and `scikit-learn` (`KNNImputer`) endpoints.
+### 🟠 SPRINT 4 (Weeks 7–8): Advanced Visualisation, Imputation & Python Backend Migration
+
+* **Sprint 4 Week 1 Deliverables (Visualisation & Analytics):**
+  * **SE1:** Build Multi-Track Wireline Log Viewer (`log-viewer.tsx`) supporting Track 1 (`GR`), Track 2 (`RT` log scale), Track 3 (`DT`/`RHOB`/`NPHI`), and missing-null gap overlays in Classic Paper & Dark Subsurface views.
+  * **SE2:** Build Command Dashboard (`dashboard/page.tsx`), QA Engine UI (`qa-engine/page.tsx`), and Standardisation Dictionary page (`standardisation/page.tsx`).
+  * **DA1:** Build persistent custom alias registration (`addCustomAlias` stored in `localStorage` and database) in `standardiser.ts`.
+  * **DA2:** Implement Multi-Method Imputation Benchmarking Engine in `imputation-engine.ts` (KNN, Cubic Spline, Linear, Mean, Median) with ground-truth cross-validation calculating RMSE, MAE, R², and variance preservation.
+  * **DA3:** Build Field Performance ranking calculations and Anomaly Distribution aggregations for `analytics/page.tsx`.
+  * **DA4:** Implement PDF Audit Certificate generator (jsPDF), Excel Workbook exporter (SheetJS), and CSV logger in `reports/page.tsx`.
+  * **CE1:** Optimize client-side memory usage and SVG rendering performance for large log files (>10,000 depth samples).
+
+* **Sprint 4 Week 2 Deliverables (Full Python Backend Migration & Multi-Tenant Security):**
+  * **SE1 & CE2 (Full Backend Migration to Python):** Architected and deployed a unified **Python FastAPI** backend service (`backend/app/`) replacing disparate Next.js TypeScript API routes:
+    * Native SQLAlchemy 2.0 ORM models (`backend/app/models/models.py`) with PostgreSQL connection pooling (`psycopg2-binary`).
+    * Cryptographic session security (`backend/app/core/security.py`) implementing scrypt password hashing and HMAC-SHA256 session token generation matching Node.js `crypto` with 100% backward-compatibility for active sessions.
+    * Ported petrophysical core logic to native Python (`parser.py`, `standardiser.py`, `quality_engine.py`, `cleaner.py`, `diagnostics.py`, `imputation.py`, and `ai_analyzer.py`).
+  * **SE2 & CE1 (Frontend Wireline Integration & Proxy Rewrites):**
+    * Configured Next.js rewrites in `next.config.ts` to transparently route `/api/*`, `/docs`, `/redoc`, and `/openapi.json` to the FastAPI backend.
+    * Mounted the interactive Multi-Track Wireline Log Viewer (`WellLogViewer`) directly onto the Well Detail page (`src/app/wells/[id]/page.tsx`) with dynamic channel counts and sample telemetry.
+  * **Security & Multi-Tenant Isolation:**
+    * Implemented strict user isolation on Custom Aliases (`backend/app/api/standardisation.py`), preventing cross-user visibility of personal mnemonic mappings and activity attribution.
+  * **Containerization & Automated Testing:**
+    * Created `backend/Dockerfile` and unified `docker-compose.yml` with health checks.
+    * Built 27-suite Pytest automated test harness with 100% green pass rate across parser, standardiser, quality engine, aliases API, auth API, and end-to-end integration flows.
 
 ---
 

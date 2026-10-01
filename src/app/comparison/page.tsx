@@ -6,6 +6,7 @@ import Link from "next/link";
 import { GitCompare, RefreshCw, UploadCloud } from "lucide-react";
 import { WellLogViewer } from "@/components/well-log/log-viewer";
 import { WellDetailResponse, WellListItem } from "@/lib/api-types";
+import { safeReadJson } from "@/lib/http-client";
 
 export default function ComparisonPage() {
   const [wells, setWells] = useState<WellListItem[]>([]);
@@ -22,13 +23,13 @@ export default function ComparisonPage() {
     async function loadWells() {
       try {
         const response = await fetch("/api/wells", { cache: "no-store" });
-        const data = await response.json();
+        const res = await safeReadJson<{ wells: WellListItem[] }>(response, "Unable to load wells.");
 
-        if (!response.ok) {
-          throw new Error(data.error || "Unable to load wells.");
+        if (!res.ok || !res.data) {
+          throw new Error(res.error || "Unable to load wells.");
         }
 
-        const committedWells: WellListItem[] = (data.wells || []).filter((well: WellListItem) => well.latestLasFileId);
+        const committedWells: WellListItem[] = (res.data.wells || []).filter((well: WellListItem) => well.latestLasFileId);
         if (!cancelled) {
           setWells(committedWells);
           setWell1((current) => current || committedWells[0]?.id || "");
@@ -211,13 +212,13 @@ async function loadDetail(
 
   try {
     const response = await fetch(`/api/wells/${wellId}`, { cache: "no-store" });
-    const data = await response.json();
+    const res = await safeReadJson<WellDetailResponse>(response, "Unable to load well detail.");
 
-    if (!response.ok) {
-      throw new Error(data.error || "Unable to load well detail.");
+    if (!res.ok || !res.data) {
+      throw new Error(res.error || "Unable to load well detail.");
     }
 
-    setDetail(data);
+    setDetail(res.data);
   } catch (err) {
     setError(err instanceof Error ? err.message : "Unable to load well detail.");
   }

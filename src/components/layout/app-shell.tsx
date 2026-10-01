@@ -40,6 +40,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        // Multi-tenant isolation: if a different account is active, clear local workspaces
+        try {
+          const lastUserId = localStorage.getItem("wellqc_active_user_id");
+          if (lastUserId && lastUserId !== user.id) {
+            localStorage.removeItem("wellqc_upload_workspace");
+            localStorage.removeItem("wellqc_latest_committed_well");
+          }
+          localStorage.setItem("wellqc_active_user_id", user.id);
+        } catch {}
+
         setCurrentRole(user.role || "PETROPHYSICIST");
         setCurrentUser({
           name: user.name,
@@ -69,6 +79,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const handleLogout = async () => {
+    try {
+      localStorage.removeItem("wellqc_upload_workspace");
+      localStorage.removeItem("wellqc_latest_committed_well");
+      localStorage.removeItem("wellqc_active_user_id");
+    } catch {}
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/");
     router.refresh();

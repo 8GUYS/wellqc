@@ -17,6 +17,7 @@ import {
   Layers,
   History,
 } from "lucide-react";
+import { safeReadJson } from "@/lib/http-client";
 
 interface AuditReportItem {
   id: string;
@@ -39,15 +40,24 @@ export default function ReportsPage() {
     function loadLocalSession() {
       if (typeof window === "undefined") return;
       try {
+        const activeUserId = localStorage.getItem("wellqc_active_user_id");
         const uploadData = localStorage.getItem("wellqc_upload_workspace");
         if (uploadData) {
           const parsed = JSON.parse(uploadData);
+          // Multi-tenant check: never display an old account's session to a different account
+          if (parsed && parsed.userId && activeUserId && parsed.userId !== activeUserId) {
+            return;
+          }
           if (parsed && parsed.parsedLAS) {
-            setActiveWellName(parsed.parsedLAS.wellInfo.wellName || parsed.fileName || "Active Well");
+            const rawWn = parsed.parsedLAS.wellInfo.wellName || "";
+            const validName = (rawWn && rawWn !== "2" && !/^\d+$/.test(rawWn))
+              ? rawWn
+              : (parsed.fileName && parsed.fileName !== "2" && !/^\d+$/.test(parsed.fileName) ? parsed.fileName.replace(/\.(las|txt)$/i, "") : "Uploaded Well");
+            setActiveWellName(validName);
             setReports([
               {
                 id: "current-session",
-                wellName: parsed.parsedLAS.wellInfo.wellName || parsed.fileName || "Uploaded Well",
+                wellName: validName,
                 timestamp: new Date().toISOString(),
                 qualityScore: parsed.qaResult?.overallScore || 85,
                 qualityGrade: parsed.qaResult?.qualityGrade || "GOOD",
@@ -67,10 +77,10 @@ export default function ReportsPage() {
 
     // 2. Fetch wells from database
     fetch("/api/wells")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && Array.isArray(data.wells)) {
-          const dbReports: AuditReportItem[] = data.wells.map((w: { id: string; name: string; qualityScore: number; qualityGrade: string; createdAt: string }) => ({
+      .then((res) => safeReadJson<{ wells: { id: string; name: string; qualityScore: number; qualityGrade: string; createdAt: string }[] }>(res))
+      .then((res) => {
+        if (res.ok && res.data && Array.isArray(res.data.wells)) {
+          const dbReports: AuditReportItem[] = res.data.wells.map((w: { id: string; name: string; qualityScore: number; qualityGrade: string; createdAt: string }) => ({
             id: w.id,
             wellName: w.name,
             timestamp: w.createdAt || new Date().toISOString(),
@@ -83,7 +93,7 @@ export default function ReportsPage() {
           setReports((prev) => [...prev, ...dbReports]);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const handlePrintAuditCertificate = () => {
@@ -275,13 +285,12 @@ export default function ReportsPage() {
                     </td>
                     <td className="py-3 px-4">
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          r.qualityGrade === "EXCELLENT"
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.qualityGrade === "EXCELLENT"
                             ? "bg-emerald-500/20 text-emerald-300"
                             : r.qualityGrade === "GOOD"
-                            ? "bg-cyan-500/20 text-cyan-300"
-                            : "bg-amber-500/20 text-amber-300"
-                        }`}
+                              ? "bg-cyan-500/20 text-cyan-300"
+                              : "bg-amber-500/20 text-amber-300"
+                          }`}
                       >
                         {r.qualityGrade}
                       </span>

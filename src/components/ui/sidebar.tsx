@@ -20,15 +20,27 @@ import {
   X,
 } from "lucide-react";
 
+/**
+ * Sidebar Component Props
+ * @property currentRole - Role of the active authenticated user ('ADMIN' | 'PETROPHYSICIST' | etc.)
+ * @property mobileOpen - Controls visibility of the slide-over drawer on small viewports
+ * @property onCloseMobileNav - Callback invoked to dismiss the drawer upon link selection or backdrop click
+ */
 interface SidebarProps {
   currentRole: string;
   mobileOpen?: boolean;
   onCloseMobileNav?: () => void;
 }
 
+/**
+ * Main application sidebar navigation.
+ * Renders a sticky desktop sidebar on `md+` breakpoints and an animated slide-over
+ * drawer with backdrop overlay on mobile devices.
+ */
 export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: SidebarProps) {
   const pathname = usePathname();
 
+  // Primary platform navigation routes
   const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Well Management", href: "/wells", icon: Database },
@@ -36,16 +48,19 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
     { label: "Standardisation", href: "/standardisation", icon: Layers },
     { label: "Quality Engine", href: "/qa-engine", icon: ShieldCheck },
     { label: "Analytics", href: "/analytics", icon: BarChart3 },
+    // Modules scheduled for upcoming release cycles:
     // { label: "Well Comparison", href: "/comparison", icon: GitCompare },
     // { label: "Audit Reports", href: "/reports", icon: FileSpreadsheet },
     // { label: "Activity Logs", href: "/activity", icon: History },
     { label: "User Profile", href: "/profile", icon: User },
   ];
 
+  // RBAC Gate: Only administrators have access to tenant management and system oversight
   if (currentRole === "ADMIN") {
     navItems.push({ label: "Admin Panel", href: "/admin", icon: Settings });
   }
 
+  // Core navigation markup shared between desktop and mobile drawer
   const sidebarContent = (
     <aside className="w-64 bg-wellqc-panel border-r border-wellqc-border flex flex-col h-full select-none">
       {/* Brand & Logo */}
@@ -99,6 +114,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
 
         {navItems.map((item) => {
           const Icon = item.icon;
+          // Determine active status: exact match for root routes, or prefix match for nested resources (e.g. /wells/[id])
           const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
           return (
@@ -107,14 +123,15 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
               href={item.href}
               onClick={onCloseMobileNav}
               className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive
-                  ? "bg-blue-600/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
-                  : "text-slate-400 hover:text-slate-100 hover:bg-wellqc-card/60"
+                ? "bg-blue-600/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+                : "text-slate-400 hover:text-slate-100 hover:bg-wellqc-card/60"
                 }`}
             >
               <div className="flex items-center space-x-3">
                 <Icon className={`w-4 h-4 ${isActive ? "text-cyan-400" : "text-slate-400"}`} />
                 <span>{item.label}</span>
               </div>
+              {/* Optional attention ping for key primary actions (e.g. LAS Ingestion) when not active */}
               {item.highlight && !isActive && (
                 <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
               )}

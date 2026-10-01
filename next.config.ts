@@ -12,6 +12,27 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '20mb',
     },
   },
+  async rewrites() {
+    const pythonBackendUrl = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:8000';
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${pythonBackendUrl}/api/:path*`,
+      },
+      {
+        source: '/docs',
+        destination: `${pythonBackendUrl}/docs`,
+      },
+      {
+        source: '/redoc',
+        destination: `${pythonBackendUrl}/redoc`,
+      },
+      {
+        source: '/openapi.json',
+        destination: `${pythonBackendUrl}/openapi.json`,
+      },
+    ];
+  },
   async headers() {
     return [
       {

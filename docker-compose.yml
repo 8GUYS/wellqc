@@ -33,17 +33,23 @@ services:
       postgres:
         condition: service_healthy
 
-  service:
+  backend:
     build:
       context: .
-      dockerfile: services/python_parser/Dockerfile
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       PYTHONUNBUFFERED: "1"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-main}
+      JWT_SECRET: ${JWT_SECRET:-wellqc-development-secret-key-change-in-production-12345}
     ports:
       - "8000:8000"
     volumes:
-      - ./services/python_parser:/app/python_parser
+      - ./backend/app:/app/app
+      - ./data:/app/data
 
   frontend:
     build: .
@@ -51,21 +57,17 @@ services:
     depends_on:
       neon-proxy:
         condition: service_started
-      service:
+      backend:
         condition: service_started
     environment:
       NODE_ENV: development
       USE_LOCAL_NEON_PROXY: "true"
-      # Used by the app's Prisma adapter at runtime (src/lib/db.ts) - the
-      # actual routing to neon-proxy happens via the neonConfig overrides
-      # in that file, not this URL's host, but keep it consistent anyway.
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@neon-proxy/${POSTGRES_DB:-main}
-      # Used by prisma7.config.ts for CLI commands (migrate, db seed) - a
-      # direct TCP connection straight to Postgres, bypassing the proxy.
       DIRECT_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-main}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-main}
+      PYTHON_BACKEND_URL: http://backend:8000
       NEXT_PUBLIC_API_URL: http://localhost:8000
     ports:
       - "3000:3000"

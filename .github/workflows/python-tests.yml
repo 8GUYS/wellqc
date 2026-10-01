@@ -30,16 +30,12 @@ jobs:
 
       - run: pip install -r backend/requirements.txt pytest
 
-      - name: Check DATABASE_URL shape
-        run: |
-          echo "length: ${#DATABASE_URL}"
-          echo "starts: ${DATABASE_URL:0:12}"
-          case "$DATABASE_URL" in *[[:space:]]*) echo "HAS WHITESPACE";; esac
-          case "$DATABASE_URL" in *\'*|*\"*) echo "HAS QUOTE";; esac
       - name: Warm up Neon (cold start)
+        env:
+          PYTHONPATH: .
         run: |
           for i in 1 2 3 4 5; do
-            python -c "import os, sqlalchemy as sa; e=sa.create_engine(os.environ['DATABASE_URL']); e.connect().execute(sa.text('SELECT 1'))" && exit 0
+            python -c "from backend.app.core.database import engine; engine.connect().close()" && exit 0
             echo "Attempt $i failed, retrying in 15s"
             sleep 15
           done

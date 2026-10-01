@@ -72,3 +72,6 @@ skills-lock.json
 .claude/
 .windsurf/
 skills-lock.json
+
+!.env.example
+verify.txt

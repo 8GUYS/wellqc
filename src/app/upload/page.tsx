@@ -96,10 +96,14 @@ function getInitialUploadWorkspace(): {
 } {
   if (typeof window !== "undefined") {
     try {
+      const activeUserId = localStorage.getItem("wellqc_active_user_id");
       const saved = localStorage.getItem("wellqc_upload_workspace");
       if (saved) {
         const session = JSON.parse(saved);
-        if (session && session.parsedLAS && session.qaResult) {
+        // Multi-tenant check: if session was created under another account or lacks user tag while a user is active, discard
+        if (session && session.userId && activeUserId && session.userId !== activeUserId) {
+          localStorage.removeItem("wellqc_upload_workspace");
+        } else if (session && session.parsedLAS && session.qaResult) {
           return {
             fileName: session.fileName || "restored-well-log.las",
             rawText: session.rawText || "",
@@ -161,8 +165,10 @@ export default function LASUploadPage() {
     if (!parsedLAS || !qaResult) return;
 
     try {
+      const activeUserId = localStorage.getItem("wellqc_active_user_id") || undefined;
       const lightweightParsed = downsampleParsedLASForStorage(parsedLAS, 300);
       const payload = {
+        userId: activeUserId,
         fileName,
         rawText: rawText.length > 50_000 ? "" : rawText,
         parsedLAS: lightweightParsed,
@@ -181,7 +187,9 @@ export default function LASUploadPage() {
     } catch {
       // Fallback to minimal payload without any raw curves if storage is tight
       try {
+        const activeUserId = localStorage.getItem("wellqc_active_user_id") || undefined;
         const minimal = {
+          userId: activeUserId,
           fileName,
           rawText: "",
           parsedLAS: {
@@ -367,13 +375,15 @@ export default function LASUploadPage() {
     setIsSaving(true);
     setSaveError("");
     try {
-      const activeName = fileName || parsedLAS.wellInfo.wellName || "well-log.las";
+      const validName = (fileName && fileName !== "2" && !/^\d+$/.test(fileName)) ? fileName : "";
+      const validWellName = (parsedLAS.wellInfo.wellName && parsedLAS.wellInfo.wellName !== "2" && !/^\d+$/.test(parsedLAS.wellInfo.wellName)) ? `${parsedLAS.wellInfo.wellName}.las` : "";
+      const activeName = validName || validWellName || "well-log.las";
       const result = await commitFile(activeName, contentToCommit);
       setSavedSuccess(true);
       setSavedWell(result.well);
       setUploadQueue((files) =>
         files.map((file) =>
-          file.name === activeName
+          file.name === activeName || file.name === fileName
             ? { ...file, status: "saved", savedWell: result.well, error: undefined }
             : file
         )
@@ -381,9 +391,11 @@ export default function LASUploadPage() {
 
       // Cache latest committed well so Well Management can highlight and render curves instantly
       try {
+        const activeUserId = localStorage.getItem("wellqc_active_user_id") || undefined;
         localStorage.setItem(
           "wellqc_latest_committed_well",
           JSON.stringify({
+            userId: activeUserId,
             wellId: result.well.id,
             wellName: result.well.name,
             qualityScore: result.well.qualityScore,
@@ -432,9 +444,11 @@ export default function LASUploadPage() {
         loadQueuedFile(savedFile);
 
         try {
+          const activeUserId = localStorage.getItem("wellqc_active_user_id") || undefined;
           localStorage.setItem(
             "wellqc_latest_committed_well",
             JSON.stringify({
+              userId: activeUserId,
               wellId: result.well.id,
               wellName: result.well.name,
               qualityScore: result.well.qualityScore,

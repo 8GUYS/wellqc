@@ -56,7 +56,12 @@ export default function WellManagementPage() {
   const recentCommittedWell = useMemo(() => {
     if (!storedWellRaw) return null;
     try {
+      const activeUserId = typeof window !== "undefined" ? localStorage.getItem("wellqc_active_user_id") : null;
       const parsed = JSON.parse(storedWellRaw);
+      // Multi-tenant check: do not show another user's recently committed well banner
+      if (parsed && parsed.userId && activeUserId && parsed.userId !== activeUserId) {
+        return null;
+      }
       if (parsed && parsed.wellId && parsed.wellName) {
         if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
           return parsed as {

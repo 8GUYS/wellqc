@@ -29,6 +29,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to continue.");
+
+      // Clear any previous user's workspace session from this device
+      try {
+        localStorage.removeItem("wellqc_upload_workspace");
+        localStorage.removeItem("wellqc_latest_committed_well");
+        localStorage.removeItem("wellqc_active_user_id");
+      } catch {}
+
       router.replace("/dashboard");
       router.refresh();
     } catch (err) {

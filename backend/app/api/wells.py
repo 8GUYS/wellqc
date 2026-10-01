@@ -3,7 +3,7 @@ import json
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, asc
+from sqlalchemy import desc, asc, or_
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
 from backend.app.models.models import (
@@ -70,8 +70,31 @@ def _extract_curve_summaries(
     return summaries
 
 def _to_well_list_item(well: Well) -> Dict[str, Any]:
-    latest_las_file = well.lasFiles[0] if well.lasFiles else None
-    latest_report = latest_las_file.reports[0] if (latest_las_file and latest_las_file.reports) else None
+    latest_las_file = None
+    if well.lasFiles:
+        sorted_las = sorted(
+            well.lasFiles,
+            key=lambda lf: lf.createdAt or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+        latest_las_file = sorted_las[0]
+
+    latest_report = None
+    if latest_las_file and latest_las_file.reports:
+        sorted_reports = sorted(
+            latest_las_file.reports,
+            key=lambda r: r.createdAt or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+        latest_report = sorted_reports[0]
+    elif well.reports:
+        sorted_reports = sorted(
+            well.reports,
+            key=lambda r: r.createdAt or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+        latest_report = sorted_reports[0]
+
     curve_summaries = _extract_curve_summaries(latest_report, latest_las_file)
 
     anomaly_cnt = 0
@@ -112,15 +135,23 @@ def list_wells(
     db: Session = Depends(get_db),
 ):
     try:
-        wells = (
-            db.query(Well)
-            .filter(Well.ownerId == current_user.id)
-            .order_by(desc(Well.updatedAt))
-            .all()
-        )
+        if current_user.role in ("ADMIN", "SUPERVISOR"):
+            wells = db.query(Well).order_by(desc(Well.updatedAt)).all()
+        else:
+            wells = (
+                db.query(Well)
+                .filter(
+                    or_(
+                        Well.ownerId == current_user.id,
+                        Well.ownerId.is_(None),
+                    )
+                )
+                .order_by(desc(Well.updatedAt))
+                .all()
+            )
         return {"wells": [_to_well_list_item(w) for w in wells]}
     except Exception as e:
-        return {"wells": [], "error": "Database is not available yet."}
+        return {"wells": [], "error": f"Database error: {str(e)}"}
 
 
 @router.post("")
@@ -214,19 +245,67 @@ def get_well_detail(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    clean_id = (id or "").strip()
+    if not clean_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A valid well ID, API number, or Name is required.",
+        )
+
+    # Allow query by internal UUID, API/UWI number, or well name
     well = (
         db.query(Well)
-        .filter(Well.id == id, Well.ownerId == current_user.id)
+        .filter(
+            or_(
+                Well.id == clean_id,
+                Well.apiNo == clean_id,
+                Well.name == clean_id,
+            )
+        )
         .first()
     )
     if not well:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Well not found.",
+            detail=f"Well with ID, API number, or Name '{clean_id}' not found.",
         )
 
-    latest_las_file = well.lasFiles[0] if well.lasFiles else None
-    latest_report = latest_las_file.reports[0] if (latest_las_file and latest_las_file.reports) else None
+    # Permission check: ADMIN, SUPERVISOR, owner, or unassigned/public well
+    is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
+    is_owner = (well.ownerId == current_user.id) or (well.ownerId is None)
+    if not is_admin and not is_owner:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access to this well is restricted to its owner or system administrators.",
+        )
+
+    # Sort LAS files by createdAt descending to always resolve the latest upload
+    latest_las_file = None
+    if well.lasFiles:
+        sorted_las = sorted(
+            well.lasFiles,
+            key=lambda lf: lf.createdAt or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+        latest_las_file = sorted_las[0]
+
+    # Resolve latest quality report from LAS file or direct well report
+    latest_report = None
+    if latest_las_file and latest_las_file.reports:
+        sorted_reports = sorted(
+            latest_las_file.reports,
+            key=lambda r: r.createdAt or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+        latest_report = sorted_reports[0]
+    elif well.reports:
+        sorted_reports = sorted(
+            well.reports,
+            key=lambda r: r.createdAt or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+        latest_report = sorted_reports[0]
+
     curve_summaries = _extract_curve_summaries(latest_report, latest_las_file)
 
     # Build curves data for chart visualization and multi-track wireline viewer
@@ -293,7 +372,7 @@ def get_well_detail(
 
     return {
         "well": _to_well_list_item(well),
-        "aiSummary": latest_report.aiSummary if latest_report else "Upload and commit a LAS file to generate a petrophysical summary.",
+        "aiSummary": latest_report.aiSummary if latest_report and latest_report.aiSummary else "Upload and commit a LAS file to generate a petrophysical summary.",
         "recommendations": recs,
         "curvesData": curves_matrix,
         "curvesMatrix": curves_matrix,
@@ -311,15 +390,30 @@ def delete_well(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    clean_id = (id or "").strip()
     well = (
         db.query(Well)
-        .filter(Well.id == id, Well.ownerId == current_user.id)
+        .filter(
+            or_(
+                Well.id == clean_id,
+                Well.apiNo == clean_id,
+                Well.name == clean_id,
+            )
+        )
         .first()
     )
     if not well:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Well not found or access is not permitted.",
+            detail=f"Well with ID, API number, or Name '{clean_id}' not found.",
+        )
+
+    is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
+    is_owner = (well.ownerId == current_user.id) or (well.ownerId is None)
+    if not is_admin and not is_owner:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access to delete this well is restricted to its owner or system administrators.",
         )
 
     well_name = well.name
@@ -332,7 +426,7 @@ def delete_well(
         userId=current_user.id,
         action="DELETE_WELL",
         targetType="WELL",
-        targetId=id,
+        targetId=well.id,
         details=f"Deleted well asset {well_name} and its uploaded LAS history.",
     )
     db.add(log)

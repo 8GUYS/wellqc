@@ -49,6 +49,14 @@ class ParsedLAS(BaseModel):
     totalPoints: int = 0
 
 
+# CWLS LAS 2.0 / 3.0 standard well metadata items that have NO measurement unit.
+# The entire text following the dot is the parameter value.
+NON_UNIT_WELL_MNEMONICS = {
+    "WELL", "COMP", "FLD", "LOC", "SRVC", "CTRY", "CNTY", "STAT",
+    "PROV", "DATE", "API", "UWI", "LATI", "LONG", "GDAT"
+}
+
+
 def _parse_header_line(line: str) -> Optional[LASHeaderItem]:
     colon_idx = line.find(":")
     main_part = line[:colon_idx] if colon_idx != -1 else line
@@ -65,15 +73,22 @@ def _parse_header_line(line: str) -> Optional[LASHeaderItem]:
     if not rest:
         return LASHeaderItem(mnemonic=mnem, unit="", value="", description=desc)
 
-    if rest_raw.startswith(" "):
-        return LASHeaderItem(mnemonic=mnem, unit="", value=rest, description=desc)
+    # 1. Non-unit well items: the entire string (with tabs/spaces collapsed) is the value
+    if mnem in NON_UNIT_WELL_MNEMONICS:
+        cleaned_val = re.sub(r"\s+", " ", rest)
+        return LASHeaderItem(mnemonic=mnem, unit="", value=cleaned_val, description=desc)
 
-    # Unit is before first whitespace, value is after
+    # 2. CWLS Standard: If text after '.' begins with whitespace (space or tab), there is NO unit
+    if rest_raw and rest_raw[0].isspace():
+        cleaned_val = re.sub(r"\s+", " ", rest)
+        return LASHeaderItem(mnemonic=mnem, unit="", value=cleaned_val, description=desc)
+
+    # 3. Standard with unit: unit is before first whitespace, value is after
     match = re.search(r"\s", rest)
     if match:
         first_space = match.start()
         unit = rest[:first_space].strip()
-        val = rest[first_space + 1:].strip()
+        val = re.sub(r"\s+", " ", rest[first_space + 1:].strip())
     else:
         unit = rest
         val = ""
@@ -170,15 +185,16 @@ def parse_las_content(content: str) -> ParsedLAS:
     elif "STOP" in well_items and well_items["STOP"].unit:
         depth_unit = well_items["STOP"].unit
 
-    well_name = well_items.get("WELL", LASHeaderItem(mnemonic="WELL", unit="", value="UNKNOWN_WELL", description="")).value or "UNKNOWN_WELL"
-    company = well_items.get("COMP", LASHeaderItem(mnemonic="COMP", unit="", value="NDI-GROUP-5", description="")).value or "NDI-GROUP-5"
-    field = well_items.get("FLD", LASHeaderItem(mnemonic="FLD", unit="", value="NIGER DELTA", description="")).value or "NIGER DELTA"
-    location = well_items.get("LOC", LASHeaderItem(mnemonic="LOC", unit="", value="", description="")).value or ""
-    country = well_items.get("CTRY", well_items.get("CNTY", LASHeaderItem(mnemonic="CTRY", unit="", value="NIGERIA", description=""))).value or "NIGERIA"
-    state = well_items.get("STAT", LASHeaderItem(mnemonic="STAT", unit="", value="DELTA STATE", description="")).value or "DELTA STATE"
-    api_uwi = well_items.get("API", well_items.get("UWI", LASHeaderItem(mnemonic="API", unit="", value="API-12345", description=""))).value or "API-12345"
-    service_company = well_items.get("SRVC", LASHeaderItem(mnemonic="SRVC", unit="", value="SLB", description="")).value or "SLB"
-    date_str = well_items.get("DATE", LASHeaderItem(mnemonic="DATE", unit="", value="", description="")).value or ""
+    raw_well_name = well_items.get("WELL", LASHeaderItem(mnemonic="WELL", unit="", value="", description="")).value.strip()
+    well_name = re.sub(r"\s+", " ", raw_well_name).strip() if raw_well_name else "UNKNOWN_WELL"
+    company = re.sub(r"\s+", " ", well_items.get("COMP", LASHeaderItem(mnemonic="COMP", unit="", value="NDI-GROUP-5", description="")).value).strip() or "NDI-GROUP-5"
+    field = re.sub(r"\s+", " ", well_items.get("FLD", LASHeaderItem(mnemonic="FLD", unit="", value="NIGER DELTA", description="")).value).strip() or "NIGER DELTA"
+    location = re.sub(r"\s+", " ", well_items.get("LOC", LASHeaderItem(mnemonic="LOC", unit="", value="", description="")).value).strip()
+    country = re.sub(r"\s+", " ", well_items.get("CTRY", well_items.get("CNTY", LASHeaderItem(mnemonic="CTRY", unit="", value="NIGERIA", description=""))).value).strip() or "NIGERIA"
+    state = re.sub(r"\s+", " ", well_items.get("STAT", LASHeaderItem(mnemonic="STAT", unit="", value="DELTA STATE", description="")).value).strip() or "DELTA STATE"
+    api_uwi = re.sub(r"\s+", " ", well_items.get("API", well_items.get("UWI", LASHeaderItem(mnemonic="API", unit="", value="", description=""))).value).strip()
+    service_company = re.sub(r"\s+", " ", well_items.get("SRVC", LASHeaderItem(mnemonic="SRVC", unit="", value="SLB", description="")).value).strip() or "SLB"
+    date_str = well_items.get("DATE", LASHeaderItem(mnemonic="DATE", unit="", value="", description="")).value.strip()
 
     lat_val = _float_val("LATI", 0.0)
     lon_val = _float_val("LONG", 0.0)

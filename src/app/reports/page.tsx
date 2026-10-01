@@ -40,15 +40,24 @@ export default function ReportsPage() {
     function loadLocalSession() {
       if (typeof window === "undefined") return;
       try {
+        const activeUserId = localStorage.getItem("wellqc_active_user_id");
         const uploadData = localStorage.getItem("wellqc_upload_workspace");
         if (uploadData) {
           const parsed = JSON.parse(uploadData);
+          // Multi-tenant check: never display an old account's session to a different account
+          if (parsed && parsed.userId && activeUserId && parsed.userId !== activeUserId) {
+            return;
+          }
           if (parsed && parsed.parsedLAS) {
-            setActiveWellName(parsed.parsedLAS.wellInfo.wellName || parsed.fileName || "Active Well");
+            const rawWn = parsed.parsedLAS.wellInfo.wellName || "";
+            const validName = (rawWn && rawWn !== "2" && !/^\d+$/.test(rawWn))
+              ? rawWn
+              : (parsed.fileName && parsed.fileName !== "2" && !/^\d+$/.test(parsed.fileName) ? parsed.fileName.replace(/\.(las|txt)$/i, "") : "Uploaded Well");
+            setActiveWellName(validName);
             setReports([
               {
                 id: "current-session",
-                wellName: parsed.parsedLAS.wellInfo.wellName || parsed.fileName || "Uploaded Well",
+                wellName: validName,
                 timestamp: new Date().toISOString(),
                 qualityScore: parsed.qaResult?.overallScore || 85,
                 qualityGrade: parsed.qaResult?.qualityGrade || "GOOD",

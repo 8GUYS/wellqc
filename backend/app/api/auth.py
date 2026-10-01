@@ -33,7 +33,7 @@ def _format_user(user: User) -> dict:
         "ndaAcceptedAt": user.ndaAcceptedAt.isoformat() if user.ndaAcceptedAt else None,
     }
 
-def _set_session_cookie(response: Response, user_dict: dict) -> None:
+def _set_session_cookie(response: Response, user_dict: dict) -> str:
     token = create_session_token(user_dict)
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
@@ -44,6 +44,7 @@ def _set_session_cookie(response: Response, user_dict: dict) -> None:
         secure=settings.ENVIRONMENT == "production",
         path="/",
     )
+    return token
 
 def _delete_session_cookie(response: Response) -> None:
     response.delete_cookie(
@@ -64,7 +65,7 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
         )
     
     user_dict = _format_user(user)
-    _set_session_cookie(response, user_dict)
+    token = _set_session_cookie(response, user_dict)
     
     # Log activity
     log = ActivityLog(
@@ -79,7 +80,7 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
     db.add(log)
     db.commit()
 
-    return {"user": user_dict}
+    return {"user": user_dict, "token": token}
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -124,7 +125,7 @@ def register(req: RegisterRequest, response: Response, db: Session = Depends(get
     db.refresh(new_user)
 
     user_dict = _format_user(new_user)
-    _set_session_cookie(response, user_dict)
+    token = _set_session_cookie(response, user_dict)
 
     # Activity log
     log = ActivityLog(
@@ -139,7 +140,7 @@ def register(req: RegisterRequest, response: Response, db: Session = Depends(get
     db.add(log)
     db.commit()
 
-    return {"user": user_dict}
+    return {"user": user_dict, "token": token}
 
 
 @router.post("/logout")
@@ -171,13 +172,14 @@ def demo_auth(
         db.refresh(current_user)
 
         user_dict = _format_user(current_user)
-        _set_session_cookie(response, user_dict)
+        token = _set_session_cookie(response, user_dict)
 
         return {
             "ok": True,
             "message": "Reset user to FREE Starter tier (2/2 checks used).",
             "tier": "FREE",
             "freeChecksUsed": 2,
+            "token": token,
         }
 
     # Ensure demo user exists in database so foreign keys succeed
@@ -204,11 +206,12 @@ def demo_auth(
         db.refresh(demo_user)
 
     demo_user_dict = _format_user(demo_user)
-    _set_session_cookie(response, demo_user_dict)
+    token = _set_session_cookie(response, demo_user_dict)
 
     return {
         "ok": True,
         "user": demo_user_dict,
+        "token": token,
         "message": "Logged in as Demo Petrophysicist with 2/2 checks used (Ready for Paystack upgrade).",
     }
 

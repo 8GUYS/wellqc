@@ -118,3 +118,67 @@ def test_las_diagnose():
     assert isinstance(diagnostics, list)
     assert len(diagnostics) == 2
     assert diagnostics[0]["curveMnemonic"] in ("GR", "RHOB")
+
+
+def test_get_well_detail_requires_auth():
+    client = TestClient(app)
+    # Direct unauthenticated request must return 401 with helpful instructions and WWW-Authenticate header
+    resp = client.get("/api/wells/42-999-00001")
+    assert resp.status_code == 401
+    assert "Authentication is required" in resp.json()["detail"]
+    assert "Authorize" in resp.json()["detail"]
+
+
+def test_get_well_detail_flow():
+    client = TestClient(app)
+    # 1. Login via demo endpoint and get bearer token
+    demo_resp = client.post("/api/auth/demo", json={})
+    assert demo_resp.status_code == 200
+    token = demo_resp.json().get("token")
+    assert token is not None
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Create a well
+    create_resp = client.post(
+        "/api/wells",
+        json={
+            "name": "Swagger Test Well Alpha",
+            "apiNo": "99-123-45678",
+            "operatorName": "Apex Energy",
+            "fieldName": "Niger Delta Block 4",
+            "basin": "Niger Delta",
+            "country": "Nigeria",
+            "latitude": 4.85,
+            "longitude": 6.95,
+            "tdFt": 12500,
+        },
+        headers=headers,
+    )
+    assert create_resp.status_code == 200
+    created_well = create_resp.json()["well"]
+    well_id = created_well["id"]
+
+    # 3. Retrieve well by internal UUID
+    uuid_resp = client.get(f"/api/wells/{well_id}", headers=headers)
+    assert uuid_resp.status_code == 200
+    data = uuid_resp.json()
+    assert data["well"]["id"] == well_id
+    assert data["well"]["apiNo"] == "99-123-45678"
+    assert "curvesData" in data
+    assert "curveSummaries" in data
+
+    # 4. Retrieve well by API Number (e.g. Swagger input "99-123-45678")
+    api_resp = client.get("/api/wells/99-123-45678", headers=headers)
+    assert api_resp.status_code == 200
+    assert api_resp.json()["well"]["id"] == well_id
+
+    # 5. Retrieve well by Well Name
+    name_resp = client.get("/api/wells/Swagger Test Well Alpha", headers=headers)
+    assert name_resp.status_code == 200
+    assert name_resp.json()["well"]["id"] == well_id
+
+    # 6. Non-existent well returns 404
+    missing_resp = client.get("/api/wells/non-existent-well-id", headers=headers)
+    assert missing_resp.status_code == 404
+

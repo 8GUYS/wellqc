@@ -149,6 +149,11 @@ WellQC+ is a full-stack cloud platform that automatically validates, cleans, sta
 ```
 WellQC+/
 ├── .env                           # Environment variables (Paystack keys, DB URL, session secret)
+├── Documentations/                # Project documentation suite
+│   ├── README.md                  # System overview and architecture guide
+│   ├── user_stories.md            # Agile user stories & Gherkin acceptance criteria
+│   ├── sprint_plan.md             # 3-Month master sprint plan & ownership matrix
+│   └── database_erd.md            # Entity-relationship schema documentation
 ├── middleware.ts                  # Route protection & freemium limit middleware
 ├── prisma/
 │   ├── schema.prisma              # Database schema (12+ models incl. billing tier fields)
@@ -308,6 +313,17 @@ Payment channels supported: **Verve, Mastercard, Visa**, **Bank Transfer**, **US
 | SP | Spontaneous Potential | -250–250 MV |
 | ILD | Induction Log Deep | — |
 | MSFL / LLS / LLD | Shallow / Medium / Deep Laterolog | — |
+
+---
+
+## 📖 Documentation Suite
+
+| Document | Purpose |
+|---|---|
+| [**System Overview & Architecture**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/README.md) | Platform features, technology stack, setup guide, and physical curve limits. |
+| [**Agile User Stories & Acceptance Criteria**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/user_stories.md) | 22 formal user stories across 10 epics with Gherkin acceptance criteria, personas, and MoSCoW priorities. |
+| [**Master Sprint Plan & Ownership Matrix**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/sprint_plan.md) | 12-week development roadmap, sprint breakdowns (Sprints 1–6), and team ownership matrix (SE1–CE2). |
+| [**Database Entity-Relationship Schema**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/database_erd.md) | Relational schema diagrams, Prisma & SQLAlchemy models, and index specifications. |
 
 ---
 

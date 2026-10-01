@@ -110,15 +110,17 @@ export function parseLASContent(content: string): ParsedLAS {
   const nullValue = parseFloat(wellItems['NULL']?.value || '-999.25');
   const depthUnit = wellItems['STRT']?.unit || wellItems['STOP']?.unit || 'FT';
 
-  const wellName = wellItems['WELL']?.value || wellItems['NAME']?.value || 'UNKNOWN_WELL';
-  const company = wellItems['COMP']?.value || 'NDI-GROUP-5';
-  const field = wellItems['FLD']?.value || 'NIGER DELTA';
-  const location = wellItems['LOC']?.value || '';
-  const country = wellItems['CTRY']?.value || wellItems['CNTY']?.value || 'NIGERIA';
-  const state = wellItems['STAT']?.value || 'DELTA STATE';
-  const apiUwi = wellItems['API']?.value || wellItems['UWI']?.value || `API-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
-  const serviceCompany = wellItems['SRVC']?.value || 'SLB';
-  const date = wellItems['DATE']?.value || new Date().toISOString().split('T')[0];
+  const rawWellName = (wellItems['WELL']?.value || wellItems['NAME']?.value || '').replace(/\s+/g, ' ').trim();
+  const wellName = rawWellName || 'UNKNOWN_WELL';
+  const company = (wellItems['COMP']?.value || 'NDI-GROUP-5').replace(/\s+/g, ' ').trim() || 'NDI-GROUP-5';
+  const field = (wellItems['FLD']?.value || 'NIGER DELTA').replace(/\s+/g, ' ').trim() || 'NIGER DELTA';
+  const location = (wellItems['LOC']?.value || '').replace(/\s+/g, ' ').trim();
+  const country = (wellItems['CTRY']?.value || wellItems['CNTY']?.value || 'NIGERIA').replace(/\s+/g, ' ').trim() || 'NIGERIA';
+  const state = (wellItems['STAT']?.value || 'DELTA STATE').replace(/\s+/g, ' ').trim() || 'DELTA STATE';
+  const rawApi = (wellItems['API']?.value || wellItems['UWI']?.value || '').replace(/\s+/g, ' ').trim();
+  const apiUwi = rawApi || `API-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+  const serviceCompany = (wellItems['SRVC']?.value || 'SLB').replace(/\s+/g, ' ').trim() || 'SLB';
+  const date = (wellItems['DATE']?.value || new Date().toISOString().split('T')[0]).trim();
 
   const lat = parseFloat(wellItems['LATI']?.value || '0') || undefined;
   const lon = parseFloat(wellItems['LONG']?.value || '0') || undefined;
@@ -187,6 +189,11 @@ export function parseLASContent(content: string): ParsedLAS {
   };
 }
 
+const NON_UNIT_WELL_MNEMONICS = new Set([
+  'WELL', 'COMP', 'FLD', 'LOC', 'SRVC', 'CTRY', 'CNTY', 'STAT',
+  'PROV', 'DATE', 'API', 'UWI', 'LATI', 'LONG', 'GDAT'
+]);
+
 function parseHeaderLine(line: string): LASHeaderItem | null {
   const colonIndex = line.indexOf(':');
   const mainPart = colonIndex !== -1 ? line.substring(0, colonIndex) : line;
@@ -203,8 +210,14 @@ function parseHeaderLine(line: string): LASHeaderItem | null {
     return { mnemonic, unit: '', value: '', description };
   }
 
+  // 1. Non-unit well metadata: entire string after dot is the value (collapse whitespace/tabs)
+  if (NON_UNIT_WELL_MNEMONICS.has(mnemonic)) {
+    return { mnemonic, unit: '', value: rest.replace(/\s+/g, ' '), description };
+  }
+
+  // 2. CWLS Standard: If text after '.' begins with whitespace (space or tab), there is NO unit
   if (/^\s/.test(restRaw)) {
-    return { mnemonic, unit: '', value: rest, description };
+    return { mnemonic, unit: '', value: rest.replace(/\s+/g, ' '), description };
   }
 
   const firstSpaceIndex = rest.search(/\s/);
@@ -213,7 +226,7 @@ function parseHeaderLine(line: string): LASHeaderItem | null {
 
   if (firstSpaceIndex !== -1) {
     unit = rest.substring(0, firstSpaceIndex).trim();
-    value = rest.substring(firstSpaceIndex + 1).trim();
+    value = rest.substring(firstSpaceIndex + 1).replace(/\s+/g, ' ').trim();
   } else {
     unit = rest;
   }

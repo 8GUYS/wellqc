@@ -30,6 +30,7 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="Enterprise Well Log Quality Assurance & Petrophysics API",
+    swagger_ui_parameters={"persistAuthorization": True},
 )
 
 @app.exception_handler(Exception)

@@ -5,6 +5,7 @@
 > **Timeline:** 3 Months (12 Weeks) · 6 × 2-Week Sprints  
 > **Active Sprint:** Sprint 4 — Advanced Visualisation, Imputation & Analytics  
 > **Methodology:** Agile Scrum with 2-Week Sprint Cycles  
+> **User Stories Specification:** See [**user_stories.md**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/user_stories.md) for full acceptance criteria & personas  
 
 ---
 

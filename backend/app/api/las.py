@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
+import hashlib
 import json
 import math
+import re
+import secrets
 import uuid
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
@@ -188,11 +191,11 @@ def handle_las(
     # ── Commit to Database mode ──
     user = current_user
     if not user:
-        fallback_user = db.query(User).first()
-        if fallback_user:
-            user = fallback_user
-        else:
-            new_u = User(
+        # For unauthenticated or test requests, use dedicated demo petrophysicist account
+        demo_u = db.query(User).filter(User.email == "petrophysicist@wellqc.io").first()
+        if not demo_u:
+            demo_u = User(
+                id="demo-petrophysicist-uuid",
                 email="petrophysicist@wellqc.io",
                 name="Lead Petrophysicist",
                 passwordHash="demo_hash",
@@ -200,18 +203,44 @@ def handle_las(
                 department="Subsurface Analytics",
                 tier="PRO",
             )
-            db.add(new_u)
+            db.add(demo_u)
             db.commit()
-            db.refresh(new_u)
-            user = new_u
+            db.refresh(demo_u)
+        user = demo_u
 
     operator_name = parsed.wellInfo.company or "Unknown Operator"
     field_name = parsed.wellInfo.field or "Uploaded Field"
     country = parsed.wellInfo.country or "Unknown"
     basin = _infer_basin(parsed.wellInfo.location, field_name)
-    api_no = parsed.wellInfo.apiUwi or f"UPLOADED-{int(datetime.now(timezone.utc).timestamp()*1000)}"
-    well_name = parsed.wellInfo.wellName or file_name.rsplit(".", 1)[0]
     depth_unit = parsed.wellInfo.depthUnit or "FT"
+
+    # Sanitize file_name and well_name: never allow bare digits like "2" or "2.las"
+    file_name = (req.fileName or "").strip()
+    clean_stem = file_name.rsplit(".", 1)[0].strip() if "." in file_name else file_name
+    clean_stem = clean_stem.strip("\"' /\\")
+
+    raw_wn = (parsed.wellInfo.wellName or "").strip()
+    raw_wn = re.sub(r"\s+", " ", raw_wn).strip()
+
+    if not raw_wn or raw_wn.isdigit() or raw_wn.upper() in ("UNKNOWN", "UNKNOWN_WELL", "NULL", "2"):
+        if clean_stem and not clean_stem.isdigit() and clean_stem.upper() not in ("UNKNOWN", "NULL", "2"):
+            well_name = clean_stem
+        else:
+            well_name = raw_wn or clean_stem or "Uploaded Well"
+    else:
+        well_name = raw_wn
+
+    if not file_name or clean_stem.isdigit() or clean_stem.upper() in ("UNKNOWN", "NULL", "2"):
+        file_name = f"{well_name}.las"
+
+    # Determine unique API number: avoid generic API-12345 colliding across users
+    raw_api = (parsed.wellInfo.apiUwi or "").strip()
+    if not raw_api or raw_api in ("API-12345", "API-", "UNKNOWN", "NULL"):
+        safe_slug = re.sub(r"[^A-Za-z0-9]", "", well_name).upper()[:10] or "WELL"
+        u_hash = hashlib.md5(f"{user.id}-{well_name}".encode()).hexdigest()[:6].upper()
+        api_no = f"API-{safe_slug}-{u_hash}"
+    else:
+        api_no = raw_api
 
     # Upsert Operator
     op = db.query(Operator).filter(Operator.name == operator_name).first()
@@ -230,8 +259,14 @@ def handle_las(
         fld.basin = basin
         fld.country = country
 
-    # Upsert Well
-    well = db.query(Well).filter(Well.apiNo == api_no).first()
+    # Upsert Well scoped to current user
+    well = db.query(Well).filter(Well.apiNo == api_no, Well.ownerId == user.id).first()
+    if not well:
+        # Check if apiNo is already taken by another user; if so, assign unique suffix
+        conflict = db.query(Well).filter(Well.apiNo == api_no).first()
+        if conflict:
+            api_no = f"{api_no}-{secrets.token_hex(2).upper()}"
+
     now = datetime.now(timezone.utc)
     if well:
         well.name = well_name

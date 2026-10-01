@@ -8,28 +8,40 @@ database provisioning to guarantee foreign-key referential integrity across all 
 
 from typing import Optional
 from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.security import read_session_token
 from backend.app.models.models import User
 from backend.app.core.config import settings
 
+# OpenAPI security scheme for Swagger UI (/docs) Authorize button
+security_bearer = HTTPBearer(auto_error=False)
+
 def get_current_user_optional(
     request: Request,
+    bearer_creds: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer),
     db: Session = Depends(get_db),
 ) -> Optional[User]:
     """
     Extracts and resolves the active user from the request context if present.
     
-    Checks both:
-      1. HttpOnly cookie named `wellqc_session` (primary for Next.js browser sessions).
-      2. `Authorization: Bearer <token>` header (for programmatic API requests / tokens).
+    Checks:
+      1. OpenAPI Bearer credentials passed via Swagger UI Authorize modal.
+      2. HttpOnly cookie named `wellqc_session` (primary for Next.js browser sessions).
+      3. `Authorization: Bearer <token>` header (for programmatic API requests / tokens).
     
     If a valid decrypted session token is found, ensures that a corresponding record exists
     in the database `User` table to guarantee that any child foreign keys (e.g. Well.ownerId,
     ActivityLog.userId, LASFile.uploadedById) will succeed without constraint violations.
     """
-    token = request.cookies.get(settings.SESSION_COOKIE_NAME)
+    token = None
+    if bearer_creds and bearer_creds.credentials:
+        token = bearer_creds.credentials.strip()
+
+    if not token:
+        token = request.cookies.get(settings.SESSION_COOKIE_NAME)
+
     if not token:
         # Also check Authorization: Bearer <token> for API flexibility
         auth_header = request.headers.get("Authorization")
@@ -77,7 +89,11 @@ def get_current_user(
     if not current_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication is required.",
+            detail=(
+                "Authentication is required. To test in Swagger UI (/docs), click the 'Authorize' "
+                "button at the top and paste your token, or authenticate first via POST /api/auth/demo."
+            ),
+            headers={"WWW-Authenticate": "Bearer"},
         )
     return current_user
 

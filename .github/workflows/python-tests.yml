@@ -30,6 +30,12 @@ jobs:
 
       - run: pip install -r backend/requirements.txt pytest
 
+      - name: Check DATABASE_URL shape
+        run: |
+          echo "length: ${#DATABASE_URL}"
+          echo "starts: ${DATABASE_URL:0:12}"
+          case "$DATABASE_URL" in *[[:space:]]*) echo "HAS WHITESPACE";; esac
+          case "$DATABASE_URL" in *\'*|*\"*) echo "HAS QUOTE";; esac
       - name: Warm up Neon (cold start)
         run: |
           for i in 1 2 3 4 5; do

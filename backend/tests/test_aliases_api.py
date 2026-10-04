@@ -7,42 +7,35 @@ from backend.app.services.standardiser import set_custom_aliases
 
 client = TestClient(app)
 
-DATA_DIR = os.path.join(os.getcwd(), "data")
-ALIASES_FILE = os.path.join(DATA_DIR, "custom-aliases.json")
-
-from backend.app.core.database import SessionLocal
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+from backend.app.core.database import Base, get_db
 from backend.app.models.models import CustomAlias
+
+TEST_DB_URL = "sqlite:///:memory:"
+engine = create_engine(
+    TEST_DB_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def override_get_db():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 @pytest.fixture(autouse=True)
 def setup_aliases():
-    os.makedirs(DATA_DIR, exist_ok=True)
-    orig = "[]"
-    if os.path.exists(ALIASES_FILE):
-        with open(ALIASES_FILE, "r") as f:
-            orig = f.read()
-    with open(ALIASES_FILE, "w") as f:
-        f.write("[]")
+    app.dependency_overrides[get_db] = override_get_db
+    Base.metadata.create_all(bind=engine)
     set_custom_aliases([])
-    
-    test_aliases = ["GAMMA_SPECIAL_V3", "DENS_TEMP", "DENS_PERM", "NEW_TEST_ALIAS"]
-    db = SessionLocal()
-    try:
-        db.query(CustomAlias).filter(CustomAlias.alias.in_(test_aliases)).delete(synchronize_session=False)
-        db.commit()
-    finally:
-        db.close()
-
     yield
-
-    db = SessionLocal()
-    try:
-        db.query(CustomAlias).filter(CustomAlias.alias.in_(test_aliases)).delete(synchronize_session=False)
-        db.commit()
-    finally:
-        db.close()
-
-    with open(ALIASES_FILE, "w") as f:
-        f.write(orig)
+    Base.metadata.drop_all(bind=engine)
+    app.dependency_overrides.pop(get_db, None)
     set_custom_aliases([])
 
 def test_get_aliases_returns_array():

@@ -45,7 +45,7 @@ export default function QualityEnginePage() {
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-white font-mono">Sprint 4 week 2 Deliverables: Backend Migration to Python and Database Refactorings.
+            <h2 className="text-xl font-bold text-white font-mono">Next: Sprint 5 week 2 Deliverables: Quality Engine Page – Interactive Data Repair & Verification.
             </h2>
             <p className="text-xs text-slate-400 font-mono leading-relaxed">
 
@@ -55,7 +55,7 @@ export default function QualityEnginePage() {
 
           <div className="bg-wellqc-dark/70 border border-wellqc-border rounded-xl p-4 text-left space-y-2.5 font-mono text-xs text-slate-300">
             <div className="font-bold text-white text-[11px] uppercase tracking-wide">
-              Sprint 4 week 2 Roadmap: Migration to python
+              Current: Sprint 5 week 1 Deliverables: Backend Migration to Python and Database Refactorings.
 
             </div>
             <div className="flex items-center gap-2 text-emerald-300">
@@ -76,7 +76,7 @@ export default function QualityEnginePage() {
             </div>
             <div className="flex items-center gap-2 text-emerald-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>27-suite automated Pytest test harness with 100% pass rate.</span>
+              <span>52-suite automated Pytest test harness with 100% pass rate.</span>
             </div>
 
           </div>

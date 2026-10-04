@@ -87,8 +87,13 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
 def register(req: RegisterRequest, response: Response, db: Session = Depends(get_db)):
     safe_name = req.name.strip() if req.name else ""
     safe_email = req.email.strip().lower() if req.email else ""
-    valid_roles = ["ADMIN", "PETROPHYSICIST", "DATA_ENGINEER", "GEOSCIENTIST", "VIEWER"]
     role_cand = (req.role or "").strip().upper()
+    if role_cand == "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator accounts cannot be self-registered. Contact an existing administrator for elevated access.",
+        )
+    valid_roles = ["PETROPHYSICIST", "DATA_ENGINEER", "GEOSCIENTIST", "VIEWER"]
     safe_role = role_cand if role_cand in valid_roles else "PETROPHYSICIST"
 
     email_regex = r"^\S+@\S+\.\S+$"

@@ -9,8 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
-    "test:python": "pytest backend/tests",
-    "postinstall": "prisma generate"
+    "test:python": "pytest backend/tests"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

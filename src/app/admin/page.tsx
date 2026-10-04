@@ -47,7 +47,7 @@ export default function AdminPanelPage() {
       try {
         const res  = await fetch("/api/admin/users", { cache: "no-store" });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Unable to load users.");
+        if (!res.ok) throw new Error(data.detail || data.error || "Unable to load users.");
         if (!cancelled) setUsers(data.users || []);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Unable to load users.");
@@ -68,7 +68,7 @@ export default function AdminPanelPage() {
         body: JSON.stringify({ userId, role: newRole }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update role.");
+      if (!res.ok) throw new Error(data.detail || data.error || "Failed to update role.");
       setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: newRole } : u));
       showToast(`Role updated to ${newRole}`);
     } catch (err) {
@@ -89,7 +89,7 @@ export default function AdminPanelPage() {
         body: JSON.stringify({ userId: deleteTarget.id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to delete user.");
+      if (!res.ok) throw new Error(data.detail || data.error || "Failed to delete user.");
       setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
       showToast(`${deleteTarget.name} has been deleted.`);
     } catch (err) {

@@ -93,6 +93,22 @@ A story is accepted as done when:
     And displays a warning notification to the user
   ```
 
+#### US-ING-03: Quota-Safe LocalStorage Session Persistence with Curve Downsampling
+- **As a** Petrophysicist or Geologist (PER-1),
+- **I want** my active LAS upload workspace to safely persist across page refreshes and browser tab navigation,
+- **So that** I do not lose in-flight curve inventories or quality analysis results when switching views.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 5 · SE2 / CE1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Persisting large LAS file session in localStorage
+    Given a parsed LAS file with >10,000 depth samples and curve data
+    When the upload workspace serializes the session state to localStorage
+    Then the system applies safe curve downsampling to prevent QuotaExceededError
+    And when the page is reloaded, the workspace is restored with full curve inventories and anomalies
+    And a notification confirms the session was successfully restored from storage
+  ```
+
 ---
 
 ### 🏷️ Epic 2: Curve Mnemonic Standardisation & Dictionary Management
@@ -399,6 +415,58 @@ A story is accepted as done when:
     And Petrophysicist A and System Administrators can access it normally
   ```
 
+#### US-SEC-03: Server-Side Privileged Route Authorization & Default-to-Deny
+- **As an** Enterprise Systems & Security Admin (PER-4),
+- **I want** every privileged route, API endpoint, and administrative feature to enforce strict server-side authorization using the authenticated user's trusted database role,
+- **So that** normal users cannot call administrative functions directly and self-registration cannot be exploited to gain elevated privileges.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 5 · SE1 / CE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Non-admin calling administrative endpoints directly
+    Given a user authenticated with role "PETROPHYSICIST", "VIEWER", "DATA_ENGINEER", or "GEOSCIENTIST"
+    When they send direct HTTP requests to GET, PATCH, or DELETE /api/admin/users
+    Then the server returns 403 Forbidden ("Administrative privileges required")
+    And unauthenticated callers receive 401 Unauthorized
+    And public registration submitting role "ADMIN" is rejected with 403 Forbidden
+
+  Scenario: Token spoofing for non-existent users
+    Given a signed session token containing role "ADMIN" for an ID not present in the database
+    When the request is evaluated by get_current_user
+    Then the server returns 401 Unauthorized and does not auto-provision database records
+  ```
+
+#### US-SEC-04: Administrative Account Management CLI & Accidental Lockout Protection
+- **As an** Enterprise Systems Administrator (PER-4),
+- **I want** an interactive command-line tool to create and promote administrator accounts, with built-in safeguards preventing lockout of the last admin,
+- **So that** elevated privileges can be managed safely without exposing public elevation endpoints.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 5 · CE2 / SE1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Managing admin accounts via console CLI
+    Given a system operator running python scripts/manage_admin.py
+    When they select option to create or promote an admin account
+    Then the script securely hashes the password and assigns role "ADMIN" in PostgreSQL
+    And when an admin attempts to delete their own account or delete the only remaining admin in /api/admin/users
+    Then the request is rejected with 400 Bad Request to prevent lockout
+  ```
+
+#### US-AUT-01: Interactive Password Visibility Toggle on Authentication Form
+- **As a** Platform User (PER-1, PER-2, PER-5),
+- **I want** a toggle button inside password fields to reveal or hide typed characters,
+- **So that** I can verify complex passwords before submitting without compromising accessibility or security.
+- **Priority:** Should Have
+- **Sprint / Owner:** Sprint 5 · SE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Toggling password visibility
+    Given I am on the Login or Registration form
+    When I click the Eye icon inside the password field
+    Then the input type changes from "password" to "text" and the icon changes to EyeOff
+    And when clicked again, the input type reverts back to "password"
+  ```
+
 ---
 
 ### 🌐 Epic 10: OpenAPI / Swagger Developer Experience & Platform REST APIs
@@ -455,28 +523,32 @@ A story is accepted as done when:
 
 | Story ID | Epic Title | MoSCoW | Sprint Target | Lead Owner | Primary Code Modules |
 |---|---|---|---|---|---|
-| **US-ING-01** | Multi-Version LAS Parsing | Must Have | Sprint 1 | SE1 | `backend/app/core/las_parser.py`, `src/lib/las/parser.ts` |
+| **US-ING-01** | Multi-Version LAS Parsing | Must Have | Sprint 1 | SE1 | `backend/app/services/parser.py`, `src/lib/las/parser.ts` |
 | **US-ING-02** | Corrupt LAS File Diagnostics | Must Have | Sprint 3 | SE1 | `backend/app/api/las.py`, `src/lib/las/parser.ts` |
-| **US-STD-01** | Vendor Mnemonic Mapping | Must Have | Sprint 3 | DA1 | `backend/app/api/standardisation.py`, `src/lib/las/standardiser.ts` |
+| **US-ING-03** | Quota-Safe LocalStorage Persistence | Must Have | Sprint 5 | SE2 | `src/lib/las/storage-utils.ts`, `src/app/upload/` |
+| **US-STD-01** | Vendor Mnemonic Mapping | Must Have | Sprint 3 | DA1 | `backend/app/api/standardisation.py`, `standardiser.py` |
 | **US-STD-02** | Persistent Custom Aliases | Should Have | Sprint 3 | DA1 | `backend/app/api/standardisation.py`, `/standardisation` |
-| **US-QCE-01** | Composite Quality Scoring | Must Have | Sprint 3 | SE1 | `backend/app/core/quality_engine.py`, `quality-engine.ts` |
-| **US-QCE-02** | 11 Anomaly Category Audits | Must Have | Sprint 4 | DA1 | `backend/app/core/quality_engine.py`, `cleaner.ts` |
-| **US-QCE-03** | AI Natural Language Summary | Should Have | Sprint 3 | SE1 | `backend/app/api/wells.py`, `ai-analyzer.ts` |
+| **US-QCE-01** | Composite Quality Scoring | Must Have | Sprint 3 | SE1 | `backend/app/services/quality_engine.py` |
+| **US-QCE-02** | 11 Anomaly Category Audits | Must Have | Sprint 4 | DA1 | `backend/app/services/quality_engine.py`, `cleaner.py` |
+| **US-QCE-03** | AI Natural Language Summary | Should Have | Sprint 3 | SE1 | `backend/app/api/wells.py`, `ai_analyzer.py` |
 | **US-IMP-01** | Root-Cause Classifications | Should Have | Sprint 4 | DA2 | `src/lib/las/imputation-engine.ts`, `backend/app/api/las.py` |
-| **US-IMP-02** | Imputation Benchmarking | Should Have | Sprint 4 | DA2 | `imputation-benchmark-modal.tsx`, `imputation-engine.ts` |
+| **US-IMP-02** | Imputation Benchmarking | Should Have | Sprint 4 | DA2 | `imputation-benchmark-modal.tsx`, `imputation.py` |
 | **US-VIW-01** | 3-Track Wireline Presentation | Must Have | Sprint 4 | SE1 | `src/components/well-log/log-viewer.tsx` |
 | **US-VIW-02** | Interactive Anomaly Ribbon | Should Have | Sprint 4 | SE1 | `src/components/well-log/log-viewer.tsx` |
 | **US-CLN-01** | Non-Destructive Raw Data | Must Have | Sprint 4 | CE2 | `src/lib/las/cleaner.ts`, `backend/app/api/las.py` |
-| **US-CLN-02** | Before vs After Scorecard | Must Have | Sprint 4 | SE1 | `src/app/qa-engine/page.tsx`, `cleaner.ts` |
+| **US-CLN-02** | Before vs After Scorecard | Must Have | Sprint 4 | SE1 | `src/app/qa-engine/page.tsx`, `cleaner.py` |
 | **US-RPT-01** | Executive PDF QA Certificate | Must Have | Sprint 5 | DA4 | `src/app/reports/page.tsx`, `src/lib/las/exporter.ts` |
 | **US-RPT-02** | Cleaned LAS 2.0 Export | Must Have | Sprint 5 | SE1 | `src/lib/las/exporter.ts`, `backend/app/api/las.py` |
 | **US-PAY-01** | Freemium Usage Gate (2 Checks) | Must Have | Sprint 5 | SE2 | `src/app/upload/page.tsx`, `backend/app/api/las.py` |
 | **US-PAY-02** | Paystack Multi-Channel Checkout | Must Have | Sprint 5 | SE2 | `src/lib/paystack.ts`, `payment-modal.tsx`, `/pricing` |
 | **US-SEC-01** | Role-Based Access Control (RBAC) | Must Have | Sprint 2 | SE2 | `backend/app/core/dependencies.py`, `/api/admin` |
 | **US-SEC-02** | Multi-Tenant Data Isolation | Must Have | Sprint 2 | CE2 | `backend/app/api/wells.py`, `schema.prisma` |
+| **US-SEC-03** | Server RBAC Default-to-Deny | Must Have | Sprint 5 | SE1 | `backend/app/core/dependencies.py`, `test_admin_auth.py` |
+| **US-SEC-04** | Admin Management CLI & Lockout Protection | Must Have | Sprint 5 | CE2 | `scripts/manage_admin.py`, `backend/app/api/admin.py` |
+| **US-AUT-01** | Password Visibility Toggle | Should Have | Sprint 5 | SE2 | `src/components/auth/auth-form.tsx` |
 | **US-API-01** | Interactive Swagger Authorize | Must Have | Sprint 6 | SE2 | `backend/app/core/dependencies.py`, `backend/app/main.py` |
 | **US-API-02** | Flexible Well Retrieval (ID/API) | Must Have | Sprint 6 | SE1 | `backend/app/api/wells.py` |
-| **US-API-03** | Webhook HMAC-SHA512 Verification | Must Have | Sprint 5 | CE2 | `src/app/api/paystack/webhook/route.ts` |
+| **US-API-03** | Webhook HMAC-SHA512 Verification | Must Have | Sprint 5 | CE2 | `backend/app/api/auth.py` |
 
 ---
 

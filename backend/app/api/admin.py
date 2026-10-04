@@ -59,6 +59,14 @@ def update_user_role(
             detail="User not found.",
         )
 
+    if req.userId == admin.id and role_cand != "ADMIN":
+        other_admins = db.query(User).filter(User.role == "ADMIN", User.id != admin.id).count()
+        if other_admins == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot demote the only remaining administrator account.",
+            )
+
     target_user.role = role_cand
     db.commit()
     db.refresh(target_user)
@@ -92,6 +100,14 @@ def delete_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+
+    if target_user.role == "ADMIN":
+        admin_count = db.query(User).filter(User.role == "ADMIN").count()
+        if admin_count <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot delete the only remaining administrator account.",
+            )
 
     db.delete(target_user)
     db.commit()

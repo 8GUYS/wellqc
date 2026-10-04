@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, SyntheticEvent } from "react";
-import { Database, KeyRound, Mail, UserRound, LoaderCircle, Home } from "lucide-react";
+import { Database, KeyRound, Mail, UserRound, LoaderCircle, Home, Eye, EyeOff } from "lucide-react";
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -104,6 +104,62 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 }
 
 
-function Field({ icon, label, value, onChange, type = "text", autoComplete, hint }: { icon: React.ReactNode; label: string; value: string; onChange: (value: string) => void; type?: string; autoComplete: string; hint?: string }) {
-  return <label className="block"><span className="flex items-center gap-2 text-xs font-semibold text-slate-200 mb-1.5">{icon}{label}</span><input required minLength={type === "password" ? 8 : undefined} type={type} value={value} onChange={(event) => onChange(event.target.value)} autoComplete={autoComplete} className="w-full bg-wellqc-card border border-wellqc-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-400" />{hint && <span className="mt-1 block text-[10px] text-wellqc-muted">{hint}</span>}</label>;
+function Field({
+  icon,
+  label,
+  value,
+  onChange,
+  type = "text",
+  autoComplete,
+  hint,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  autoComplete: string;
+  hint?: string;
+}) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPasswordField = type === "password";
+  const inputType = isPasswordField ? (showPassword ? "text" : "password") : type;
+
+  return (
+    <label className="block">
+      <span className="flex items-center gap-2 text-xs font-semibold text-slate-200 mb-1.5">
+        {icon}
+        {label}
+      </span>
+      <div className="relative">
+        <input
+          required
+          minLength={isPasswordField ? 8 : undefined}
+          type={inputType}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          autoComplete={autoComplete}
+          className={`w-full bg-wellqc-card border border-wellqc-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-400 ${
+            isPasswordField ? "pr-10" : ""
+          }`}
+        />
+        {isPasswordField && (
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            tabIndex={-1}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-300 p-1 rounded transition-colors focus:outline-none focus:text-cyan-300"
+          >
+            {showPassword ? (
+              <EyeOff className="w-4 h-4" />
+            ) : (
+              <Eye className="w-4 h-4" />
+            )}
+          </button>
+        )}
+      </div>
+      {hint && <span className="mt-1 block text-[10px] text-wellqc-muted">{hint}</span>}
+    </label>
+  );
 }

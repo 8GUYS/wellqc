@@ -22,27 +22,6 @@ from backend.app.services.standardiser import (
 
 router = APIRouter(prefix="/api/standardisation", tags=["standardisation"])
 
-DATA_DIR = os.path.join(os.getcwd(), "data")
-LOCAL_FILE = os.path.join(DATA_DIR, "custom-aliases.json")
-
-def _read_file_aliases() -> List[dict]:
-    if not os.path.exists(LOCAL_FILE):
-        return []
-    try:
-        with open(LOCAL_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data if isinstance(data, list) else []
-    except Exception:
-        return []
-
-def _write_file_aliases(entries: List[dict]) -> None:
-    try:
-        os.makedirs(DATA_DIR, exist_ok=True)
-        with open(LOCAL_FILE, "w", encoding="utf-8") as f:
-            json.dump(entries, f, indent=2)
-    except Exception:
-        pass
-
 def _get_user_aliases(db: Session, user: Optional[User]) -> List[CustomAliasEntry]:
     user_id = user.id if user else "demo-petrophysicist-uuid"
     user_email = user.email if user else ""
@@ -75,28 +54,6 @@ def _get_user_aliases(db: Session, user: Optional[User]) -> List[CustomAliasEntr
                     userEmail=r.userEmail,
                 )
             )
-
-    # Strictly filter local file aliases by this user only
-    for f in _read_file_aliases():
-        f_user_id = f.get("userId")
-        f_user_email = f.get("userEmail")
-        # Only include if explicitly owned by this user
-        matches_user = (f_user_id == user_id) or (user_email and f_user_email == user_email)
-        if matches_user:
-            key = (f.get("standardMnemonic", "").upper(), f.get("alias", "").upper())
-            if key not in seen and f.get("standardMnemonic") and f.get("alias"):
-                seen.add(key)
-                db_entries.append(
-                    CustomAliasEntry(
-                        id=f.get("id", str(uuid.uuid4())),
-                        alias=f["alias"],
-                        standardMnemonic=f["standardMnemonic"],
-                        addedBy=f.get("addedBy", "You"),
-                        addedAt=f.get("addedAt", datetime.now(timezone.utc).isoformat()),
-                        userId=f_user_id,
-                        userEmail=f_user_email,
-                    )
-                )
 
     return db_entries
 
@@ -166,7 +123,7 @@ def create_alias(
     except Exception:
         db.rollback()
 
-    # Also update file aliases for local test compatibility
+    # Commit to DB
     entry_dict = {
         "id": new_entry.id,
         "alias": clean_alias,
@@ -176,9 +133,6 @@ def create_alias(
         "userId": user_id,
         "userEmail": user_email,
     }
-    file_list = _read_file_aliases()
-    file_list.append(entry_dict)
-    _write_file_aliases(file_list)
 
     updated_aliases = _get_user_aliases(db, current_user)
     set_custom_aliases(updated_aliases)
@@ -250,24 +204,6 @@ def update_alias(
         db_record.updatedAt = now
         db.commit()
 
-    # Update in file
-    file_list = _read_file_aliases()
-    updated_file = []
-    found_in_file = False
-    for item in file_list:
-        is_user_item = (item.get("userId") == user_id) or (user_email and item.get("userEmail") == user_email)
-        if (
-            is_user_item
-            and item.get("standardMnemonic", "").upper() == clean_curve
-            and item.get("alias", "").upper() == clean_old
-        ):
-            item["alias"] = clean_new
-            item["updatedAt"] = now.isoformat()
-            found_in_file = True
-        updated_file.append(item)
-    if found_in_file:
-        _write_file_aliases(updated_file)
-
     updated_aliases = _get_user_aliases(db, current_user)
     set_custom_aliases(updated_aliases)
 
@@ -338,16 +274,6 @@ def delete_alias(
         or_(*user_filter),
     ).delete(synchronize_session=False)
     db.commit()
-
-    # Delete from file
-    file_list = _read_file_aliases()
-    filtered = []
-    for f in file_list:
-        is_user_item = (f.get("userId") == user_id) or (user_email and f.get("userEmail") == user_email)
-        is_target = (f.get("standardMnemonic", "").upper() == clean_curve and f.get("alias", "").upper() == clean_alias)
-        if not (is_user_item and is_target):
-            filtered.append(f)
-    _write_file_aliases(filtered)
 
     updated_aliases = _get_user_aliases(db, current_user)
     set_custom_aliases(updated_aliases)

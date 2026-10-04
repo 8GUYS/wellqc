@@ -3,7 +3,7 @@
 > **Project:** WellQC+ — AI-Powered Well Log Quality Assurance & Subsurface Analytics Platform  
 > **Team Structure (8 Members):** 2 Software Engineers · 4 Data Analysts · 2 Cloud Engineers  
 > **Timeline:** 3 Months (12 Weeks) · 6 × 2-Week Sprints  
-> **Active Sprint:** Sprint 4 — Advanced Visualisation, Imputation & Analytics  
+> **Active Sprint:** Sprint 6 — Hardened Production Release, Security Audit & Platform Integration  
 > **Methodology:** Agile Scrum with 2-Week Sprint Cycles  
 > **User Stories Specification:** See [**user_stories.md**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/user_stories.md) for full acceptance criteria & personas  
 
@@ -11,45 +11,41 @@
 
 ## 🏗️ 1. Current Codebase Implementation Audit
 
-The WellQC+ platform is structured as a full-stack, enterprise-grade AI well log quality assurance platform:
+The WellQC+ platform is structured as an enterprise-grade AI well log quality assurance platform with a high-performance Python FastAPI backend and a Next.js 15 App Router frontend:
 
-### 1. Core Petrophysical & AI Engines (`src/lib/las/`)
-* **LAS Parser Engine ([`parser.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/parser.ts))**: Native TypeScript parser for LAS 2.0/3.0 files (`~Version`, `~Well`, `~Curve`, and `~ASCII` sections), normalizes null indicators (`-999.25`, `-9999`, `NaN`), and handles depth intervals.
-* **Quality Scoring Engine ([`quality-engine.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/quality-engine.ts))**: Audits 7 Core Required Curves (`GR`, `RHOB`, `NPHI`, `DT`, `RT`, `CALI`, `SP`) and detects all 11 user-specified anomaly categories (`DUPLICATE_DEPTH`, `DEPTH_GAP`, `NULL_CLUSTER`, `IMPOSSIBLE_VALUE`, `OUTLIER_VALUE`, `EXTREME_SPIKE` with calibrated DT cycle-skip sensitivity, `FLATLINE`, `UNIT_MISMATCH`, `NON_STANDARD_MNEMONIC`, `DUPLICATE_CURVE`, and `MISSING_CORE_CURVE`). Computes Curve Health, Completeness, Consistency, and composite Quality Score ($0\text{--}100$).
-* **Anomaly Correction Options Dictionary ([`anomaly-options.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/anomaly-options.ts))** *(NEW — Sprint 4)*: Standardized petrophysical correction options dictionary for all 11 anomaly types with detailed technical descriptions, unique option IDs, and pre-selected `recommended: true` primary fixes.
-* **Automated Data Cleaning & Repair Engine ([`cleaner.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/cleaner.ts))**: Core data modification engine executing duplicate depth pruning, depth gap alignment, physical outlier clipping, DT sonic despiking (5-point median window), unit conversions, flatline stuck-sensor handling, and missing gap imputation (`KNN`, `Linear`, `Median`). Generates Before vs After verification reports and cleaned LAS 2.0 / CSV text files.
-* **Anomaly Fix Application & Audit Endpoint ([`apply-fixes/route.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/api/las/apply-fixes/route.ts))** *(NEW — Sprint 4)*: REST API endpoint applying approved anomaly fixes to LAS datasets while logging individual, transparent audit entries per anomaly to `ActivityLog`.
-* **AI Recommendation Engine ([`ai-analyzer.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/ai-analyzer.ts))**: Rule-based expert system generating natural-language petrophysical risk summaries, confidence scores, and remediation steps.
-* **Mnemonic Standardiser ([`standardiser.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/standardiser.ts))**: Maps raw vendor mnemonics (`GAMMA`, `DEN`, `CNL`, `ILD`, `AC`) to standard API mnemonics (`GR`, `RHOB`, `NPHI`, `RT`, `DT`) with confidence weighting, custom alias persistence, and `updateActiveUploadWithNewAlias()` auto-propagation.
-* **Missing Value & Imputation Engine ([`imputation-engine.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/imputation-engine.ts))**: Diagnoses 4 root causes (casing shoe, washout, telemetry dropout, off-bottom) and benchmarks 5 imputation algorithms (KNN, Cubic Spline, Linear, Mean, Median) with ground-truth cross-validation calculating RMSE, MAE, R², variance preservation, and speed.
-* **Cleaned LAS & Report Exporter ([`exporter.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/las/exporter.ts))**: Generates standard LAS 2.0 text exports with duplicate depth removal, plus CSV, Excel, and PDF certificates.
+### 1. Unified Python FastAPI Backend Architecture (`backend/app/`)
+* **FastAPI Service Core ([`backend/app/main.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/backend/app/main.py))**: Unified asynchronous backend serving all API endpoints (`/api/*`), interactive Swagger UI documentation (`/docs`), OpenAPI schemas (`/openapi.json`), and global structured JSON error handling.
+* **Database & ORM Layer ([`backend/app/models/models.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/backend/app/models/models.py))**: Native SQLAlchemy 2.0 ORM models connecting to Neon Serverless PostgreSQL (`psycopg2-binary`) with connection pooling, foreign-key cascade integrity, and zero ORM overhead.
+* **Authentication & Cryptographic Security ([`backend/app/core/security.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/backend/app/core/security.py))**: Node.js `crypto`-compatible scrypt password hashing (salt + key derivation) and HMAC-SHA256 session token generation and verification.
+* **Server-Side Authorization & Default-to-Deny RBAC ([`backend/app/core/dependencies.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/backend/app/core/dependencies.py))**:
+  * Strict session dependency verifying user records against live PostgreSQL tables. Forged or stale tokens return `None` (401 Unauthorized) with zero synthetic account auto-provisioning.
+  * Role-Based Access Control (`get_current_admin_user`) requiring database-verified `ADMIN` role with case-insensitive check and default-to-deny rejection (403 Forbidden).
+* **Ingestion Service & Atomic Transactions ([`backend/app/services/ingestion_service.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/backend/app/services/ingestion_service.py))**: Atomic database commits for LAS files, downsampled wireline curve curves, composite quality reports, and activity logs.
+* **Petrophysical Core Engines (`backend/app/services/`)**:
+  * Native Python LAS Parser (`parser.py`), Standardiser (`standardiser.py`), Quality Engine (`quality_engine.py`), Cleaner (`cleaner.py`), Diagnostics (`diagnostics.py`), Imputation (`imputation.py`), and AI Risk Analyzer (`ai_analyzer.py`).
 
-### 2. Paystack Payment & Monetization System (`src/lib/paystack.ts`)
-* **Payment Gateway**: Integration with Paystack supporting Nigerian Naira (₦ NGN) and US Dollars ($ USD) via Cards (Verve, Mastercard, Visa), Direct Bank Transfers, and USSD.
-* **API Endpoints**: `/api/paystack/initialize`, `/api/paystack/verify`, `/api/paystack/webhook`, `/api/checkout`, `/api/auth/demo`, and `/api/las/check`.
-* **In-Modal Demo Payment Runner (`payment-modal.tsx`)**: In-modal checkout with simulated sandbox progress steps, 1-click test login, instant session upgrade to Pro, and live reference verification without external redirects.
-* **Pricing Portal (`/pricing`)**: Full public pricing page comparing Starter Free (2 checks), Pro Petrophysicist (₦75,000/mo or $50/mo), and Enterprise Hub.
+### 2. Security Hardening & Administrative Controls (`backend/app/api/`)
+* **Public Registration Role Escalation Block ([`auth.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/backend/app/api/auth.py))**: Public `POST /api/auth/register` rejects any request attempting to self-assign the `ADMIN` role with `HTTP 403 Forbidden`. Allowed registration roles strictly limited to non-admin roles (`PETROPHYSICIST`, `DATA_ENGINEER`, `GEOSCIENTIST`, `VIEWER`).
+* **Admin Management Endpoints ([`admin.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/backend/app/api/admin.py))**: Privileged `GET /api/admin/users`, `PATCH /api/admin/users`, and `DELETE /api/admin/users` strictly enforce `Depends(get_current_admin_user)`. Built-in safeguards prevent admin self-deletion, deleting the only remaining admin, or demoting the last admin.
+* **Interactive Admin Management CLI ([`scripts/manage_admin.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/scripts/manage_admin.py))**: Secure console tool for provisioning administrators and promoting accounts directly in the database without exposing privileged endpoints publicly.
+* **Clean Database Seeder ([`scripts/seed_db.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/scripts/seed_db.py))**: Schema-only database initialization script that creates tables and preserves real user records while keeping all domain tables completely clean of synthetic mock records.
 
-### 3. Application UI & Dashboard Modules (`src/app/`)
-* **Navigation & Shell**: `app-shell.tsx`, responsive `sidebar.tsx` with mobile drawer, and `header.tsx` with RBAC role switcher (`ADMIN`, `PETROPHYSICIST`, `DATA_ENGINEER`, `GEOSCIENTIST`, `VIEWER`), plus **Global Live Search Bar** featuring real-time matching overlay dropdown, keyboard navigation (`Enter` / `Escape`), and URL search parameter synchronization (`/wells?search=...`).
-* **Upload Workspace ([`upload/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/upload/page.tsx))**: Strict "Detect and Flag Only" stage — original raw LAS file remains untouched. Features the 11 Anomaly Audit Checks Grid, 4 Summary Metric Cards, Untouched Raw Multi-Track Viewer, and direct CTAs to `/reports` and `/qa-engine`.
-* **Quality Engine Page ([`qa-engine/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/qa-engine/page.tsx))**: The dedicated stage for all data modification and repair. Features Active Wells Selection Dropdown (Current Upload Session, Committed DB Wells, Reference Logs), granular anomaly correction switches (Duplicate Depths, Depth Gaps, Imputation, Unit Conversions, Physical Clipping, DT Despiking, Flatlines), Before vs After score verification, and direct downloads for Cleaned LAS 2.0 (`.las`) and Cleaned CSV (`.csv`).
-* **Audit Reports Page ([`reports/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/reports/page.tsx))**: Clear demarcation into **1. Anomaly Document** (PDF QA/QC Audit Certificate and Excel Anomaly Findings Sheet) and **2. Cleaned Document** (Cleaned LAS 2.0, Cleaned CSV, Cleaned Curves Excel), supporting both active upload sessions and committed database wells.
-* **Quality Control Command Center (`dashboard/page.tsx`)**: 8 live telemetry KPI cards, 7-day rolling quality trend chart, field performance breakdown, and problem wells list.
-* **Asset & Well Management ([`wells/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/wells/page.tsx), [`wells/[id]/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/app/wells/%5Bid%5D/page.tsx))**: Well inventories, geographic coordinates, curve channels, audit history, **`CurveInventoryTable` component**, and **URL-based search query filtering**.
-* **Jest & RTL Automated Test Suite**: 4 passing test suites (`parser.test.ts`, `quality-engine.test.ts`, `cleaner.test.ts`, `header.test.tsx`), 8/8 tests green, and zero TypeScript compilation errors.
-* **Specialized Pages**: Standardisation Dictionary (`standardisation/page.tsx`), Analytics (`analytics/page.tsx`), Well Comparison (`comparison/page.tsx`), Activity Log (`activity/page.tsx`), and Admin Panel (`admin/page.tsx`).
+### 3. Application UI & Modular Frontend (`src/`)
+* **Authentication UI with Show/Hide Password ([`src/components/auth/auth-form.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/src/components/auth/auth-form.tsx))**: Interactive password visibility toggle (`Eye` / `EyeOff` icons) with full accessibility across Login and Registration modes.
+* **Modular Upload Architecture ([`src/components/upload/`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/src/components/upload/))**: High-cohesion decoupled architecture consisting of `UploadHeader`, `UploadDropzone`, `BatchQueueList`, `RestoredSessionBanner`, `WellOverviewCard`, `AuditSummaryCards`, `AIInsightsPanel`, `AnomaliesListTab`, and `HeadersTab`.
+* **Quota-Safe LocalStorage Persistence ([`src/lib/las/storage-utils.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/src/lib/las/storage-utils.ts))**: Safe storage wrapper with curve array downsampling ensuring upload workspace restoration without triggering `QuotaExceededError`.
+* **Admin Panel UI ([`src/app/admin/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/src/app/admin/page.tsx))**: Multi-tab administrative center for user management, role assignments, API tokens, and webhook configurations with real-time error handling.
+* **Wireline Viewer & Asset Management ([`src/app/wells/`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/src/app/wells/))**: SVG multi-track log viewer, curve summaries table, and URL search parameter synchronization.
 
-### 4. Reusable Well-Log Components (`src/components/well-log/`)
-* **Multi-Track Log Viewer ([`log-viewer.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/components/well-log/log-viewer.tsx))**: SVG-rendered wireline tracks with Classic Paper and Dark Subsurface themes.
-* **Curve Inventory Table ([`curve-inventory-table.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/components/well-log/curve-inventory-table.tsx))** *(NEW — Sprint 4)*: Reusable component displaying Raw Mnemonic → Standard Name mapping, Unit, Null %, Data Range, Health Score (colour-coded), and expandable anomaly flag details per curve. Used in both the Upload Workspace and Well Detail pages.
-* **Imputation Benchmark Modal (`imputation-benchmark-modal.tsx`)**: Multi-method algorithm comparison UI.
-
-### 5. Database & Infrastructure (`prisma/`)
-* **Database**: Neon PostgreSQL on AWS us-east-1 with connection pooling.
-* **Schema (`schema.prisma`)**: Models for `User`, `Well`, `LASFile`, `Curve`, `QualityReport`, `Anomaly`, `ActivityLog`, `APIToken`, `Field`, `Operator`.
-* **Multi-Tenant Isolation**: Enforced via `ownerId` foreign key and query filters across all API routes.
-* **API Type Contracts ([`api-types.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/api-types.ts))**: `WellListItem` and `WellDetailResponse` now include the optional `curveSummaries: CurveHealthSummary[]` field, populated by `extractCurveSummaries()` in the `/api/wells/[id]` route.
+### 4. Cross-Platform Developer Tools & Automated Test Harness
+* **Unified Dual-Server Launcher ([`scripts/start-servers.ps1`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/scripts/start-servers.ps1), [`start_engine.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/start_engine.py))**: 1-click script managing port cleanup (:8000 and :3000), virtual environment activation, and concurrent execution of FastAPI and Next.js.
+* **Pytest Backend Test Suite (`backend/tests/`)**: 52 automated tests with 100% green pass rate:
+  * `test_admin_authorization.py` (14 tests): Server-side admin RBAC, unauthenticated 401s, non-admin 403s, privilege escalation prevention, and safety lockout checks.
+  * `test_object_authorization.py` (9 tests): Tenant isolation on wells, fixes, and custom aliases.
+  * `test_e2e_api.py` (8 tests): End-to-end integration across auth, wells, pre-check, and diagnostics.
+  * `test_parser.py`, `test_quality_engine.py`, `test_standardiser.py`, `test_aliases_api.py`, `test_auth_api.py` (21 tests).
+* **Jest Frontend Test Suite (`__tests__/`)**: 22 automated unit tests across quality engine, standardiser, parser, and API contracts.
+* **Static Verification**: Zero TypeScript errors (`npx tsc --noEmit`), zero unused legacy dependencies.
 
 ---
 
@@ -151,6 +147,39 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
 
 ---
 
+### 🟣 SPRINT 5 (Weeks 9–10): Security Hardening, Server-Side Authorization (Default to Deny) & DB Refactoring
+
+* **Theme:** Comprehensive security audit, zero privilege escalation, server-side RBAC enforcement, database seed sanitization, and administrative management tooling.
+* **SE1 & CE2 (Server-Side Authorization & RBAC Enforcement):**
+  * Conducted full security audit across all routes, RPC functions, and dependencies.
+  * Hardened `get_current_admin_user` in `dependencies.py` to enforce strict database-verified `current_user.role == "ADMIN"` with default-to-deny rejection (`HTTP 403 Forbidden`).
+  * Closed public self-registration vulnerability in `auth.py`: blocked `role: "ADMIN"` submission (`HTTP 403 Forbidden`); restricted self-registration strictly to non-admin roles (`PETROPHYSICIST`, `DATA_ENGINEER`, `GEOSCIENTIST`, `VIEWER`).
+  * Eliminated ghost-token auto-provisioning loophole in `dependencies.py`: unverified, deleted, or spoofed tokens return `None` (`HTTP 401 Unauthorized`) rather than creating database accounts.
+  * Added safety lockout prevention in `admin.py`: blocked admin self-deletion, deleting the only remaining admin, and self-demotion when no other admin exists.
+  * Built dedicated security test suite `backend/tests/test_admin_authorization.py` (14 tests) proving unauthenticated users receive 401 and non-admin roles receive 403 on all privileged endpoints.
+* **SE2 (UI Modernization & Authentication Enhancements):**
+  * Implemented Show/Hide Password visibility toggle with accessible eye icons in `src/components/auth/auth-form.tsx`.
+  * Refactored Upload Workspace into high-cohesion, decoupled components (`UploadHeader`, `UploadDropzone`, `BatchQueueList`, `RestoredSessionBanner`, `WellOverviewCard`, `AuditSummaryCards`, `AIInsightsPanel`, `AnomaliesListTab`, `HeadersTab`).
+  * Implemented quota-safe localStorage persistence in `storage-utils.ts` with curve downsampling to prevent `QuotaExceededError`.
+  * Connected admin page error banners to FastAPI's standard `detail` field.
+* **CE2 & DA3 (Database Sanitization & Management CLI):**
+  * Built `scripts/seed_db.py`: schema-only initialization preserving real user records while keeping all domain and telemetry tables completely clean of synthetic mock data.
+  * Built `scripts/manage_admin.py`: interactive CLI tool for secure administrator creation and account promotion directly in PostgreSQL.
+  * Deprecated legacy TypeScript database files (`prisma/seed.ts`, `src/lib/auth.ts`, `prisma7.config.ts`, `services/python_parser/`).
+* **DA4 & CE1 (Continuous Validation & Test Coverage):**
+  * Expanded automated test coverage to 52 backend tests and 22 frontend tests with 100% green pass rate and 0 TypeScript compilation errors.
+
+---
+
+### 🔴 SPRINT 6 (Weeks 11–12): Hardened Production Release, Cross-Platform Launchers & Demo Sign-Off
+
+* **Theme:** Dual-server orchestration, cross-platform developer tooling, performance verification, and final production sign-off.
+* **SE1 & CE1:** Created `scripts/start-servers.ps1` and `start_engine.py` for single-command orchestration of FastAPI (:8000) and Next.js (:3000) with automatic port cleanup and health monitoring.
+* **SE2:** Final responsive layout verification, dark mode aesthetics audit, and interactive Swagger UI (`/docs`) with Bearer token authorization modal.
+* **CE2:** Production Docker containerization verification with `docker-compose.yml`, health probes, and SSL/TLS proxy alignment.
+* **Full Team:** End-to-end regression audit, verification of 11 anomaly detection categories, and zero-technical-debt sign-off.
+
+---
 
 ## 📊 4. Quick Reference Responsibility Matrix
 
@@ -160,42 +189,42 @@ WellQC+ Development Team (8 Members)
 ├── 🧑‍💻 SE1 (Core Engine & AI Lead)
 │    ├─ S1: Architecture & Data Pipeline Contract  ├─ S2: Scrypt & HMAC Auth Engine
 │    ├─ S3: LAS Parser & Quality Engine Scoring   ├─ S4: Multi-Track Viewer & Exporter
-│    ├─ S5: Cleaner Engine & 11 Anomaly Audit     └─ S6: Code Review & Build Sign-Off
+│    ├─ S5: Server RBAC Default-to-Deny & Audits  └─ S6: Cross-Platform Launcher & Sign-Off
 │
 ├── 🧑‍💻 SE2 (Full-Stack UI & API Lead)
 │    ├─ S1: Next.js Setup & Directory Scaffold    ├─ S2: Landing Page, Auth Pages & Shell
 │    ├─ S3: Upload UI & Well CRUD Pages           ├─ S4: Dashboard, QA Engine & Benchmark UI
-│    ├─ S5: Paystack + Upload Separation +        └─ S6: UI Polish & Responsive Audit
-│           Quality Engine Active Wells & Controls
+│    ├─ S5: Show/Hide Password & Modular Upload   └─ S6: Swagger UI Auth & UI Polish
 │
 ├── 📊 DA1 (Petrophysical Rules & Standardisation Lead)
 │    ├─ S1: 8 Core Curve Physical Limit Bounds    ├─ S2: Raw Mnemonic Alias Dictionary
 │    ├─ S3: Standardiser Confidence Weighting     ├─ S4: Persistent Custom Alias Feature
-│    ├─ S5: Real-Time Alias Auto-Propagation      └─ S6: Petrophysical Dictionary Sign-Off
+│    ├─ S5: Custom Alias User Isolation Logic     └─ S6: Petrophysical Dictionary Sign-Off
 │
 ├── 📊 DA2 (Missing Value & Imputation Lead)
 │    ├─ S1: Root Cause Diagnostics Definition     ├─ S2: Baseline Imputation Benchmarks
 │    ├─ S3: Spike & Flatline Threshold Tuning     ├─ S4: Multi-Method KNN Benchmark Engine
-│    ├─ S5: 11 Anomaly Diagnostic Specifications  └─ S6: Imputation Presentation & Slides
+│    ├─ S5: Imputation Quality Verification       └─ S6: Imputation Presentation & Slides
 │
 ├── 📊 DA3 (Basin Intelligence & Field Analytics Lead)
 │    ├─ S1: Dashboard KPI & Telemetry Specs       ├─ S2: Niger Delta Basin Field Directory
 │    ├─ S3: Header Metadata Auto-Extraction       ├─ S4: Analytics & Field Ranking Logic
-│    ├─ S5: 7-Day Trend Telemetry Validation      └─ S6: Field Performance Demo Dataset
+│    ├─ S5: Clean DB Seeder & Zero-Mock Baseline  └─ S6: Field Performance Demo Dataset
 │
 ├── 📊 DA4 (Reporting & Quality Audit Lead)
 │    ├─ S1: PDF Audit Certificate Layout Specs    ├─ S2: 10 Niger Delta Test LAS Dataset
 │    ├─ S3: Quality Grade Range Verification      ├─ S4: PDF / Excel / CSV Exporters
-│    ├─ S5: Anomaly vs Cleaned Document Split     └─ S6: Demo Dataset Seeding & Sign-Off
+│    ├─ S5: Pytest 52-Suite Verification          └─ S6: Final Demonstration & Sign-Off
 │
 ├── ☁️ CE1 (DevOps, CI/CD & Performance Lead)
 │    ├─ S1: Vercel Project & Environment Setup    ├─ S2: SSL HTTPS & GitHub Actions CI/CD
 │    ├─ S3: Next.js Chunk Splitting Optimization  ├─ S4: SVG Rendering Performance Tuning
-│    ├─ S5: Automated Jest Test Pipeline          └─ S6: Production Release & Custom Domain
+│    ├─ S5: Automated Jest & Pytest Pipelines     └─ S6: Production Release & Custom Domain
 │
 └── ☁️ CE2 (Database, Security & Microservice Lead)
      ├─ S1: Neon PostgreSQL DB Provisioning       ├─ S2: Full Prisma Schema & Owner Indexes
      ├─ S3: Atomic Multi-Tenant DB Transaction    ├─ S4: Python FastAPI Imputation Service
-     ├─ S5: Freemium Checks & Security Audit      └─ S6: Production DB Migration & Deploy
+     ├─ S5: Admin CLI & Privilege Escalation Fix  └─ S6: Production DB Migration & Deploy
 ```
+
 

@@ -58,25 +58,6 @@ def get_current_user_optional(
     user = db.query(User).filter(User.id == session_data["id"]).first()
     if not user and session_data.get("email"):
         user = db.query(User).filter(User.email == session_data["email"]).first()
-    if not user:
-        # Fallback to session user and ensure record exists in DB to prevent FK violations
-        user = User(
-            id=session_data["id"],
-            email=session_data.get("email", f"{session_data['id']}@wellqc.local"),
-            name=session_data.get("name", "User"),
-            passwordHash="stateless_session_user_hash",
-            role=session_data.get("role", "PETROPHYSICIST"),
-            department=session_data.get("department", "Subsurface Analytics"),
-            tier=session_data.get("tier", "FREE"),
-            freeChecksUsed=session_data.get("freeChecksUsed", 0),
-        )
-        try:
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-        except Exception:
-            db.rollback()
-            user = db.query(User).filter(User.id == session_data["id"]).first()
     return user
 
 def get_current_user(
@@ -103,8 +84,9 @@ def get_current_admin_user(
     """
     Enforces Role-Based Access Control (RBAC) requiring ADMIN role privileges.
     Raises HTTP 403 Forbidden if the user is authenticated but not an administrator.
+    Default to deny: strictly verifies current_user role matches ADMIN.
     """
-    if current_user.role != "ADMIN":
+    if not current_user or (current_user.role or "").strip().upper() != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrative privileges required.",

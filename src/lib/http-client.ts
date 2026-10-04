@@ -11,6 +11,7 @@ export interface SafeJsonResult<T> {
   error?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function safeReadJson<T = any>(
   response: Response,
   fallbackMessage = "Unexpected server response"
@@ -29,13 +30,11 @@ export async function safeReadJson<T = any>(
 
     try {
       const data = JSON.parse(text) as T;
-      const errorMsg =
-        (data as any)?.error ||
-        (data as any)?.detail ||
-        (data as any)?.message;
+      const body = data as { error?: unknown; detail?: unknown; message?: unknown } | null;
+      const errorMsg = body?.error || body?.detail || body?.message;
 
       return {
-        ok: response.ok && !(data as any)?.error,
+        ok: response.ok && !body?.error,
         status,
         data,
         error: !response.ok

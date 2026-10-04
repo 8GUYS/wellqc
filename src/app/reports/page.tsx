@@ -77,7 +77,7 @@ export default function ReportsPage() {
 
     // 2. Fetch wells from database
     fetch("/api/wells")
-      .then((res) => safeReadJson<{ wells: any[] }>(res))
+      .then((res) => safeReadJson<{ wells: { id: string; name: string; qualityScore: number; qualityGrade: string; createdAt: string }[] }>(res))
       .then((res) => {
         if (res.ok && res.data && Array.isArray(res.data.wells)) {
           const dbReports: AuditReportItem[] = res.data.wells.map((w: { id: string; name: string; qualityScore: number; qualityGrade: string; createdAt: string }) => ({
@@ -93,7 +93,7 @@ export default function ReportsPage() {
           setReports((prev) => [...prev, ...dbReports]);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const handlePrintAuditCertificate = () => {
@@ -285,13 +285,12 @@ export default function ReportsPage() {
                     </td>
                     <td className="py-3 px-4">
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          r.qualityGrade === "EXCELLENT"
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.qualityGrade === "EXCELLENT"
                             ? "bg-emerald-500/20 text-emerald-300"
                             : r.qualityGrade === "GOOD"
-                            ? "bg-cyan-500/20 text-cyan-300"
-                            : "bg-amber-500/20 text-amber-300"
-                        }`}
+                              ? "bg-cyan-500/20 text-cyan-300"
+                              : "bg-amber-500/20 text-amber-300"
+                          }`}
                       >
                         {r.qualityGrade}
                       </span>

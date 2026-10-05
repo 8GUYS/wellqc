@@ -21,9 +21,12 @@ jobs:
         run: |
           for i in 1 2 3; do
             npx prisma migrate deploy && exit 0
-            echo "Attempt $i failed, retrying in 20s..."
-            sleep 20
+            if [ "$i" -lt 3 ]; then
+              echo "Attempt $i failed, retrying in 20s..."
+              sleep 20
+            fi
           done
+          echo "Migrations failed after 3 attempts"
           exit 1
         env:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}

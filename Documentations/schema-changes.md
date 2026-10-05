@@ -12,7 +12,7 @@ How to change the WellQC database schema without breaking production. Read this 
 
 There is no `create_all` and no Alembic in the Python backend. Do not add either. Prisma stays the only schema owner.
 
-Prisma is not used by the live API any more. The Prisma client in `src/lib/db.ts` is only imported by `legacy_ts_api/` (the rollback fallback), `src/lib/las/alias-storage.ts` and `prisma/seed.ts`. In practice Prisma is the migration and seed tool.
+Prisma is not used by the live API. It is only the migration tool, and the Python backend reads and writes the tables through SQLAlchemy. Seeding is done by `scripts/seed_db.py`.
 
 ## Databases
 

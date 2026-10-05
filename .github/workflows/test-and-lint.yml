@@ -20,3 +20,4 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      - run: docker build -f backend/Dockerfile -t wellqc-backend-ci .

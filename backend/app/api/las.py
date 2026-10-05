@@ -22,9 +22,11 @@ from backend.app.models.models import (
     Well,
 )
 from backend.app.schemas.las import (
+    AnalyzeLASRequest,
     ApplyFixesRequest,
     CleanRequest,
     CommitLASRequest,
+    QARequest,
 )
 from backend.app.schemas.imputation import (
     BenchmarkRequest,
@@ -44,17 +46,27 @@ from backend.app.services.imputation import (
     drop_missing_rows,
     run_single_strategy,
 )
-from backend.app.services.parser import parse_las_content, ParsedLAS
+from backend.app.services.parser import parse_las_content, ParsedLAS, LASParseError
 from backend.app.services.quality_engine import analyze_well_log_quality
 from backend.app.services.standardiser import (
+    CustomAliasEntry,
     get_custom_aliases,
-    set_custom_aliases,
     standardise_mnemonic,
 )
 from backend.app.api.standardisation import _get_user_aliases
 from backend.app.services.ingestion_service import commit_las_file_transaction
 
 router = APIRouter(prefix="/api/las", tags=["las"])
+
+
+def _parse_or_400(content: str, aliases: Optional[List[CustomAliasEntry]] = None) -> ParsedLAS:
+    try:
+        return parse_las_content(content, custom_aliases=aliases)
+    except LASParseError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
 
 @router.post("/check")
@@ -64,26 +76,6 @@ def check_limit(
 ):
     tier = current_user.tier or "FREE"
     checks_used = current_user.freeChecksUsed or 0
-
-    # FREEMIUM ENFORCEMENT SUSPENDED for unrestricted testing.
-    # Sprint 5: uncomment this block (and add the matching check in handle_las)
-    # once the payment option is implemented. Atomic check-and-increment:
-    #
-    # if tier == "FREE":
-    #     result = db.execute(
-    #         update(User)
-    #         .where(User.id == current_user.id, User.freeChecksUsed < 2)
-    #         .values(freeChecksUsed=User.freeChecksUsed + 1)
-    #     )
-    #     db.commit()
-    #     if result.rowcount == 0:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-    #             detail="Free limit reached. You have used your 2 free LAS log file checks.",
-    #         )
-    #     db.refresh(current_user)
-    #     checks_used = current_user.freeChecksUsed
-    # (also add `update` to the sqlalchemy import when re-enabling)
 
     return {
         "allowed": True,
@@ -103,8 +95,45 @@ def get_check_status(current_user: User = Depends(get_current_user)):
         "freeChecksUsed": checks_used,
         "maxFreeChecks": 2,
         "remainingChecks": max(0, 2 - checks_used) if tier == "FREE" else None,
-        "limitReached": False,  # FREEMIUM SUSPENDED for testing. Sprint 5: restore to: tier == "FREE" and checks_used >= 2
+        "limitReached": False,
     }
+
+
+@router.post("/analyze")
+def analyze_las_endpoint(
+    req: AnalyzeLASRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
+    content = (req.content or req.lasText or "").strip()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="LAS file content is required.",
+        )
+
+    server_aliases = _get_user_aliases(db, current_user)
+    parsed = _parse_or_400(content, server_aliases)
+    qa = analyze_well_log_quality(parsed, server_aliases)
+    ai = generate_ai_analysis(parsed, qa)
+
+    return {
+        "parsed": parsed.model_dump(),
+        "qa": qa.model_dump(),
+        "ai": ai.model_dump(),
+        "warnings": parsed.warnings,
+    }
+
+
+@router.post("/qa")
+def rerun_qa_endpoint(
+    req: QARequest,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
+    server_aliases = _get_user_aliases(db, current_user)
+    qa = analyze_well_log_quality(req.parsed, server_aliases)
+    return qa.model_dump()
 
 
 @router.post("")
@@ -124,9 +153,7 @@ def handle_las(
         )
 
     server_aliases = _get_user_aliases(db, current_user)
-    set_custom_aliases(server_aliases)
-
-    parsed = parse_las_content(content)
+    parsed = _parse_or_400(content, server_aliases)
     qa = analyze_well_log_quality(parsed, server_aliases)
     ai = generate_ai_analysis(parsed, qa)
 
@@ -166,7 +193,8 @@ def handle_las(
             "step": parsed.wellInfo.step,
             "depthUnit": parsed.wellInfo.depthUnit,
             "totalPoints": parsed.totalPoints,
-            "curveCount": len(parsed.curves),
+            "curveCount": len(parsed.curves) + (1 if parsed.depthCurve else 0),
+            "warnings": parsed.warnings,
             "overallScore": qa.overallScore,
             "qualityGrade": qa.qualityGrade,
             "completenessScore": qa.completenessScore,
@@ -203,7 +231,8 @@ def handle_las(
 @router.post("/clean")
 def clean_las(
     req: CleanRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
 ):
     content = (req.content or "").strip()
     if not content:
@@ -212,9 +241,15 @@ def clean_las(
             detail="LAS file content is required for cleaning.",
         )
 
-    parsed = parse_las_content(content)
-    initial_qa = analyze_well_log_quality(parsed)
-    result = clean_las_log_data(parsed, initial_qa, req.options or CleaningOptions())
+    server_aliases = _get_user_aliases(db, current_user)
+    parsed = _parse_or_400(content, server_aliases)
+    initial_qa = analyze_well_log_quality(parsed, custom_aliases=server_aliases)
+    result = clean_las_log_data(
+        parsed,
+        initial_qa,
+        req.options or CleaningOptions(),
+        custom_aliases=server_aliases,
+    )
 
     return {
         "success": True,
@@ -243,11 +278,12 @@ def apply_fixes(
             detail="No approved fixes were provided.",
         )
 
+    server_aliases = _get_user_aliases(db, current_user)
     target_las: Optional[ParsedLAS] = None
     if req.rawLas:
         target_las = req.rawLas
     elif req.rawLasContent:
-        target_las = parse_las_content(req.rawLasContent)
+        target_las = _parse_or_400(req.rawLasContent, server_aliases)
     elif req.wellId not in ("upload-session", "benchmark-01"):
         db_well = db.query(Well).filter(Well.id == req.wellId).first()
         if db_well:
@@ -261,7 +297,7 @@ def apply_fixes(
             if db_well.lasFiles:
                 latest_file = db_well.lasFiles[0]
                 if latest_file.rawHeader:
-                    target_las = parse_las_content(latest_file.rawHeader)
+                    target_las = _parse_or_400(latest_file.rawHeader, server_aliases)
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -274,17 +310,71 @@ def apply_fixes(
             detail="Could not find or reconstruct target LAS data for applying fixes.",
         )
 
+    opt_duplicateDepthPruning = False
+    opt_depthGapInterpolation = False
+    opt_despiking = False
+    opt_outlierClipping = False
+    opt_flatlineHandling = False
+    opt_unitStandardization = False
+    imputation_strategy = "NONE"
+
+    for f in req.approvedFixes:
+        op = f.optionId
+        anom_type = (f.anomalyType or "").upper()
+
+        if op in ("DEDUPLICATE_KEEP_FIRST", "AVERAGE_DUPLICATES", "DEDUPLICATE_PRIMARY_CHANNEL"):
+            opt_duplicateDepthPruning = True
+        elif op in ("UNIFORM_STEP_RESAMPLE", "CUBIC_SPLINE_INTERPOLATION"):
+            opt_depthGapInterpolation = True
+        elif op in ("MEDIAN_DESPIKING", "GRADIENT_THRESHOLD_CLIP", "NULLIFY_FOR_IMPUTATION"):
+            opt_despiking = True
+        elif op in ("PHYSICAL_LIMIT_CLIP", "SIGMA_CLIP", "CLIP_TO_PHYSICAL_RANGE"):
+            opt_outlierClipping = True
+        elif op in ("NULLIFY_STUCK_INTERVAL", "INTERPOLATE_STUCK_INTERVAL"):
+            opt_flatlineHandling = True
+        elif op in ("AUTO_CONVERT_STANDARDIZE",):
+            opt_unitStandardization = True
+        elif op in ("KNN_IMPUTATION", "NULLIFY_AND_KNN_IMPUTE"):
+            imputation_strategy = "KNN"
+        elif op in ("LINEAR_INTERPOLATION", "NULLIFY_FOR_IMPUTATION", "INTERPOLATE_STUCK_INTERVAL"):
+            if imputation_strategy == "NONE":
+                imputation_strategy = "LINEAR"
+        elif op in ("MEDIAN_IMPUTATION",):
+            imputation_strategy = "MEDIAN"
+        elif op == "AUTO_RECOMMENDED_FIX":
+            if anom_type == "DUPLICATE_DEPTH":
+                opt_duplicateDepthPruning = True
+            elif anom_type == "DEPTH_GAP":
+                opt_depthGapInterpolation = True
+            elif anom_type == "EXTREME_SPIKE":
+                opt_despiking = True
+            elif anom_type in ("IMPOSSIBLE_VALUE", "OUTLIER_VALUE"):
+                opt_outlierClipping = True
+            elif anom_type == "FLATLINE":
+                opt_flatlineHandling = True
+            elif anom_type in ("UNIT_MISMATCH", "UNIT_INFERRED"):
+                opt_unitStandardization = True
+            elif anom_type == "NULL_CLUSTER":
+                imputation_strategy = "KNN"
+
+    if opt_depthGapInterpolation and imputation_strategy == "NONE":
+        imputation_strategy = "LINEAR"
+
     cleaning_options = CleaningOptions(
-        despiking=any(f.optionId in ("DESPIKE_MEDIAN", "MEDIAN_DESPIKE") for f in req.approvedFixes),
-        outlierClipping=any(f.optionId in ("CLIP_PHYSICAL", "OUTLIER_CLIP") for f in req.approvedFixes),
-        unitStandardization=any(f.optionId in ("STANDARDISE_UNITS", "CONVERT_UNITS") for f in req.approvedFixes),
-        duplicateDepthPruning=any(f.optionId in ("PRUNE_DUPLICATE_DEPTHS", "DROP_DUPLICATES") for f in req.approvedFixes),
-        flatlineHandling=any(f.optionId in ("FLAG_FLATLINE", "HANDLE_FLATLINE") for f in req.approvedFixes),
-        depthGapInterpolation=any(f.optionId in ("INTERPOLATE_DEPTH_GAPS", "INTERPOLATE") for f in req.approvedFixes),
-        imputationStrategy="KNN" if any(f.optionId in ("IMPUTE_KNN", "APPLY_KNN") for f in req.approvedFixes) else "LINEAR",
+        despiking=opt_despiking,
+        outlierClipping=opt_outlierClipping,
+        unitStandardization=opt_unitStandardization,
+        duplicateDepthPruning=opt_duplicateDepthPruning,
+        flatlineHandling=opt_flatlineHandling,
+        depthGapInterpolation=opt_depthGapInterpolation,
+        imputationStrategy=imputation_strategy,
     )
 
-    clean_result = clean_las_log_data(target_las, options=cleaning_options)
+    clean_result = clean_las_log_data(
+        target_las,
+        options=cleaning_options,
+        custom_aliases=server_aliases,
+    )
 
     # Activity log
     log = ActivityLog(

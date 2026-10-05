@@ -1,23 +1,7 @@
 from __future__ import annotations
 from typing import Dict, List, Optional
+from backend.app.services.curve_utils import is_null_value
 from backend.app.schemas.imputation import CurveMetaPayload, MissingValueDiagnostic, WellInfoPayload
-
-_HARD_NULL_SENTINELS = {-999.25, -9999.0, 999.25, -999.9}
-
-def is_null_value(val: Optional[float], null_value: float) -> bool:
-    if val is None:
-        return True
-    try:
-        fval = float(val)
-    except (TypeError, ValueError):
-        return True
-    if fval != fval or fval in (float("inf"), float("-inf")):  # NaN / Inf
-        return True
-    if abs(fval - null_value) < 0.01:
-        return True
-    if fval in _HARD_NULL_SENTINELS:
-        return True
-    return False
 
 def diagnose_missing_value_causes(
     depth: List[float],

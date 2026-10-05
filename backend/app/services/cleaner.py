@@ -3,14 +3,15 @@ import math
 from datetime import datetime, timezone
 from typing import Dict, List, Literal, Optional, Tuple
 from pydantic import BaseModel
+from backend.app.services.curve_utils import is_null_value, null_mask
 from backend.app.services.parser import LASCurveMeta, ParsedLAS, LASData
 from backend.app.services.quality_engine import QualityAnalysisResult, analyze_well_log_quality
 from backend.app.services.standardiser import (
     STANDARD_CURVES,
+    CustomAliasEntry,
     convert_to_standard_unit,
     standardise_mnemonic,
 )
-from backend.app.services.diagnostics import is_null_value
 from backend.app.services.imputation import impute_knn, impute_linear, impute_median
 
 class CleaningOptions(BaseModel):
@@ -46,7 +47,7 @@ class CleanedLogResult(BaseModel):
     cleanedCsvText: str
 
 
-def despike_series(values: List[float], null_val: float) -> Tuple[List[float], int]:
+def despike_series(values: List[float], null_val: Optional[float] = None) -> Tuple[List[float], int]:
     valid_vals = [v for v in values if not is_null_value(v, null_val)]
     if len(valid_vals) < 5:
         return list(values), 0
@@ -76,7 +77,7 @@ def despike_series(values: List[float], null_val: float) -> Tuple[List[float], i
 
 
 def build_las_file_string(las: ParsedLAS, qa: QualityAnalysisResult, report: VerificationReport) -> str:
-    null_val = las.wellInfo.nullValue
+    null_val = las.wellInfo.nullValue if (las.wellInfo.nullValue is not None and math.isfinite(las.wellInfo.nullValue)) else -999.25
     now_iso = datetime.now(timezone.utc).isoformat()
     lines = [
         "~VERSION INFORMATION",
@@ -86,24 +87,53 @@ def build_las_file_string(las: ParsedLAS, qa: QualityAnalysisResult, report: Ver
         f"# Cleaned & Repaired by WellQC+ Enterprise Engine on {now_iso}",
         f"# Verification Audit: Initial Score {report.originalQualityScore}% ({report.originalGrade}) -> Cleaned Score {report.cleanedQualityScore}% ({report.cleanedGrade})",
         f"# Outliers Clipped: {report.outliersRemovedCount} | Spikes Despiked: {report.spikesDespikedCount} | Units Standardized: {report.unitsConvertedCount} | Imputed Values: {report.nullsImputedCount}",
-        f"STRT.{las.wellInfo.depthUnit:<6} {las.wellInfo.startDepth:>12.4f} : START DEPTH",
-        f"STOP.{las.wellInfo.depthUnit:<6} {las.wellInfo.stopDepth:>12.4f} : STOP DEPTH",
-        f"STEP.{las.wellInfo.depthUnit:<6} {las.wellInfo.step:>12.4f} : STEP VALUE",
-        f"NULL.        {null_val:>12.2f} : NULL VALUE",
-        f"WELL.        {las.wellInfo.wellName:>12} : WELL NAME",
-        f"COMP.        {las.wellInfo.company:>12} : COMPANY",
-        f"FLD .        {las.wellInfo.field:>12} : FIELD",
-        "~CURVE INFORMATION",
-        f"DEPT.{las.wellInfo.depthUnit:<6}             : 1 MEASURED DEPTH",
     ]
 
+    depth_unit = las.wellInfo.depthUnit or "M"
+    if "STRT" in las.rawHeader.upper() or (las.wellInfo.startDepth and las.wellInfo.startDepth != 0.0):
+        lines.append(f"STRT.{depth_unit:<6} {las.wellInfo.startDepth:>12.4f} : START DEPTH")
+    else:
+        lines.append(f"STRT.{depth_unit:<6}              : START DEPTH")
+
+    if "STOP" in las.rawHeader.upper() or (las.wellInfo.stopDepth and las.wellInfo.stopDepth != 0.0):
+        lines.append(f"STOP.{depth_unit:<6} {las.wellInfo.stopDepth:>12.4f} : STOP DEPTH")
+    else:
+        lines.append(f"STOP.{depth_unit:<6}              : STOP DEPTH")
+
+    if "STEP" in las.rawHeader.upper():
+        lines.append(f"STEP.{depth_unit:<6} {las.wellInfo.step:>12.4f} : STEP VALUE")
+    else:
+        lines.append(f"STEP.{depth_unit:<6}              : STEP VALUE")
+
+    lines.append(f"NULL.        {null_val:>12.2f} : NULL VALUE")
+
+    if las.wellInfo.wellName and las.wellInfo.wellName != "UNKNOWN_WELL":
+        lines.append(f"WELL.        {las.wellInfo.wellName:>12} : WELL NAME")
+    else:
+        lines.append(f"WELL.                     : WELL NAME")
+
+    if las.wellInfo.company and las.wellInfo.company != "NDI-GROUP-5":
+        lines.append(f"COMP.        {las.wellInfo.company:>12} : COMPANY")
+    else:
+        lines.append(f"COMP.                     : COMPANY")
+
+    if las.wellInfo.field and las.wellInfo.field != "NIGER DELTA":
+        lines.append(f"FLD .        {las.wellInfo.field:>12} : FIELD")
+    else:
+        lines.append(f"FLD .                     : FIELD")
+
+    lines.append("~CURVE INFORMATION")
+    lines.append(f"DEPT.{depth_unit:<6}             : 1 MEASURED DEPTH")
+
     for i, c in enumerate(las.curves):
-        lines.append(f"{c.mnemonic}.{c.unit:<6} : {i + 2} {c.description}")
+        u = c.unit if c.unit else ""
+        lines.append(f"{c.mnemonic}.{u:<6} : {i + 2} {c.description}")
 
     lines.append("~ASCII")
 
     for idx, d in enumerate(las.data.depth):
-        row = [f"{d:>10.4f}"]
+        d_str = f"{null_val:>10.2f}" if (d is None or not math.isfinite(d) or is_null_value(d, null_val)) else f"{d:>10.4f}"
+        row = [d_str]
         for c in las.curves:
             val = las.data.curves.get(c.mnemonic, [null_val] * len(las.data.depth))[idx]
             if is_null_value(val, null_val):
@@ -116,12 +146,13 @@ def build_las_file_string(las: ParsedLAS, qa: QualityAnalysisResult, report: Ver
 
 
 def build_csv_file_string(las: ParsedLAS) -> str:
-    null_val = las.wellInfo.nullValue
+    null_val = las.wellInfo.nullValue if (las.wellInfo.nullValue is not None and math.isfinite(las.wellInfo.nullValue)) else -999.25
     header = ["DEPTH"] + [c.mnemonic for c in las.curves]
     rows = [",".join(header)]
 
     for idx, d in enumerate(las.data.depth):
-        row = [f"{d:.4f}"]
+        d_str = "" if (d is None or not math.isfinite(d) or is_null_value(d, null_val)) else f"{d:.4f}"
+        row = [d_str]
         for c in las.curves:
             val = las.data.curves.get(c.mnemonic, [null_val] * len(las.data.depth))[idx]
             if is_null_value(val, null_val):
@@ -137,10 +168,12 @@ def clean_las_log_data(
     las: ParsedLAS,
     initial_qa: Optional[QualityAnalysisResult] = None,
     options: Optional[CleaningOptions] = None,
+    custom_aliases: Optional[List[CustomAliasEntry]] = None,
 ) -> CleanedLogResult:
     opts = options or CleaningOptions()
-    raw_qa = initial_qa or analyze_well_log_quality(las)
-    null_val = las.wellInfo.nullValue if math.isfinite(las.wellInfo.nullValue) else -999.25
+    raw_qa = initial_qa or analyze_well_log_quality(las, custom_aliases=custom_aliases)
+    had_no_null_marker = (las.wellInfo.nullValue is None)
+    null_val = las.wellInfo.nullValue if (las.wellInfo.nullValue is not None and math.isfinite(las.wellInfo.nullValue)) else -999.25
 
     outliers_removed_count = 0
     spikes_despiked_count = 0
@@ -150,16 +183,18 @@ def clean_las_log_data(
     flatlines_handled_count = 0
     depth_gaps_interpolated_count = 0
 
-    # 1. Prune Duplicate Depths
+    # 1. Prune Duplicate Depths (leaving null-depth rows untouched)
     depth_array = list(las.data.depth)
     original_row_count = len(depth_array)
     valid_depth_indexes = list(range(original_row_count))
+    null_depth_set = set(las.nullDepthRows or [])
 
     if opts.duplicateDepthPruning:
         seen_depths = set()
         pruned_indexes = []
         for idx, d in enumerate(depth_array):
-            if not math.isfinite(d):
+            if idx in null_depth_set or not math.isfinite(d) or is_null_value(d, null_val):
+                pruned_indexes.append(idx)
                 continue
             key = f"{d:.6f}"
             if key not in seen_depths:
@@ -171,9 +206,19 @@ def clean_las_log_data(
 
     # Count depth gaps
     if opts.depthGapInterpolation:
-        for i in range(1, len(depth_array)):
-            if depth_array[i] - depth_array[i - 1] > abs(las.wellInfo.step) * 3:
-                depth_gaps_interpolated_count += 1
+        step_val = abs(las.wellInfo.step or 0.0)
+        if step_val > 0:
+            for i in range(1, len(depth_array)):
+                d_prev = depth_array[i - 1]
+                d_curr = depth_array[i]
+                if (
+                    math.isfinite(d_prev)
+                    and math.isfinite(d_curr)
+                    and not is_null_value(d_prev, null_val)
+                    and not is_null_value(d_curr, null_val)
+                ):
+                    if d_curr - d_prev > step_val * 3:
+                        depth_gaps_interpolated_count += 1
 
     # 2. Clean Curves
     new_curves: List[LASCurveMeta] = []
@@ -185,12 +230,14 @@ def clean_las_log_data(
             las.data.curves.get(c_meta.mnemonic, [null_val] * original_row_count)[i]
             for i in valid_depth_indexes
         ]
-        std = standardise_mnemonic(c_meta.mnemonic, c_meta.unit)
+        std = standardise_mnemonic(c_meta.mnemonic, c_meta.unit, custom_aliases=custom_aliases)
 
         clean_mnemonic = c_meta.mnemonic
-        clean_unit = c_meta.unit
+        clean_unit = c_meta.unit or ""
+        is_blank_unit = not clean_unit.strip()
 
-        if opts.unitStandardization and std.isAutoMatched:
+        # Decision 2: blank unit curves keep their blank unit without forced conversion
+        if opts.unitStandardization and std.isAutoMatched and not is_blank_unit:
             std_def = STANDARD_CURVES.get(std.standardMnemonic)
             if std_def:
                 clean_mnemonic = std.standardMnemonic
@@ -199,7 +246,7 @@ def clean_las_log_data(
         values = list(raw_values)
 
         # Unit conversion
-        if opts.unitStandardization:
+        if opts.unitStandardization and not is_blank_unit:
             converted_vals = []
             for v in values:
                 if is_null_value(v, null_val):
@@ -286,15 +333,37 @@ def clean_las_log_data(
                             cleaned_curve_data[mnem][idx] = round(imputed[idx], 4)
                             nulls_imputed_count += 1
 
+    # Recompute null depth rows after pruning/updates
+    cleaned_null_depth_rows = [
+        i for i, d in enumerate(depth_array)
+        if not math.isfinite(d) or is_null_value(d, null_val)
+    ]
+
+    cleaned_well_info = las.wellInfo.model_copy(update={
+        "nullValue": null_val,
+        "startDepth": depth_array[0] if depth_array else las.wellInfo.startDepth,
+        "stopDepth": depth_array[-1] if depth_array else las.wellInfo.stopDepth,
+    })
+
     cleaned_las = las.model_copy(update={
+        "wellInfo": cleaned_well_info,
         "curves": new_curves,
         "data": LASData(depth=depth_array, curves=cleaned_curve_data),
         "totalPoints": len(depth_array),
+        "nullDepthRows": cleaned_null_depth_rows,
     })
 
-    cleaned_qa = analyze_well_log_quality(cleaned_las)
+    cleaned_qa = analyze_well_log_quality(cleaned_las, custom_aliases=custom_aliases)
     score_improvement = max(0, cleaned_qa.overallScore - raw_qa.overallScore)
     is_verified_clean = cleaned_qa.overallScore >= 80 and cleaned_qa.criticalCount == 0
+
+    base_summary = (
+        f"Data successfully cleaned and verified. Quality score boosted by +{score_improvement}% to {cleaned_qa.overallScore}% ({cleaned_qa.qualityGrade})."
+        if is_verified_clean
+        else f"Data partially repaired. Quality score improved by +{score_improvement}% to {cleaned_qa.overallScore}%. Some sensor gaps require manual petrophysical review."
+    )
+    if had_no_null_marker:
+        base_summary += f" Note: original file had no NULL marker; {null_val} was used in the cleaned output."
 
     verification_report = VerificationReport(
         outliersRemovedCount=outliers_removed_count,
@@ -310,11 +379,7 @@ def clean_las_log_data(
         cleanedGrade=cleaned_qa.qualityGrade,
         scoreImprovement=score_improvement,
         isVerifiedClean=is_verified_clean,
-        summaryMessage=(
-            f"Data successfully cleaned and verified. Quality score boosted by +{score_improvement}% to {cleaned_qa.overallScore}% ({cleaned_qa.qualityGrade})."
-            if is_verified_clean
-            else f"Data partially repaired. Quality score improved by +{score_improvement}% to {cleaned_qa.overallScore}%. Some sensor gaps require manual petrophysical review."
-        ),
+        summaryMessage=base_summary,
     )
 
     cleaned_las_text = build_las_file_string(cleaned_las, cleaned_qa, verification_report)

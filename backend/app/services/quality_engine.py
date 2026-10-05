@@ -3,6 +3,7 @@ import math
 from typing import Dict, List, Optional, Set
 import numpy as np
 from pydantic import BaseModel
+from backend.app.services.curve_utils import is_null_value, null_mask
 from backend.app.services.parser import ParsedLAS
 from backend.app.services.standardiser import (
     CustomAliasEntry,
@@ -59,11 +60,34 @@ def analyze_well_log_quality(
     curve_summaries: List[CurveHealthSummary] = []
 
     # 1. Check Depth Sequence & Gaps
+    null_depth_rows_set = set(las.nullDepthRows or [])
+    if las.nullDepthRows:
+        valid_bad_depths = [depth_array[r] for r in las.nullDepthRows if r < len(depth_array)]
+        d_start = min(valid_bad_depths) if valid_bad_depths else (las.wellInfo.startDepth or 0.0)
+        d_end = max(valid_bad_depths) if valid_bad_depths else (las.wellInfo.stopDepth or 0.0)
+        anomalies.append(
+            AnomalyReportItem(
+                curveMnemonic="DEPT",
+                depthStart=d_start,
+                depthEnd=d_end,
+                anomalyType="NULL_DEPTH",
+                severity="CRITICAL",
+                description=f"Null or invalid depth value detected at {len(las.nullDepthRows)} row(s).",
+                suggestedCorrection="Remove or repair rows with missing depth coordinates.",
+            )
+        )
+
+    valid_depth_indices = [i for i in range(len(depth_array)) if i not in null_depth_rows_set]
     duplicate_depth_count = 0
-    for i in range(1, len(depth_array)):
-        d_prev = depth_array[i - 1]
-        d_curr = depth_array[i]
+    step_val = abs(las.wellInfo.step or 0.0)
+
+    for k in range(1, len(valid_depth_indices)):
+        prev_i = valid_depth_indices[k - 1]
+        curr_i = valid_depth_indices[k]
+        d_prev = depth_array[prev_i]
+        d_curr = depth_array[curr_i]
         step = d_curr - d_prev
+        index_diff = curr_i - prev_i
 
         if abs(step) < 0.0001:
             duplicate_depth_count += 1
@@ -79,7 +103,7 @@ def analyze_well_log_quality(
                         suggestedCorrection="Remove duplicate depth index row.",
                     )
                 )
-        elif step > abs(las.wellInfo.step) * 3:
+        elif step_val > 0 and step > step_val * max(index_diff, 1) * 3:
             anomalies.append(
                 AnomalyReportItem(
                     curveMnemonic="DEPT",
@@ -124,7 +148,7 @@ def analyze_well_log_quality(
         null_count = 0
 
         for idx, v in enumerate(raw_values):
-            if v == null_value or abs(v - null_value) < 0.01 or math.isnan(v):
+            if is_null_value(v, null_value):
                 null_count += 1
             else:
                 conv_val, _ = convert_to_standard_unit(v, c_meta.unit, std_res.standardMnemonic)
@@ -141,7 +165,7 @@ def analyze_well_log_quality(
         for index in range(len(raw_values) + 1):
             is_null = (
                 index < len(raw_values)
-                and (raw_values[index] == null_value or abs(raw_values[index] - null_value) < 0.01 or math.isnan(raw_values[index]))
+                and is_null_value(raw_values[index], null_value)
             )
             if is_null and null_run_start == -1:
                 null_run_start = index
@@ -185,6 +209,7 @@ def analyze_well_log_quality(
                 for p in valid_points:
                     if p["val"] < std_def.minPhysical or p["val"] > std_def.maxPhysical:
                         if impossible_count < 4:
+                            null_repr = str(null_value) if null_value is not None else "null"
                             curve_anomalies.append(
                                 AnomalyReportItem(
                                     curveMnemonic=c_meta.mnemonic,
@@ -193,7 +218,7 @@ def analyze_well_log_quality(
                                     anomalyType="IMPOSSIBLE_VALUE",
                                     severity="CRITICAL",
                                     description=f"Physically impossible value {p['val']:.2f} {c_meta.unit} at depth {p['depth']} (expected {std_def.minPhysical}–{std_def.maxPhysical})",
-                                    suggestedCorrection=f"Clip value to physical limits or flag as null ({null_value}).",
+                                    suggestedCorrection=f"Clip value to physical limits or flag as null ({null_repr}).",
                                 )
                             )
                             impossible_count += 1

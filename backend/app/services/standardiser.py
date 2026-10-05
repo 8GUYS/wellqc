@@ -270,10 +270,12 @@ def standardise_mnemonic(
     raw_mnemonic: str,
     raw_unit: str = "",
     custom_list: Optional[List[CustomAliasEntry]] = None,
+    custom_aliases: Optional[List[CustomAliasEntry]] = None,
 ) -> StandardisationResult:
+    custom = custom_aliases if custom_aliases is not None else custom_list
     clean_mnem = raw_mnemonic.strip().upper()
     clean_unit = raw_unit.strip().upper()
-    curves = get_merged_standard_curves(custom_list)
+    curves = get_merged_standard_curves(custom)
 
     # Exact match against standard keys
     if clean_mnem in curves:
@@ -322,7 +324,7 @@ def standardise_mnemonic(
         originalMnemonic=raw_mnemonic,
         standardMnemonic=clean_mnem,
         matchedName=f"Custom Curve ({clean_mnem})",
-        confidence=0.50,
+        confidence=0.0,
         isAutoMatched=False,
         standardUnit=clean_unit or "UNKN",
         unitMismatch=False,
@@ -334,6 +336,10 @@ def convert_to_standard_unit(
     raw_unit: str,
     standard_mnemonic: str,
 ) -> tuple[float, bool]:
+    # Per Decision 2: Keep blank units without forced conversion
+    if not raw_unit or not raw_unit.strip():
+        return (value, False)
+
     unit = "".join(c for c in raw_unit.strip().upper() if c.isalnum() or c in "%/")
 
     # 1. NPHI (% or PU -> V/V decimal 0.0 to 0.6)

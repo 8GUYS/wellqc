@@ -457,9 +457,9 @@ export function removeCustomAlias(standardMnemonic: string, aliasToRemove: strin
  * the parameter is generic: TypeScript infers T/R from whatever function the
  * caller actually passes, and no `any` is used anywhere.
  */
-export function updateActiveUploadWithNewAlias<T = unknown, R = unknown>(
-  reanalyzer?: (parsed: T) => R,
-): boolean {
+export async function updateActiveUploadWithNewAlias<T = unknown, R = unknown>(
+  reanalyzer?: (parsed: T) => R | Promise<R>,
+): Promise<boolean> {
   if (typeof window === 'undefined') return false;
   try {
     const raw = localStorage.getItem('wellqc_upload_workspace');
@@ -468,7 +468,8 @@ export function updateActiveUploadWithNewAlias<T = unknown, R = unknown>(
     if (!session || !session.parsedLAS) return false;
 
     if (typeof reanalyzer === 'function') {
-      session.qaResult = reanalyzer(session.parsedLAS as T);
+      const res = reanalyzer(session.parsedLAS as T);
+      session.qaResult = res instanceof Promise ? await res : res;
     }
     session.updatedAt = Date.now();
     localStorage.setItem('wellqc_upload_workspace', JSON.stringify(session));

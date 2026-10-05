@@ -64,7 +64,10 @@ export function analyzeWellLogQuality(
   customAliases?: CustomAliasEntry[]
 ): QualityAnalysisResult {
   const depthArray = las.data.depth;
-  const nullValue = las.wellInfo.nullValue;
+  const nullValue: number =
+    typeof las.wellInfo.nullValue === "number" && Number.isFinite(las.wellInfo.nullValue)
+      ? las.wellInfo.nullValue
+      : -999.25;
   const totalPoints = depthArray.length;
   const anomalies: AnomalyReportItem[] = [];
   const curveSummaries: CurveHealthSummary[] = [];

@@ -46,9 +46,9 @@ export interface ImputationBenchmarkResult {
 /**
  * Standardize null values across various LAS representations
  */
-export function isNullValue(val: number | null | undefined, nullValue: number): boolean {
+export function isNullValue(val: number | null | undefined, nullValue?: number | null): boolean {
   if (val === null || val === undefined || isNaN(val) || !isFinite(val)) return true;
-  if (Math.abs(val - nullValue) < 0.01) return true;
+  if (nullValue !== null && nullValue !== undefined && Math.abs(val - nullValue) < 0.01) return true;
   // Standard LAS null representations
   if (val === -999.25 || val === -9999 || val === -999.2500 || val === 999.25 || val === -999.9) return true;
   return false;
@@ -425,7 +425,10 @@ export function benchmarkImputationMethods(
   targetMnemonic: string
 ): ImputationBenchmarkResult {
   const rawSeries = las.data.curves[targetMnemonic] || [];
-  const nullValue = las.wellInfo.nullValue;
+  const nullValue: number =
+    typeof las.wellInfo.nullValue === "number" && Number.isFinite(las.wellInfo.nullValue)
+      ? las.wellInfo.nullValue
+      : -999.25;
 
   // Filter valid non-null indices
   const validIndices: number[] = [];

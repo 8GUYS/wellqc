@@ -25,7 +25,10 @@ export interface CleanedDataExport {
 const NULL_TOLERANCE = 0.01;
 
 export function buildCleanedDataExport(las: ParsedLAS, qa: QualityAnalysisResult): CleanedDataExport {
-  const nullValue = Number.isFinite(las.wellInfo.nullValue) ? las.wellInfo.nullValue : -999.25;
+  const nullValue: number =
+    typeof las.wellInfo.nullValue === "number" && Number.isFinite(las.wellInfo.nullValue)
+      ? las.wellInfo.nullValue
+      : -999.25;
   const uniqueDepthIndexes = getUniqueDepthIndexes(las.data.depth);
   const duplicateDepthRowsRemoved = Math.max(0, las.data.depth.length - uniqueDepthIndexes.length);
   const curves = buildCleanedCurves(las, nullValue);
@@ -120,7 +123,10 @@ export function makeCleanedFileStem(las: ParsedLAS): string {
  */
 export function reconstructRawLASText(las: ParsedLAS): string {
   const nonDepthCurves = las.curves.filter((c) => c.mnemonic !== "DEPT");
-  const nullValue = Number.isFinite(las.wellInfo.nullValue) ? las.wellInfo.nullValue : -999.25;
+  const nullValue: number =
+    typeof las.wellInfo.nullValue === "number" && Number.isFinite(las.wellInfo.nullValue)
+      ? las.wellInfo.nullValue
+      : -999.25;
   const depthUnit = cleanHeaderText(las.wellInfo.depthUnit || "FT");
 
   if (las.rawHeader && las.rawHeader.trim().length > 0 && las.data.depth.length > 0) {

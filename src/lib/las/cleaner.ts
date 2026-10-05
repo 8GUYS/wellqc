@@ -60,7 +60,10 @@ export function cleanLASLogData(
   };
 
   const rawQa = initialQa || analyzeWellLogQuality(las);
-  const nullVal = Number.isFinite(las.wellInfo.nullValue) ? las.wellInfo.nullValue : -999.25;
+  const nullVal: number =
+    typeof las.wellInfo.nullValue === "number" && Number.isFinite(las.wellInfo.nullValue)
+      ? las.wellInfo.nullValue
+      : -999.25;
 
   let outliersRemovedCount = 0;
   let spikesDespikedCount = 0;
@@ -318,7 +321,10 @@ function despikeSeries(values: number[], nullVal: number): { values: number[]; c
 }
 
 function buildLASFileString(las: ParsedLAS, qa: QualityAnalysisResult, report: VerificationReport): string {
-  const nullVal = las.wellInfo.nullValue;
+  const nullVal: number =
+    typeof las.wellInfo.nullValue === "number" && Number.isFinite(las.wellInfo.nullValue)
+      ? las.wellInfo.nullValue
+      : -999.25;
   const lines = [
     "~VERSION INFORMATION",
     "VERS.                 2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0",
@@ -355,7 +361,10 @@ function buildLASFileString(las: ParsedLAS, qa: QualityAnalysisResult, report: V
 }
 
 function buildCSVFileString(las: ParsedLAS): string {
-  const nullVal = las.wellInfo.nullValue;
+  const nullVal: number =
+    typeof las.wellInfo.nullValue === "number" && Number.isFinite(las.wellInfo.nullValue)
+      ? las.wellInfo.nullValue
+      : -999.25;
   const header = ["DEPTH", ...las.curves.map((c) => c.mnemonic)].join(",");
   const rows = las.data.depth.map((d, idx) => {
     const row = [

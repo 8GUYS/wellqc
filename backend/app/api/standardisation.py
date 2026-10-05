@@ -16,7 +16,6 @@ from backend.app.schemas.standardisation import (
 )
 from backend.app.services.standardiser import (
     CustomAliasEntry,
-    set_custom_aliases,
     validate_alias_for_curve,
 )
 
@@ -64,7 +63,6 @@ def get_aliases(
     db: Session = Depends(get_db),
 ):
     aliases = _get_user_aliases(db, current_user)
-    set_custom_aliases(aliases)
     return {"aliases": [a.model_dump() for a in aliases]}
 
 
@@ -135,7 +133,6 @@ def create_alias(
     }
 
     updated_aliases = _get_user_aliases(db, current_user)
-    set_custom_aliases(updated_aliases)
 
     return {
         "message": f"Alias {clean_alias} successfully mapped to {clean_curve}.",
@@ -205,7 +202,6 @@ def update_alias(
         db.commit()
 
     updated_aliases = _get_user_aliases(db, current_user)
-    set_custom_aliases(updated_aliases)
 
     return {
         "message": f"Alias updated successfully to {clean_new}.",
@@ -276,7 +272,6 @@ def delete_alias(
     db.commit()
 
     updated_aliases = _get_user_aliases(db, current_user)
-    set_custom_aliases(updated_aliases)
 
     return {
         "message": f"Alias {clean_alias} removed from {clean_curve}.",

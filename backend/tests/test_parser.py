@@ -43,9 +43,10 @@ def test_parses_well_information_and_metadata():
 
 def test_extracts_curve_definitions_correctly():
     result = parse_las_content(sample_las)
-    assert len(result.curves) == 3
-    assert [c.mnemonic for c in result.curves] == ["DEPT", "GR", "RHOB"]
-    assert result.curves[1].unit == "GAPI"
+    assert len(result.curves) == 2
+    assert [c.mnemonic for c in result.curves] == ["GR", "RHOB"]
+    assert result.depthCurve is not None and result.depthCurve.mnemonic == "DEPT"
+    assert result.curves[0].unit == "GAPI"
 
 def test_parses_depth_and_numerical_curve_series():
     result = parse_las_content(sample_las)

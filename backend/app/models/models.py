@@ -137,7 +137,7 @@ class LASFile(Base):
     startDepth = Column(Float, nullable=False)
     stopDepth = Column(Float, nullable=False)
     stepDepth = Column(Float, nullable=False)
-    nullValue = Column(Float, default=-999.25, nullable=False)
+    nullValue = Column(Float, default=None, nullable=True)
     depthUnit = Column(String, default="FT", nullable=False)
     rawHeader = Column(Text, nullable=False)
     curveCount = Column(Integer, default=0, nullable=False)

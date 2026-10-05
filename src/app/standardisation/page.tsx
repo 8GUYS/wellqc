@@ -10,7 +10,7 @@ import {
   StandardCurveDef,
   CustomAliasEntry,
 } from "@/lib/las/standardiser";
-import { analyzeWellLogQuality } from "@/lib/las/quality-engine";
+import { rerunQA } from "@/lib/las/api";
 import {
   Search,
   Plus,
@@ -256,7 +256,7 @@ export default function StandardisationPage() {
       setCustomAliasesState(updatedList);
       setCurves(Object.values(getMergedStandardCurves(updatedList)));
 
-      updateActiveUploadWithNewAlias(analyzeWellLogQuality);
+      await updateActiveUploadWithNewAlias(rerunQA);
 
       showToast(`Alias "${newAlias.trim().toUpperCase()}" mapped to ${selectedCurve} for your account!`, "success");
       setAddModalOpen(false);
@@ -333,7 +333,7 @@ export default function StandardisationPage() {
       setCustomAliasesState(updatedList);
       setCurves(Object.values(getMergedStandardCurves(updatedList)));
 
-      updateActiveUploadWithNewAlias(analyzeWellLogQuality);
+      await updateActiveUploadWithNewAlias(rerunQA);
 
       showToast(`Updated alias "${oldAlias}" to "${newAliasEdit.trim().toUpperCase()}"`, "success");
       setEditModalOpen(false);
@@ -382,7 +382,7 @@ export default function StandardisationPage() {
       setCustomAliasesState(updatedList);
       setCurves(Object.values(getMergedStandardCurves(updatedList)));
 
-      updateActiveUploadWithNewAlias(analyzeWellLogQuality);
+      await updateActiveUploadWithNewAlias(rerunQA);
 
       showToast(`Deleted custom alias "${deletingAlias}" from ${deletingCurve}`, "info");
       setDeleteModalOpen(false);

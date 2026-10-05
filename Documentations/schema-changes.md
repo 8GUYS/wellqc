@@ -57,22 +57,27 @@ Every line should show the `ep-tiny-haze` host. If any shows `ep-divine-field`, 
 1. Branch from the latest `main`.
 2. Edit `prisma/schema.prisma`.
 3. Create the migration against dev, after checking the target (above):
+
 ```powershell
    npx prisma migrate dev --name describe_the_change --config prisma.config.ts
 ```
-4. Update the SQLAlchemy model in `backend/app/models/models.py` to match, including types, nullability and defaults.
-5. Make sure dev has every migration, then run the Python tests:
+
+1. Update the SQLAlchemy model in `backend/app/models/models.py` to match, including types, nullability and defaults.
+2. Make sure dev has every migration, then run the Python tests:
+
 ```powershell
    npx prisma migrate deploy --config prisma.config.ts
    cd backend
    pytest -q
 ```
+
    Tests are real round trips to the dev database, so a full run takes 90 to 100 seconds locally and can stall on a Neon cold start. Re-run once before assuming a failure.
 6. Open the PR. Wait for `lint-and-build` and the Python tests job, and test the Vercel Preview. Preview uses the staging backend, which reads the dev database, so the migration must already be applied to dev for the preview to work.
 7. Merge. This starts three things:
-   - Vercel deploys the frontend.
-   - The "Deploy Database Migrations" workflow runs `npx prisma migrate deploy` against production, with 3 attempts and a 20 second wait for Neon cold starts.
-   - Render deploys the production backend after CI checks pass.
+
+- Vercel deploys the frontend.
+- The "Deploy Database Migrations" workflow runs `npx prisma migrate deploy` against production, with 3 attempts and a 20 second wait for Neon cold starts.
+- Render deploys the production backend after CI checks pass.
 
 The Render deploy is not gated on the migrate workflow, so for a short time the new code can be live before the migration has run. That is why changes must be additive (next section).
 
@@ -99,7 +104,7 @@ The old code and the new code overlap briefly during a deploy. Make both work ag
 | `P1001` in the migrate job | Neon cold start | Re-run the job once. The retry loop should usually cover it |
 | `P1001` or "could not translate host name" locally | Local DNS | Retry once, then check Windows DNS settings |
 | Tests fail on a missing column or table | Dev database is behind the repo | `npx prisma migrate deploy --config prisma.config.ts` against dev |
-| `data/custom-aliases.json` shows as modified | Side effect of the alias tests | Do not commit it |
+| Custom aliases persistence | Stored in PostgreSQL/SQLite `custom_aliases` table | Query or update via `/api/standardisation/aliases` |
 
 ## Rollback
 

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from sklearn.impute import KNNImputer
 
-from backend.app.services.diagnostics import is_null_value
+from backend.app.services.curve_utils import is_null_value, null_mask
 from backend.app.schemas.imputation import (
     ImputationBenchmarkMetric,
     ImputationBenchmarkResult,
@@ -23,11 +23,11 @@ _STRATEGY_LABELS: Dict[str, str] = {
 _BENCHMARK_STRATEGIES: List[ImputationStrategy] = ["KNN", "LINEAR", "MEDIAN", "MEAN", "SPLINE"]
 
 
-def _null_mask(series: List[float], null_value: float) -> np.ndarray:
-    return np.array([is_null_value(v, null_value) for v in series], dtype=bool)
+def _null_mask(series: List[float], null_value: Optional[float] = None) -> np.ndarray:
+    return null_mask(series, null_value)
 
 
-def impute_linear(series: List[float], null_value: float) -> List[float]:
+def impute_linear(series: List[float], null_value: Optional[float] = None) -> List[float]:
     result = list(series)
     n = len(result)
     mask = _null_mask(result, null_value)
@@ -61,7 +61,7 @@ def impute_linear(series: List[float], null_value: float) -> List[float]:
     return result
 
 
-def impute_mean(series: List[float], null_value: float) -> List[float]:
+def impute_mean(series: List[float], null_value: Optional[float] = None) -> List[float]:
     mask = _null_mask(series, null_value)
     valid = [v for v, m in zip(series, mask) if not m]
     if not valid:
@@ -70,7 +70,7 @@ def impute_mean(series: List[float], null_value: float) -> List[float]:
     return [mean if m else v for v, m in zip(series, mask)]
 
 
-def impute_median(series: List[float], null_value: float) -> List[float]:
+def impute_median(series: List[float], null_value: Optional[float] = None) -> List[float]:
     mask = _null_mask(series, null_value)
     valid = sorted(v for v, m in zip(series, mask) if not m)
     if not valid:
@@ -80,7 +80,7 @@ def impute_median(series: List[float], null_value: float) -> List[float]:
     return [median if m else v for v, m in zip(series, mask)]
 
 
-def impute_spline(series: List[float], null_value: float) -> List[float]:
+def impute_spline(series: List[float], null_value: Optional[float] = None) -> List[float]:
     result = list(series)
     n = len(result)
     mask = _null_mask(series, null_value)
@@ -116,7 +116,7 @@ def impute_spline(series: List[float], null_value: float) -> List[float]:
 def impute_knn(
     curves_data: Dict[str, List[float]],
     target_mnemonic: str,
-    null_value: float,
+    null_value: Optional[float] = None,
     k: int = 5,
 ) -> List[float]:
     target_series = curves_data.get(target_mnemonic)
@@ -162,7 +162,7 @@ def impute_knn(
 def drop_missing_rows(
     depth: List[float],
     curves: Dict[str, List[float]],
-    null_value: float,
+    null_value: Optional[float] = None,
     target_mnemonic: Optional[str] = None,
 ) -> Dict:
     curve_keys = list(curves.keys())
@@ -194,7 +194,7 @@ def run_single_strategy(
     curves: Dict[str, List[float]],
     target_mnemonic: str,
     strategy: str,
-    null_value: float,
+    null_value: Optional[float] = None,
     k: int = 5,
 ) -> List[float]:
     series = curves[target_mnemonic]
@@ -215,7 +215,7 @@ def benchmark_imputation_methods(
     depth: List[float],
     curves: Dict[str, List[float]],
     target_mnemonic: str,
-    null_value: float,
+    null_value: Optional[float] = None,
 ) -> ImputationBenchmarkResult:
     raw_series = curves.get(target_mnemonic, [])
     mask = _null_mask(raw_series, null_value)

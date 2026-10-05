@@ -27,3 +27,11 @@ class ApplyFixesRequest(BaseModel):
     approvedFixes: List[ApprovedFixPayload] = []
     rawLasContent: Optional[str] = None
     rawLas: Optional[ParsedLAS] = None
+
+class AnalyzeLASRequest(BaseModel):
+    content: Optional[str] = None
+    lasText: Optional[str] = None
+
+class QARequest(BaseModel):
+    parsed: ParsedLAS
+

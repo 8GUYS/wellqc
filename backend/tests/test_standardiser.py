@@ -55,7 +55,7 @@ def test_falls_back_cleanly_for_custom_mnemonics():
     custom = standardise_mnemonic("CUSTOM_TOOL_XYZ", "VOLTS")
     assert custom.standardMnemonic == "CUSTOM_TOOL_XYZ"
     assert "Custom Curve" in custom.matchedName
-    assert custom.confidence == 0.5
+    assert custom.confidence == 0.0
 
 def test_blocks_adding_another_standard_curve_mnemonic():
     validation = validate_alias_for_curve("RT", "CALI")

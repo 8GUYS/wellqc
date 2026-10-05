@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ParsedLAS } from "@/lib/las/parser";
 import {
   diagnoseMissingValueCauses,
@@ -15,6 +15,12 @@ import {
   imputeSpline,
   dropMissingRows,
 } from "@/lib/las/imputation-engine";
+import {
+  diagnoseMissingValues,
+  benchmarkImputation,
+  imputeCurveChannel,
+  dropMissingRowsApi,
+} from "@/lib/las/api";
 import {
   X,
   Sparkles,
@@ -51,49 +57,120 @@ export function ImputationBenchmarkModal({
   const [benchmarkResult, setBenchmarkResult] = useState<ImputationBenchmarkResult | null>(
     null
   );
-  const [diagnostics] = useState<MissingValueDiagnostic[]>(() =>
+  const [diagnostics, setDiagnostics] = useState<MissingValueDiagnostic[]>(() =>
     diagnoseMissingValueCauses(las)
   );
 
+  useEffect(() => {
+    let isMounted = true;
+    diagnoseMissingValues({
+      depth: las.data.depth,
+      curves: las.data.curves,
+      curveMeta: las.curves,
+      wellInfo: las.wellInfo,
+    })
+      .then((res) => {
+        if (isMounted && res && res.length > 0) {
+          setDiagnostics(res);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [las]);
+
   const activeDiag = diagnostics.find((d) => d.curveMnemonic === selectedCurve) || diagnostics[0];
 
-  const handleRunBenchmark = () => {
-    const res = benchmarkImputationMethods(las, selectedCurve);
-    setBenchmarkResult(res);
+  const handleRunBenchmark = async () => {
+    try {
+      const res = await benchmarkImputation({
+        depth: las.data.depth,
+        curves: las.data.curves,
+        targetMnemonic: selectedCurve,
+        wellInfo: las.wellInfo,
+      });
+      setBenchmarkResult(res);
+    } catch {
+      const res = benchmarkImputationMethods(las, selectedCurve);
+      setBenchmarkResult(res);
+    }
   };
 
-  const handleApplyStrategy = (strategy: ImputationStrategy) => {
+  const handleApplyStrategy = async (strategy: ImputationStrategy) => {
     let updatedLas = { ...las };
-    const nullVal = las.wellInfo.nullValue;
+    const nullVal = las.wellInfo.nullValue ?? -999.25;
 
-    if (strategy === "ROW_DROPPING" || activeDiag?.nullPercentage <= dropThreshold) {
-      updatedLas = dropMissingRows(las, selectedCurve);
-    } else {
-      const rawSeries = las.data.curves[selectedCurve];
-      let imputed: number[] = [];
-
-      if (strategy === "KNN") {
-        imputed = imputeKNN(las.data.curves, selectedCurve, nullVal, knnNeighbors);
-      } else if (strategy === "LINEAR") {
-        imputed = imputeLinear(rawSeries, nullVal);
-      } else if (strategy === "MEAN") {
-        imputed = imputeMean(rawSeries, nullVal);
-      } else if (strategy === "MEDIAN") {
-        imputed = imputeMedian(rawSeries, nullVal);
-      } else if (strategy === "SPLINE") {
-        imputed = imputeSpline(rawSeries, nullVal);
-      }
-
-      updatedLas = {
-        ...las,
-        data: {
-          ...las.data,
-          curves: {
-            ...las.data.curves,
-            [selectedCurve]: imputed,
+    try {
+      if (strategy === "ROW_DROPPING" || (activeDiag && activeDiag.nullPercentage <= dropThreshold)) {
+        const dropRes = await dropMissingRowsApi({
+          depth: las.data.depth,
+          curves: las.data.curves,
+          wellInfo: las.wellInfo,
+          targetMnemonic: selectedCurve,
+        });
+        updatedLas = {
+          ...las,
+          data: {
+            depth: dropRes.depth,
+            curves: dropRes.curves,
           },
-        },
-      };
+          totalPoints: dropRes.totalPoints,
+          wellInfo: {
+            ...las.wellInfo,
+            startDepth: dropRes.startDepth,
+            stopDepth: dropRes.stopDepth,
+          },
+        };
+      } else {
+        const res = await imputeCurveChannel({
+          curves: las.data.curves,
+          targetMnemonic: selectedCurve,
+          strategy,
+          wellInfo: las.wellInfo,
+          k: knnNeighbors,
+        });
+        updatedLas = {
+          ...las,
+          data: {
+            ...las.data,
+            curves: {
+              ...las.data.curves,
+              [selectedCurve]: res.values,
+            },
+          },
+        };
+      }
+    } catch {
+      if (strategy === "ROW_DROPPING" || activeDiag?.nullPercentage <= dropThreshold) {
+        updatedLas = dropMissingRows(las, selectedCurve);
+      } else {
+        const rawSeries = las.data.curves[selectedCurve];
+        let imputed: number[] = [];
+
+        if (strategy === "KNN") {
+          imputed = imputeKNN(las.data.curves, selectedCurve, nullVal, knnNeighbors);
+        } else if (strategy === "LINEAR") {
+          imputed = imputeLinear(rawSeries, nullVal);
+        } else if (strategy === "MEAN") {
+          imputed = imputeMean(rawSeries, nullVal);
+        } else if (strategy === "MEDIAN") {
+          imputed = imputeMedian(rawSeries, nullVal);
+        } else if (strategy === "SPLINE") {
+          imputed = imputeSpline(rawSeries, nullVal);
+        }
+
+        updatedLas = {
+          ...las,
+          data: {
+            ...las.data,
+            curves: {
+              ...las.data.curves,
+              [selectedCurve]: imputed,
+            },
+          },
+        };
+      }
     }
 
     onApplyImputation(updatedLas, strategy, selectedCurve);

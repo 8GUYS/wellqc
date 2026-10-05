@@ -122,7 +122,7 @@ def commit_las_file_transaction(
         nullValue=parsed.wellInfo.nullValue,
         depthUnit=depth_unit,
         rawHeader=parsed.rawHeader,
-        curveCount=len(parsed.curves),
+        curveCount=len(parsed.curves) + (1 if parsed.depthCurve else 0),
         pointCount=parsed.totalPoints,
         status="PROCESSED",
         uploadedById=user.id,

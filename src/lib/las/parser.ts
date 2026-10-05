@@ -30,11 +30,12 @@ export interface ParsedLAS {
     startDepth: number;
     stopDepth: number;
     step: number;
-    nullValue: number;
+    nullValue: number | null;
     depthUnit: string;
     latitude?: number;
     longitude?: number;
   };
+  depthCurve?: LASCurveMeta;
   curves: LASCurveMeta[];
   data: {
     depth: number[];
@@ -42,6 +43,8 @@ export interface ParsedLAS {
   };
   rawHeader: string;
   totalPoints: number;
+  warnings?: string[];
+  nullDepthRows?: number[];
 }
 
 /**

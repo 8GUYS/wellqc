@@ -15,9 +15,9 @@ MissingValueCause = Literal[
 ThresholdAction = Literal["DROP_ROWS", "APPLY_IMPUTATION", "NO_ACTION_NEEDED"]
 
 class WellInfoPayload(BaseModel):
-    nullValue: float
-    startDepth: float
-    stopDepth: float
+    nullValue: Optional[float] = None
+    startDepth: float = 0.0
+    stopDepth: float = 0.0
     depthUnit: str = "ft"
 
 class CurveMetaPayload(BaseModel):

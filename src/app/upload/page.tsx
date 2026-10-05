@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
-import { parseLASContent, ParsedLAS } from "@/lib/las/parser";
-import { analyzeWellLogQuality, QualityAnalysisResult } from "@/lib/las/quality-engine";
-import { generateAIAnalysis, AIAnalysisOutput } from "@/lib/las/ai-analyzer";
+import { ParsedLAS } from "@/lib/las/parser";
+import { QualityAnalysisResult } from "@/lib/las/quality-engine";
+import { AIAnalysisOutput } from "@/lib/las/ai-analyzer";
+import { analyzeLAS } from "@/lib/las/api";
 import { reconstructRawLASText } from "@/lib/las/exporter";
 import { downsampleParsedLASForStorage } from "@/lib/las/storage-utils";
 import { WellLogViewer } from "@/components/well-log/log-viewer";
@@ -182,16 +183,14 @@ export default function LASUploadPage() {
         lasFiles.map(async (file): Promise<QueuedLASFile | null> => {
           try {
             const content = await file.text();
-            const parsed = parseLASContent(content);
-            const qa = analyzeWellLogQuality(parsed);
-            const ai = generateAIAnalysis(parsed, qa);
+            const analysis = await analyzeLAS(content);
             return {
               id: `${file.name}-${file.lastModified}-${file.size}`,
               name: file.name,
               content,
-              parsed,
-              qa,
-              ai,
+              parsed: analysis.parsed,
+              qa: analysis.qa,
+              ai: analysis.ai,
               status: "ready",
             };
           } catch {
@@ -414,6 +413,20 @@ export default function LASUploadPage() {
               savedWell={savedWell}
               onCommitToDatabase={handleCommitToDatabase}
             />
+
+            {parsedLAS.warnings && parsedLAS.warnings.length > 0 && (
+              <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2">
+                <div className="flex items-center space-x-2 text-amber-400 font-mono text-xs font-bold uppercase tracking-wider">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>Parser Warnings & Notices ({parsedLAS.warnings.length})</span>
+                </div>
+                <ul className="list-disc list-inside text-xs text-amber-200/90 space-y-1 font-mono">
+                  {parsedLAS.warnings.map((w, idx) => (
+                    <li key={idx}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <AuditSummaryCards
               parsedLAS={parsedLAS}

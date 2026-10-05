@@ -99,7 +99,7 @@ The old code and the new code overlap briefly during a deploy. Make both work ag
 | `P1001` in the migrate job | Neon cold start | Re-run the job once. The retry loop should usually cover it |
 | `P1001` or "could not translate host name" locally | Local DNS | Retry once, then check Windows DNS settings |
 | Tests fail on a missing column or table | Dev database is behind the repo | `npx prisma migrate deploy --config prisma7.config.ts` against dev |
-| `data/custom-aliases.json` shows as modified | Side effect of the alias tests | Do not commit it |
+| Custom aliases persistence | Stored in PostgreSQL/SQLite `custom_aliases` table | Query or update via `/api/standardisation/aliases` |
 
 ## Rollback
 

@@ -13,7 +13,6 @@ from backend.app.core.security import (
 )
 from backend.app.models.models import User, ActivityLog
 from backend.app.schemas.auth import (
-    DemoAuthRequest,
     LoginRequest,
     RegisterRequest,
     UserOut,
@@ -159,66 +158,6 @@ def me(current_user: Optional[User] = Depends(get_current_user_optional)):
     if not current_user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not signed in.")
     return {"user": _format_user(current_user)}
-
-
-@router.post("/demo")
-def demo_auth(
-    response: Response,
-    req: Optional[DemoAuthRequest] = None,
-    current_user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db),
-):
-    action = (req.action if req and req.action else "login")
-    
-    if action == "reset" and current_user:
-        current_user.tier = "FREE"
-        current_user.freeChecksUsed = 2
-        db.commit()
-        db.refresh(current_user)
-
-        user_dict = _format_user(current_user)
-        token = _set_session_cookie(response, user_dict)
-
-        return {
-            "ok": True,
-            "message": "Reset user to FREE Starter tier (2/2 checks used).",
-            "tier": "FREE",
-            "freeChecksUsed": 2,
-            "token": token,
-        }
-
-    # Ensure demo user exists in database so foreign keys succeed
-    demo_email = "demo.petrophysicist@wellqc.com"
-    demo_user = db.query(User).filter(User.email == demo_email).first()
-    if not demo_user:
-        demo_user = User(
-            id="demo-petrophysicist-uuid",
-            email=demo_email,
-            name="Demo Petrophysicist",
-            passwordHash=hash_password("DemoPassword123!"),
-            role="PETROPHYSICIST",
-            department="Subsurface Analytics",
-            tier="FREE",
-            freeChecksUsed=2,
-            ndaAcceptedAt=datetime.now(timezone.utc),
-        )
-        db.add(demo_user)
-        db.commit()
-        db.refresh(demo_user)
-    elif demo_user.freeChecksUsed is None:
-        demo_user.freeChecksUsed = 2
-        db.commit()
-        db.refresh(demo_user)
-
-    demo_user_dict = _format_user(demo_user)
-    token = _set_session_cookie(response, demo_user_dict)
-
-    return {
-        "ok": True,
-        "user": demo_user_dict,
-        "token": token,
-        "message": "Logged in as Demo Petrophysicist with 2/2 checks used (Ready for Paystack upgrade).",
-    }
 
 
 @router.get("/nda")

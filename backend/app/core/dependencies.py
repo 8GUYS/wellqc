@@ -72,7 +72,7 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=(
                 "Authentication is required. To test in Swagger UI (/docs), click the 'Authorize' "
-                "button at the top and paste your token, or authenticate first via POST /api/auth/demo."
+                "button at the top and paste your token, or authenticate first via POST /api/auth/login."
             ),
             headers={"WWW-Authenticate": "Bearer"},
         )

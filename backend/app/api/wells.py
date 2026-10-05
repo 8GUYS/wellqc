@@ -195,6 +195,13 @@ def create_well(
     well = db.query(Well).filter(Well.apiNo == api_no).first()
     now = datetime.now(timezone.utc)
     if well:
+        is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
+        is_owner = (well.ownerId == current_user.id)
+        if not is_admin and not is_owner:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to modify a well asset owned by another user.",
+            )
         well.name = name
         well.operatorName = operator_name
         well.fieldName = field_name
@@ -409,7 +416,7 @@ def delete_well(
         )
 
     is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
-    is_owner = (well.ownerId == current_user.id) or (well.ownerId is None)
+    is_owner = (well.ownerId == current_user.id)
     if not is_admin and not is_owner:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

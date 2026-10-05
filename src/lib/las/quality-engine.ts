@@ -26,6 +26,8 @@ export interface AnomalyReportItem {
   suggestedCorrection: string;
 }
 
+export type QualityAnomaly = AnomalyReportItem;
+
 export interface CurveHealthSummary {
   mnemonic: string;
   standardMnemonic: string;

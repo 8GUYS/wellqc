@@ -11,7 +11,7 @@ const config = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
-  modulePathIgnorePatterns: ["<rootDir>/legacy_ts_api/"],
+  modulePathIgnorePatterns: ["<rootDir>/.venv/"],
 };
 
 export default createJestConfig(config);

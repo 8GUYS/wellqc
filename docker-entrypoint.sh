@@ -12,14 +12,14 @@ until pg_isready -h "$DB_HOST" -U "$DB_USER" > /dev/null 2>&1; do
 done
 
 echo "Applying migrations..."
-npx prisma migrate deploy --config prisma7.config.ts
+npx prisma migrate deploy --config prisma.config.ts
 
 # Only seed on a genuinely empty database, so restarting the container never
 # re-seeds or duplicates rows on top of real work someone has done locally.
 WELL_COUNT=$(psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -tAc 'SELECT count(*) FROM "Well";' 2>/dev/null || echo "0")
 if [ "$WELL_COUNT" = "0" ]; then
   echo "Empty database detected — seeding synthetic data..."
-  npx prisma db seed --config prisma7.config.ts
+  npx prisma db seed --config prisma.config.ts
 else
   echo "Data already present ($WELL_COUNT wells), skipping seed."
 fi

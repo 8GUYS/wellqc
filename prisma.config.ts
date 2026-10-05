@@ -6,7 +6,7 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
-    // Runs on `npx prisma db seed --config prisma7.config.ts`. Uses ts-node
+    // Runs on `npx prisma db seed --config prisma.config.ts`. Uses ts-node
     // since it's already a devDependency — no new package needed.
     seed: "tsx prisma/seed.ts",
   },

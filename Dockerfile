@@ -13,7 +13,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
-COPY prisma7.config.ts ./
+COPY prisma.config.ts ./
 RUN --mount=type=cache,target=/root/.npm npm install --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
 COPY . .

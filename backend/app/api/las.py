@@ -181,25 +181,12 @@ def handle_las(
             "curveSummaries": [c.model_dump() for c in qa.curveSummaries],
         }
 
-    # ── Commit to Database mode ──
     user = current_user
     if not user:
-        # For unauthenticated or test requests, use dedicated demo petrophysicist account
-        demo_u = db.query(User).filter(User.email == "petrophysicist@wellqc.io").first()
-        if not demo_u:
-            demo_u = User(
-                id="demo-petrophysicist-uuid",
-                email="petrophysicist@wellqc.io",
-                name="Lead Petrophysicist",
-                passwordHash="demo_hash",
-                role="PETROPHYSICIST",
-                department="Subsurface Analytics",
-                tier="PRO",
-            )
-            db.add(demo_u)
-            db.commit()
-            db.refresh(demo_u)
-        user = demo_u
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication is required to upload LAS files to the database.",
+        )
 
     return commit_las_file_transaction(
         db=db,

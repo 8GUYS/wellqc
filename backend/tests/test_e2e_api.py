@@ -38,23 +38,43 @@ def test_health_check():
     assert data["status"] == "ok"
     assert "WellQC" in data["service"]
 
-def test_demo_login_and_me():
+def _get_auth_client(role="PETROPHYSICIST"):
+    import time
     client = TestClient(app)
-    # Login via demo endpoint
-    demo_resp = client.post("/api/auth/demo", json={})
-    assert demo_resp.status_code == 200
-    demo_data = demo_resp.json()
-    assert "user" in demo_data
+    ts = int(time.time() * 1000)
+    email = f"e2e_{ts}@wellqc.com"
+    pwd = "Password123!"
+    reg_resp = client.post(
+        "/api/auth/register",
+        json={
+            "name": "E2E Test User",
+            "email": email,
+            "password": pwd,
+            "role": role,
+            "acceptedNda": True,
+        },
+    )
+    assert reg_resp.status_code == 201
+    login_resp = client.post(
+        "/api/auth/login",
+        json={"email": email, "password": pwd},
+    )
+    assert login_resp.status_code == 200
+    token = login_resp.json().get("token")
+    return client, login_resp.json(), token
+
+def test_login_and_me():
+    client, login_data, _ = _get_auth_client()
+    assert "user" in login_data
 
     # Verify /api/auth/me uses session cookie stored in client automatically
     me_resp = client.get("/api/auth/me")
     assert me_resp.status_code == 200
     me_data = me_resp.json()
-    assert me_data["user"]["email"] == demo_data["user"]["email"]
+    assert me_data["user"]["email"] == login_data["user"]["email"]
 
 def test_dashboard_with_auth():
-    client = TestClient(app)
-    client.post("/api/auth/demo", json={})
+    client, _, _ = _get_auth_client()
 
     resp = client.get("/api/dashboard")
     assert resp.status_code == 200
@@ -64,8 +84,7 @@ def test_dashboard_with_auth():
     assert "recentActivity" in data
 
 def test_wells_api_with_auth():
-    client = TestClient(app)
-    client.post("/api/auth/demo", json={})
+    client, _, _ = _get_auth_client()
 
     resp = client.get("/api/wells")
     assert resp.status_code == 200
@@ -130,21 +149,21 @@ def test_get_well_detail_requires_auth():
 
 
 def test_get_well_detail_flow():
-    client = TestClient(app)
-    # 1. Login via demo endpoint and get bearer token
-    demo_resp = client.post("/api/auth/demo", json={})
-    assert demo_resp.status_code == 200
-    token = demo_resp.json().get("token")
+    import time
+    client, _, token = _get_auth_client()
     assert token is not None
 
     headers = {"Authorization": f"Bearer {token}"}
+    ts = int(time.time() * 1000)
+    well_name = f"Swagger Test Well {ts}"
+    api_no = f"99-123-{ts % 100000:05d}"
 
     # 2. Create a well
     create_resp = client.post(
         "/api/wells",
         json={
-            "name": "Swagger Test Well Alpha",
-            "apiNo": "99-123-45678",
+            "name": well_name,
+            "apiNo": api_no,
             "operatorName": "Apex Energy",
             "fieldName": "Niger Delta Block 4",
             "basin": "Niger Delta",
@@ -164,17 +183,17 @@ def test_get_well_detail_flow():
     assert uuid_resp.status_code == 200
     data = uuid_resp.json()
     assert data["well"]["id"] == well_id
-    assert data["well"]["apiNo"] == "99-123-45678"
+    assert data["well"]["apiNo"] == api_no
     assert "curvesData" in data
     assert "curveSummaries" in data
 
-    # 4. Retrieve well by API Number (e.g. Swagger input "99-123-45678")
-    api_resp = client.get("/api/wells/99-123-45678", headers=headers)
+    # 4. Retrieve well by API Number
+    api_resp = client.get(f"/api/wells/{api_no}", headers=headers)
     assert api_resp.status_code == 200
     assert api_resp.json()["well"]["id"] == well_id
 
     # 5. Retrieve well by Well Name
-    name_resp = client.get("/api/wells/Swagger Test Well Alpha", headers=headers)
+    name_resp = client.get(f"/api/wells/{well_name}", headers=headers)
     assert name_resp.status_code == 200
     assert name_resp.json()["well"]["id"] == well_id
 

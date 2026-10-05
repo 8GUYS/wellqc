@@ -21,6 +21,3 @@ class RegisterRequest(BaseModel):
     password: str
     role: Optional[str] = "PETROPHYSICIST"
     acceptedNda: Optional[bool] = False
-
-class DemoAuthRequest(BaseModel):
-    action: Optional[str] = "login"

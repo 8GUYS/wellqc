@@ -23,7 +23,7 @@ from backend.app.services.standardiser import (
 router = APIRouter(prefix="/api/standardisation", tags=["standardisation"])
 
 def _get_user_aliases(db: Session, user: Optional[User]) -> List[CustomAliasEntry]:
-    user_id = user.id if user else "demo-petrophysicist-uuid"
+    user_id = user.id if user else "anonymous"
     user_email = user.email if user else ""
 
     # Strictly filter DB records by this user only — no cross-user leakage
@@ -104,7 +104,7 @@ def create_alias(
         if req.addedBy and req.addedBy.strip()
         else (current_user.name if current_user else "Lead Petrophysicist")
     )
-    user_id = current_user.id if current_user else "demo-petrophysicist-uuid"
+    user_id = current_user.id if current_user else "anonymous"
     user_email = current_user.email if current_user else ""
 
     now = datetime.now(timezone.utc)
@@ -183,7 +183,7 @@ def update_alias(
             )
 
     # Update in DB with user ownership enforcement
-    user_id = current_user.id if current_user else "demo-petrophysicist-uuid"
+    user_id = current_user.id if current_user else "anonymous"
     user_email = current_user.email if current_user else ""
     user_filter = [CustomAlias.userId == user_id]
     if user_email:
@@ -262,7 +262,7 @@ def delete_alias(
         )
 
     # Delete from DB with user ownership enforcement
-    user_id = current_user.id if current_user else "demo-petrophysicist-uuid"
+    user_id = current_user.id if current_user else "anonymous"
     user_email = current_user.email if current_user else ""
     user_filter = [CustomAlias.userId == user_id]
     if user_email:

@@ -7,7 +7,7 @@ How to change the WellQC database schema without breaking production. Read this 
 | Piece | Role | Location |
 | --- | --- | --- |
 | Prisma | Owns the schema and migrations | `prisma/schema.prisma`, `prisma/migrations/` |
-| Prisma config | Tells the CLI which database to use | `prisma7.config.ts` |
+| Prisma config | Tells the CLI which database to use | `prisma.config.ts` |
 | SQLAlchemy | Python query layer. Reads and writes existing tables only | `backend/app/models/models.py` (`Base` comes from `backend/app/core/database.py`) |
 
 There is no `create_all` and no Alembic in the Python backend. Do not add either. Prisma stays the only schema owner.
@@ -25,14 +25,14 @@ Never run tests, resets or experiments against production.
 
 ## Which variable the migration uses
 
-`prisma7.config.ts` picks the first of these that is set:
+`prisma.config.ts` picks the first of these that is set:
 
 1. `DIRECT_URL`
 2. `DATABASE_URL_UNPOOLED`
 3. `POSTGRES_URL_NON_POOLING`
 4. `DATABASE_URL`
 
-CI sets only `DIRECT_URL` (a GitHub secret pointing at production). Locally, `DIRECT_URL` and `DATABASE_URL_UNPOOLED` must both point at dev. If they disagree, the first one set wins silently. Prisma loads `prisma7.config.ts` without a flag in CI. The Docker entrypoint passes `--config prisma7.config.ts` explicitly, which is also safe to use locally.
+CI sets only `DIRECT_URL` (a GitHub secret pointing at production). Locally, `DIRECT_URL` and `DATABASE_URL_UNPOOLED` must both point at dev. If they disagree, the first one set wins silently. Prisma loads `prisma.config.ts` without a flag in CI. The Docker entrypoint passes `--config prisma.config.ts` explicitly, which is also safe to use locally.
 
 ### Check the target before any migration command
 
@@ -58,12 +58,12 @@ Every line should show the `ep-tiny-haze` host. If any shows `ep-divine-field`, 
 2. Edit `prisma/schema.prisma`.
 3. Create the migration against dev, after checking the target (above):
 ```powershell
-   npx prisma migrate dev --name describe_the_change --config prisma7.config.ts
+   npx prisma migrate dev --name describe_the_change --config prisma.config.ts
 ```
 4. Update the SQLAlchemy model in `backend/app/models/models.py` to match, including types, nullability and defaults.
 5. Make sure dev has every migration, then run the Python tests:
 ```powershell
-   npx prisma migrate deploy --config prisma7.config.ts
+   npx prisma migrate deploy --config prisma.config.ts
    cd backend
    pytest -q
 ```
@@ -98,7 +98,7 @@ The old code and the new code overlap briefly during a deploy. Make both work ag
 | `column does not exist` in Render logs | Model and migration out of step, or the migration was not applied | Compare the SQLAlchemy model with the Prisma migration, then check the migrate workflow run |
 | `P1001` in the migrate job | Neon cold start | Re-run the job once. The retry loop should usually cover it |
 | `P1001` or "could not translate host name" locally | Local DNS | Retry once, then check Windows DNS settings |
-| Tests fail on a missing column or table | Dev database is behind the repo | `npx prisma migrate deploy --config prisma7.config.ts` against dev |
+| Tests fail on a missing column or table | Dev database is behind the repo | `npx prisma migrate deploy --config prisma.config.ts` against dev |
 | `data/custom-aliases.json` shows as modified | Side effect of the alias tests | Do not commit it |
 
 ## Rollback

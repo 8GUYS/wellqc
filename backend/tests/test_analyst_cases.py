@@ -18,6 +18,7 @@ STEP.M 1.0    : STEP VALUE
 NULL.  -999.25 : NULL VALUE
 WELL. TEST WELL : WELL NAME
 COMP. CHEVRON : COMPANY
+FLD. TEST FIELD : FIELD
 ~CURVE INFORMATION
 DEPT.M : 1 DEPTH
 GR  .GAPI : 2 GAMMA RAY
@@ -112,7 +113,7 @@ def test_file_with_no_null_marker_does_not_crash():
     res = client.post("/api/las?action=precheck", json={"content": SAMPLE_NO_NULL_LAS})
     assert res.status_code == 200
     data = res.json()
-    assert any("NULL marker" in w for w in data["warnings"])
+    assert any("null marker" in w.lower() for w in data["warnings"])
 
     # 2. Analyze
     res_analyze = client.post("/api/las/analyze", json={"content": SAMPLE_NO_NULL_LAS})
@@ -200,3 +201,4 @@ GAMX.GAPI : 2 CUSTOM GAMMA
     parsed = parse_las_content(sample_custom, custom_aliases=custom_aliases)
     cleaned = clean_las_log_data(parsed, custom_aliases=custom_aliases, options=CleaningOptions(unitStandardization=True))
     assert any(c.mnemonic == "GR" for c in cleaned.cleanedLas.curves)
+

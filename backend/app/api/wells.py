@@ -21,6 +21,8 @@ from backend.app.schemas.well import (
     CreateWellRequest,
     WellDetailResponse,
     WellListItem,
+    BulkDeleteWellsRequest,
+    BulkDeleteWellsResponse,
 )
 
 router = APIRouter(prefix="/api/wells", tags=["wells"])
@@ -388,6 +390,89 @@ def get_well_detail(
         "depthUnit": depth_unit,
         "curveSummaries": curve_summaries,
         "anomalies": anomalies_list,
+    }
+
+
+@router.post("/bulk-delete", response_model=BulkDeleteWellsResponse, summary="Bulk Delete Wells")
+@router.delete("/bulk-delete", response_model=BulkDeleteWellsResponse, include_in_schema=False)
+def bulk_delete_wells(
+    payload: Optional[BulkDeleteWellsRequest] = None,
+    ids: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    target_ids = []
+    if payload and payload.wellIds:
+        target_ids.extend(payload.wellIds)
+    if ids:
+        target_ids.extend([i.strip() for i in ids.split(",") if i.strip()])
+
+    if not target_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No well IDs provided for bulk deletion.",
+        )
+
+    clean_ids = [w_id.strip() for w_id in target_ids if w_id and w_id.strip()]
+    if not clean_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid well IDs provided for bulk deletion.",
+        )
+
+    wells = (
+        db.query(Well)
+        .filter(
+            or_(
+                Well.id.in_(clean_ids),
+                Well.apiNo.in_(clean_ids),
+                Well.name.in_(clean_ids),
+            )
+        )
+        .all()
+    )
+
+    if not wells:
+        return {
+            "success": True,
+            "deletedCount": 0,
+            "deletedIds": [],
+            "message": "No matching wells found to delete.",
+        }
+
+    is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
+    deleted_ids = []
+    deleted_names = []
+
+    for well in wells:
+        is_owner = (well.ownerId == current_user.id)
+        if not is_admin and not is_owner:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied: you do not have permission to delete well '{well.name}' ({well.id}).",
+            )
+        deleted_ids.append(well.id)
+        deleted_names.append(well.name)
+        db.delete(well)
+
+    if deleted_ids:
+        log = ActivityLog(
+            userName="Well Management",
+            userRole=current_user.role,
+            userId=current_user.id,
+            action="BULK_DELETE_WELLS",
+            targetType="WELL",
+            targetId=",".join(deleted_ids[:10]),
+            details=f"Bulk deleted {len(deleted_ids)} well asset(s): {', '.join(deleted_names[:5])}{'...' if len(deleted_names) > 5 else ''}",
+        )
+        db.add(log)
+        db.commit()
+
+    return {
+        "success": True,
+        "deletedCount": len(deleted_ids),
+        "deletedIds": deleted_ids,
+        "message": f"Successfully deleted {len(deleted_ids)} well asset(s).",
     }
 
 

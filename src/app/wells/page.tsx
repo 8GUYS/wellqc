@@ -20,6 +20,9 @@ import {
   Layers,
   Sparkles,
   X,
+  CheckSquare,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 
 function subscribeToStorage(callback: () => void) {
@@ -46,6 +49,18 @@ export default function WellManagementPage() {
   const [error, setError] = useState("");
   const [expandedWellId, setExpandedWellId] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  // Bulk selection and action state
+  const [selectedWellIds, setSelectedWellIds] = useState<string[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
+    open: boolean;
+    wells: WellListItem[];
+  }>({ open: false, wells: [] });
+  const [feedbackMessage, setFeedbackMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const storedWellRaw = useSyncExternalStore(
     subscribeToStorage,
@@ -102,6 +117,48 @@ export default function WellManagementPage() {
     const matchesStatus = statusFilter === "ALL" || well.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // Bulk selection computations & handlers
+  const isAllFilteredSelected =
+    filteredWells.length > 0 &&
+    filteredWells.every((well) => selectedWellIds.includes(well.id));
+
+  const isSomeFilteredSelected =
+    filteredWells.some((well) => selectedWellIds.includes(well.id)) && !isAllFilteredSelected;
+
+  const toggleSelectAllFiltered = () => {
+    if (isAllFilteredSelected) {
+      const filteredIdSet = new Set(filteredWells.map((w) => w.id));
+      setSelectedWellIds((prev) => prev.filter((id) => !filteredIdSet.has(id)));
+    } else {
+      const currentSet = new Set(selectedWellIds);
+      filteredWells.forEach((w) => currentSet.add(w.id));
+      setSelectedWellIds(Array.from(currentSet));
+    }
+  };
+
+  const toggleSelectWell = (id: string) => {
+    setSelectedWellIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const clearSelection = () => {
+    setSelectedWellIds([]);
+  };
+
+  const selectedWellsData = useMemo(() => {
+    const selectedSet = new Set(selectedWellIds);
+    const selectedList = wells.filter((w) => selectedSet.has(w.id));
+    const totalCurves = selectedList.reduce((acc, w) => acc + (w.curveCount || 0), 0);
+    const totalPoints = selectedList.reduce((acc, w) => acc + (w.pointCount || 0), 0);
+    return {
+      list: selectedList,
+      count: selectedList.length,
+      totalCurves,
+      totalPoints,
+    };
+  }, [wells, selectedWellIds]);
 
   async function loadWells() {
     setIsLoading(true);
@@ -174,20 +231,76 @@ export default function WellManagementPage() {
     }
   };
 
-  const handleDeleteWell = async (id: string) => {
+  const handleOpenBulkDelete = () => {
+    if (selectedWellsData.list.length === 0) return;
+    setDeleteConfirmModal({
+      open: true,
+      wells: selectedWellsData.list,
+    });
+  };
+
+  const handleOpenSingleDelete = (well: WellListItem) => {
+    setDeleteConfirmModal({
+      open: true,
+      wells: [well],
+    });
+  };
+
+  const handleExecuteDelete = async () => {
+    const targetWells = deleteConfirmModal.wells;
+    if (targetWells.length === 0) return;
+
+    setIsBulkDeleting(true);
     setError("");
 
     try {
-      const response = await fetch(`/api/wells/${id}`, { method: "DELETE" });
-      const res = await safeReadJson<{ success: boolean }>(response, "Unable to delete well.");
+      const targetIds = targetWells.map((w) => w.id);
+      const response = await fetch("/api/wells/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wellIds: targetIds }),
+      });
+
+      const res = await safeReadJson<{
+        success: boolean;
+        deletedCount: number;
+        deletedIds: string[];
+        message?: string;
+      }>(response, "Unable to delete selected well(s).");
 
       if (!res.ok) {
-        throw new Error(res.error || "Unable to delete well.");
+        throw new Error(res.error || "Unable to delete selected well(s).");
       }
 
-      setWells((current) => current.filter((well) => well.id !== id));
+      const deletedIds = new Set(res.data?.deletedIds || targetIds);
+      setWells((current) => current.filter((well) => !deletedIds.has(well.id)));
+      setSelectedWellIds((current) => current.filter((id) => !deletedIds.has(id)));
+      setDeleteConfirmModal({ open: false, wells: [] });
+
+      setFeedbackMessage({
+        type: "success",
+        text: res.data?.message || `Successfully deleted ${deletedIds.size} well asset(s).`,
+      });
+
+      setTimeout(() => {
+        setFeedbackMessage(null);
+      }, 5000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete well.");
+      const msg = err instanceof Error ? err.message : "Unable to delete well(s).";
+      setError(msg);
+      setFeedbackMessage({
+        type: "error",
+        text: msg,
+      });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const handleDeleteWell = async (id: string) => {
+    const targetWell = wells.find((w) => w.id === id);
+    if (targetWell) {
+      handleOpenSingleDelete(targetWell);
     }
   };
 
@@ -277,6 +390,31 @@ export default function WellManagementPage() {
           </div>
         )}
 
+        {feedbackMessage && (
+          <div
+            className={`border rounded-xl px-4 py-3 text-xs font-mono flex items-center justify-between gap-3 ${
+              feedbackMessage.type === "success"
+                ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300"
+                : "bg-red-500/10 border-red-500/30 text-red-200"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {feedbackMessage.type === "success" ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              )}
+              <span>{feedbackMessage.text}</span>
+            </div>
+            <button
+              onClick={() => setFeedbackMessage(null)}
+              className="text-slate-400 hover:text-white p-1 rounded"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-200 rounded-xl px-4 py-3 text-xs font-mono">
             {error}
@@ -357,6 +495,50 @@ export default function WellManagementPage() {
           </div>
         )}
 
+        {/* Bulk Action Toolbar */}
+        {selectedWellIds.length > 0 && (
+          <div className="bg-gradient-to-r from-cyan-950/60 via-wellqc-panel to-blue-950/60 border border-cyan-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl shadow-cyan-950/20 transition-all">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 font-mono font-bold text-xs border border-cyan-500/40 flex items-center gap-1.5">
+                <CheckSquare className="w-3.5 h-3.5 text-cyan-400" />
+                <span>
+                  {selectedWellsData.count} of {wells.length} well{selectedWellsData.count > 1 ? "s" : ""} selected
+                </span>
+              </span>
+              <span className="text-xs text-slate-400 font-mono hidden md:inline">
+                {selectedWellsData.totalCurves} total curves · {selectedWellsData.totalPoints.toLocaleString()} points
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {filteredWells.length > selectedWellsData.count && (
+                <button
+                  type="button"
+                  onClick={toggleSelectAllFiltered}
+                  className="px-3 py-1.5 rounded-lg bg-wellqc-card border border-wellqc-border hover:border-cyan-500/40 text-slate-300 hover:text-white text-xs font-mono font-semibold transition-colors"
+                >
+                  Select all visible ({filteredWells.length})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="px-3 py-1.5 rounded-lg bg-wellqc-card border border-wellqc-border hover:border-slate-500 text-slate-400 hover:text-white text-xs font-mono transition-colors"
+              >
+                Deselect all
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenBulkDelete}
+                className="px-3.5 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 hover:border-rose-500 text-rose-300 font-bold text-xs font-mono flex items-center gap-1.5 transition-all shadow-md shadow-rose-950/40"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                <span>Delete Selected ({selectedWellsData.count})</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl overflow-hidden shadow-xl">
           {isLoading ? (
             <div className="p-8 text-center text-cyan-300 text-xs font-mono flex items-center justify-center">
@@ -376,6 +558,18 @@ export default function WellManagementPage() {
               <table className="w-full text-left text-xs font-mono">
                 <thead className="bg-wellqc-card border-b border-wellqc-border text-slate-400 uppercase text-[10px]">
                   <tr>
+                    <th className="p-4 w-12 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isAllFilteredSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = isSomeFilteredSelected;
+                        }}
+                        onChange={toggleSelectAllFiltered}
+                        title={isAllFilteredSelected ? "Deselect all visible" : "Select all visible"}
+                        className="w-4 h-4 rounded border-slate-600 text-cyan-500 focus:ring-cyan-400 bg-wellqc-panel cursor-pointer accent-cyan-500"
+                      />
+                    </th>
                     <th className="p-4">Well Asset Name</th>
                     <th className="p-4">API / UWI</th>
                     <th className="p-4">Operator</th>
@@ -389,10 +583,24 @@ export default function WellManagementPage() {
                 <tbody className="divide-y divide-wellqc-border text-slate-200">
                   {filteredWells.map((well) => {
                     const isExpanded = expandedWellId === well.id;
+                    const isSelected = selectedWellIds.includes(well.id);
 
                     return (
                       <React.Fragment key={well.id}>
-                        <tr className={`hover:bg-wellqc-card/60 transition-colors ${isExpanded ? "bg-wellqc-card/40" : ""}`}>
+                        <tr
+                          className={`hover:bg-wellqc-card/60 transition-colors ${
+                            isExpanded ? "bg-wellqc-card/40" : ""
+                          } ${isSelected ? "bg-cyan-950/30 border-l-2 border-cyan-400" : ""}`}
+                        >
+                          <td className="p-4 text-center w-12" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectWell(well.id)}
+                              title={`Select well ${well.name}`}
+                              className="w-4 h-4 rounded border-slate-600 text-cyan-500 focus:ring-cyan-400 bg-wellqc-panel cursor-pointer accent-cyan-500"
+                            />
+                          </td>
                           <td className="p-4 font-bold text-white">
                             <Link href={`/wells/${well.id}`} className="hover:text-cyan-400 flex items-center space-x-2">
                               <Database className="w-4 h-4 text-cyan-400 shrink-0" />
@@ -448,7 +656,7 @@ export default function WellManagementPage() {
                               <Eye className="w-4 h-4" />
                             </Link>
                             <button
-                              onClick={() => handleDeleteWell(well.id)}
+                              onClick={() => handleOpenSingleDelete(well)}
                               className="p-1.5 rounded-lg bg-wellqc-card hover:bg-red-500/20 text-red-400 inline-block transition-colors"
                               title="Delete Well"
                             >
@@ -459,7 +667,7 @@ export default function WellManagementPage() {
 
                         {isExpanded && (
                           <tr className="bg-slate-950/80">
-                            <td colSpan={8} className="p-4 border-b border-wellqc-border">
+                            <td colSpan={9} className="p-4 border-b border-wellqc-border">
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between px-1">
                                   <div className="text-xs font-bold text-slate-200 font-mono flex items-center gap-2">
@@ -533,6 +741,94 @@ export default function WellManagementPage() {
             </div>
           )}
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {deleteConfirmModal.open && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div className="bg-wellqc-panel border border-rose-500/40 rounded-2xl p-6 max-w-lg w-full space-y-5 shadow-2xl shadow-rose-950/50">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-rose-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-bold text-white font-mono">
+                    {deleteConfirmModal.wells.length === 1
+                      ? `Delete Well Asset: ${deleteConfirmModal.wells[0].name}?`
+                      : `Permanently Delete ${deleteConfirmModal.wells.length} Well Assets?`}
+                  </h3>
+                  <p className="text-xs text-slate-300 font-mono mt-1">
+                    {deleteConfirmModal.wells.length === 1
+                      ? "You are about to delete this well asset from the Well Master Index."
+                      : `You are about to delete ${deleteConfirmModal.wells.length} selected well assets from the database.`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDeleteConfirmModal({ open: false, wells: [] })}
+                  disabled={isBulkDeleting}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="bg-wellqc-card/80 border border-wellqc-border rounded-xl p-3 max-h-48 overflow-y-auto space-y-2">
+                <div className="text-[10px] uppercase font-bold text-slate-400 font-mono tracking-wider">
+                  Assets to be removed ({deleteConfirmModal.wells.length}):
+                </div>
+                <div className="divide-y divide-wellqc-border/60">
+                  {deleteConfirmModal.wells.map((w) => (
+                    <div key={w.id} className="py-2 flex items-center justify-between text-xs font-mono">
+                      <div>
+                        <span className="font-bold text-white">{w.name}</span>
+                        <span className="text-slate-400 ml-2">({w.apiNo})</span>
+                      </div>
+                      <span className="text-[11px] text-cyan-300">{w.operatorName || "No operator"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-xs text-rose-300 font-mono space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Irreversible Action</span>
+                </div>
+                <p className="text-[11px] text-rose-200/80">
+                  All associated LAS files, curve health matrices, anomaly logs, and QA reports will be permanently purged from the database.
+                </p>
+              </div>
+
+              <div className="pt-2 flex justify-end space-x-3 font-mono text-xs">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmModal({ open: false, wells: [] })}
+                  disabled={isBulkDeleting}
+                  className="px-4 py-2 rounded-xl bg-wellqc-card border border-wellqc-border hover:border-slate-500 text-slate-300 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteDelete}
+                  disabled={isBulkDeleting}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold flex items-center gap-2 shadow-lg shadow-rose-950/40 disabled:opacity-60"
+                >
+                  {isBulkDeleting ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Confirm & Delete</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );

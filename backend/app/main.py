@@ -80,8 +80,8 @@ app.include_router(activity.router)       # /api/activity: Audit trail and secur
 app.include_router(user.router)           # /api/user: User profile, settings, API tokens
 app.include_router(admin.router)          # /api/admin: Tenant administration & user management
 
-@app.get("/health")
-@app.get("/api/health")
+@app.get("/health", include_in_schema=False)
+@app.get("/api/health", tags=["system"], summary="Service Health Probe")
 def health_check():
     """Service liveness probe returning API version, project name, and deployment environment."""
     return {
@@ -91,7 +91,7 @@ def health_check():
         "environment": settings.ENVIRONMENT,
     }
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def root():
     """Root landing endpoint providing quick reference links to Swagger UI and health probe."""
     return {

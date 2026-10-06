@@ -3,15 +3,17 @@
  * Connects frontend Next.js pages directly to FastAPI endpoints.
  */
 
-import { ParsedLAS } from "./parser";
-import { QualityAnalysisResult } from "./quality-engine";
-import { AIAnalysisOutput } from "./ai-analyzer";
-import { CleanedLogResult, CleaningOptions, VerificationReport } from "./cleaner";
 import {
+  ParsedLAS,
+  QualityAnalysisResult,
+  AIAnalysisOutput,
+  CleanedLogResult,
+  CleaningOptions,
+  VerificationReport,
   MissingValueDiagnostic,
   ImputationBenchmarkResult,
-} from "./imputation-engine";
-import { CustomAliasEntry } from "./standardiser";
+  CustomAliasEntry,
+} from "@/lib/api-types";
 
 export interface AnalyzeLASResponse {
   parsed: ParsedLAS;

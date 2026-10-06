@@ -154,6 +154,47 @@ Object.defineProperty(STANDARD_CURVES, "DEPTH", {
   configurable: true,
 });
 
+/**
+ * Loads the standard curve definitions from the Python backend (/api/standardisation/curves).
+ * Clears and refills the STANDARD_CURVES object with returned curves.
+ * Returns false and preserves the offline fallback list if the request fails.
+ */
+export async function loadStandardCurvesFromServer(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/standardisation/curves", { cache: "no-store" });
+    if (!res.ok) {
+      return false;
+    }
+    const data = await res.json();
+    if (!data || !Array.isArray(data.curves) || data.curves.length === 0) {
+      return false;
+    }
+
+    for (const key of Object.keys(STANDARD_CURVES)) {
+      delete STANDARD_CURVES[key];
+    }
+
+    for (const curve of data.curves as StandardCurveDef[]) {
+      STANDARD_CURVES[curve.standardMnemonic] = curve;
+    }
+
+    if (STANDARD_CURVES.DEPT) {
+      Object.defineProperty(STANDARD_CURVES, "DEPTH", {
+        get() {
+          return STANDARD_CURVES.DEPT;
+        },
+        enumerable: false,
+        configurable: true,
+      });
+    }
+
+    return true;
+  } catch (err) {
+    console.warn("Could not load standard curves from server, using fallback:", err);
+    return false;
+  }
+}
+
 export interface StandardisationResult {
   originalMnemonic: string;
   standardMnemonic: string;

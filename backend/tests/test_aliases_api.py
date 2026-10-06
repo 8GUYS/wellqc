@@ -106,3 +106,22 @@ def test_delete_alias():
     assert res.status_code == 200
     data = res.json()
     assert any(a["alias"] == "CAL_TEST_TO_REMOVE" for a in data["aliases"]) is False
+
+
+def test_get_standard_curves_returns_19_curves():
+    res = client.get("/api/standardisation/curves")
+    assert res.status_code == 200
+    data = res.json()
+    assert "curves" in data
+    assert len(data["curves"]) == 19
+    mnemonics = [c["standardMnemonic"] for c in data["curves"]]
+    assert "DEPT" in mnemonics
+    assert "TVD" in mnemonics
+    assert "CGR" in mnemonics
+    assert "POTA" in mnemonics
+    assert "THOR" in mnemonics
+    assert "URAN" in mnemonics
+    assert "RM" in mnemonics
+    assert "BS" in mnemonics
+    assert "TEMP" in mnemonics
+

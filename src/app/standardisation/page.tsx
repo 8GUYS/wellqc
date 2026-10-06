@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import {
   getMergedStandardCurves,
+  loadStandardCurvesFromServer,
   validateAliasForCurve,
   setCustomAliases,
   updateActiveUploadWithNewAlias,
@@ -97,6 +98,7 @@ export default function StandardisationPage() {
     setIsSyncing(true);
     const startTime = Date.now();
     try {
+      await loadStandardCurvesFromServer();
       const res = await fetch("/api/standardisation/aliases", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
@@ -134,6 +136,7 @@ export default function StandardisationPage() {
     let isMounted = true;
     async function loadInitialAliases() {
       try {
+        await loadStandardCurvesFromServer();
         const res = await fetch("/api/standardisation/aliases", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();

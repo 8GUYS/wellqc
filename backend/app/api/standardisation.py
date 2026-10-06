@@ -16,6 +16,7 @@ from backend.app.schemas.standardisation import (
 )
 from backend.app.services.standardiser import (
     CustomAliasEntry,
+    STANDARD_CURVES,
     validate_alias_for_curve,
 )
 
@@ -55,6 +56,11 @@ def _get_user_aliases(db: Session, user: Optional[User]) -> List[CustomAliasEntr
             )
 
     return db_entries
+
+
+@router.get("/curves")
+def get_standard_curves():
+    return {"curves": [c.model_dump() for c in dict.values(STANDARD_CURVES)]}
 
 
 @router.get("/aliases")

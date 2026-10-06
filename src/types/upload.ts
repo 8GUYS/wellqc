@@ -1,6 +1,8 @@
-import { ParsedLAS } from "@/lib/las/parser";
-import { QualityAnalysisResult } from "@/lib/las/quality-engine";
-import { AIAnalysisOutput } from "@/lib/las/ai-analyzer";
+import {
+  ParsedLAS,
+  QualityAnalysisResult,
+  AIAnalysisOutput,
+} from "@/lib/api-types";
 
 export type UploadStatus = "ready" | "saving" | "saved" | "error";
 

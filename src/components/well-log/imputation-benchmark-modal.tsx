@@ -1,20 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ParsedLAS } from "@/lib/las/parser";
 import {
-  diagnoseMissingValueCauses,
-  benchmarkImputationMethods,
+  ParsedLAS,
   MissingValueDiagnostic,
   ImputationBenchmarkResult,
   ImputationStrategy,
-  imputeKNN,
-  imputeLinear,
-  imputeMean,
-  imputeMedian,
-  imputeSpline,
-  dropMissingRows,
-} from "@/lib/las/imputation-engine";
+} from "@/lib/api-types";
 import {
   diagnoseMissingValues,
   benchmarkImputation,
@@ -24,15 +16,12 @@ import {
 import {
   X,
   Sparkles,
-  BarChart3,
   Sliders,
   CheckCircle2,
-  AlertCircle,
   HelpCircle,
   Play,
   ArrowRight,
   ShieldAlert,
-  FileCheck,
 } from "lucide-react";
 
 interface ImputationBenchmarkModalProps {
@@ -57,9 +46,7 @@ export function ImputationBenchmarkModal({
   const [benchmarkResult, setBenchmarkResult] = useState<ImputationBenchmarkResult | null>(
     null
   );
-  const [diagnostics, setDiagnostics] = useState<MissingValueDiagnostic[]>(() =>
-    diagnoseMissingValueCauses(las)
-  );
+  const [diagnostics, setDiagnostics] = useState<MissingValueDiagnostic[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -91,15 +78,13 @@ export function ImputationBenchmarkModal({
         wellInfo: las.wellInfo,
       });
       setBenchmarkResult(res);
-    } catch {
-      const res = benchmarkImputationMethods(las, selectedCurve);
-      setBenchmarkResult(res);
+    } catch (err) {
+      console.error("Benchmark execution failed:", err);
     }
   };
 
   const handleApplyStrategy = async (strategy: ImputationStrategy) => {
     let updatedLas = { ...las };
-    const nullVal = las.wellInfo.nullValue ?? -999.25;
 
     try {
       if (strategy === "ROW_DROPPING" || (activeDiag && activeDiag.nullPercentage <= dropThreshold)) {
@@ -141,40 +126,12 @@ export function ImputationBenchmarkModal({
           },
         };
       }
-    } catch {
-      if (strategy === "ROW_DROPPING" || activeDiag?.nullPercentage <= dropThreshold) {
-        updatedLas = dropMissingRows(las, selectedCurve);
-      } else {
-        const rawSeries = las.data.curves[selectedCurve];
-        let imputed: number[] = [];
 
-        if (strategy === "KNN") {
-          imputed = imputeKNN(las.data.curves, selectedCurve, nullVal, knnNeighbors);
-        } else if (strategy === "LINEAR") {
-          imputed = imputeLinear(rawSeries, nullVal);
-        } else if (strategy === "MEAN") {
-          imputed = imputeMean(rawSeries, nullVal);
-        } else if (strategy === "MEDIAN") {
-          imputed = imputeMedian(rawSeries, nullVal);
-        } else if (strategy === "SPLINE") {
-          imputed = imputeSpline(rawSeries, nullVal);
-        }
-
-        updatedLas = {
-          ...las,
-          data: {
-            ...las.data,
-            curves: {
-              ...las.data.curves,
-              [selectedCurve]: imputed,
-            },
-          },
-        };
-      }
+      onApplyImputation(updatedLas, strategy, selectedCurve);
+      onClose();
+    } catch (err) {
+      console.error("Failed to apply imputation strategy:", err);
     }
-
-    onApplyImputation(updatedLas, strategy, selectedCurve);
-    onClose();
   };
 
   if (!isOpen) return null;

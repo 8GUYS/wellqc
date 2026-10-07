@@ -67,3 +67,69 @@ DEPT.M : Depth
     assert result.wellInfo.wellName == "EMPTY_WELL"
     assert result.totalPoints == 0
     assert result.data.depth == []
+
+def test_does_not_invent_header_values_when_blank():
+    las_blank_headers = """~Version
+VERS. 2.0 :
+~Well
+WELL. TEST_BLANK :
+COMP. :
+FLD. :
+API. :
+CTRY. :
+STAT. :
+SRVC. :
+~Curve
+DEPT.M :
+~A
+100.0
+"""
+    result = parse_las_content(las_blank_headers)
+    assert result.wellInfo.company == ""
+    assert result.wellInfo.field == ""
+    assert result.wellInfo.apiUwi == ""
+    assert result.wellInfo.country == ""
+    assert result.wellInfo.state == ""
+    assert result.wellInfo.serviceCompany == ""
+
+def test_las_3_single_data_section_has_no_false_warning():
+    las_3_single = """~Version
+VERS. 3.0 : CWLS LOG ASCII STANDARD - VERSION 3.0
+~Well
+WELL. LAS3_WELL :
+STRT.M 100.0 :
+STOP.M 102.0 :
+STEP.M 1.0 :
+NULL. -999.25 :
+~Curve
+DEPT.M :
+GR.GAPI :
+~ASCII
+100.0 55.0
+101.0 60.0
+102.0 65.0
+"""
+    result = parse_las_content(las_3_single)
+    assert result.version == "3.0"
+    assert not any("only the first" in w for w in result.warnings)
+    assert len(result.data.depth) == 3
+
+def test_multiple_data_sections_emits_warning():
+    las_multiple_data = """~Version
+VERS. 3.0 :
+~Well
+WELL. MULTI_SEC_WELL :
+~Curve
+DEPT.M :
+GR.GAPI :
+~ASCII
+100.0 50.0
+101.0 52.0
+~CORE_DATA
+200.0 80.0
+201.0 82.0
+"""
+    result = parse_las_content(las_multiple_data)
+    assert "Multiple data sections found; only the first was read." in result.warnings
+    assert len(result.data.depth) == 2
+    assert result.data.depth == [100.0, 101.0]

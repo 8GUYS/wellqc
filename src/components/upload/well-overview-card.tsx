@@ -48,11 +48,11 @@ export function WellOverviewCard({
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-300 font-mono">
-            <span>Company: <span className="text-white">{parsedLAS.wellInfo.company || "NDI-GROUP-5"}</span></span>
+            <span>Company: <span className="text-white">{parsedLAS.wellInfo.company || "Not provided in file"}</span></span>
             <span className="text-slate-600">|</span>
-            <span>Field: <span className="text-white">{parsedLAS.wellInfo.field || "NIGER DELTA"}</span></span>
+            <span>Field: <span className="text-white">{parsedLAS.wellInfo.field || "Not provided in file"}</span></span>
             <span className="text-slate-600">|</span>
-            <span>API: <span className="text-white">{parsedLAS.wellInfo.apiUwi || "API-8086938832"}</span></span>
+            <span>API: <span className="text-white">{parsedLAS.wellInfo.apiUwi || "Not provided in file"}</span></span>
           </div>
           <p className="text-xs text-slate-400 font-mono">
             Depth Interval: {parsedLAS.wellInfo.startDepth} – {parsedLAS.wellInfo.stopDepth} {parsedLAS.wellInfo.depthUnit} (Step: {parsedLAS.wellInfo.step})

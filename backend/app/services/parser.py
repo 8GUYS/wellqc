@@ -28,13 +28,13 @@ class LASCurveMeta(BaseModel):
 
 class WellInfo(BaseModel):
     wellName: str = "UNKNOWN_WELL"
-    company: str = "NDI-GROUP-5"
-    field: str = "NIGER DELTA"
+    company: str = ""
+    field: str = ""
     location: str = ""
-    country: str = "NIGERIA"
-    state: str = "DELTA STATE"
-    apiUwi: str = "API-UNKNOWN"
-    serviceCompany: str = "SLB"
+    country: str = ""
+    state: str = ""
+    apiUwi: str = ""
+    serviceCompany: str = ""
     date: str = ""
     startDepth: float = 0.0
     stopDepth: float = 0.0
@@ -146,17 +146,26 @@ def parse_las_content(
     header_lines: List[str] = []
     ascii_lines: List[str] = []
     warnings: List[str] = []
+    data_sections_seen = 0
 
     for line in lines:
         trimmed = line.strip()
         if not trimmed or trimmed.startswith("#"):
-            if current_section not in ("~A", "~ASCII"):
+            if current_section not in ("~A", "~ASCII", "~IGNORED_DATA"):
                 header_lines.append(line)
             continue
 
         if trimmed.startswith("~"):
             sec = trimmed.split()[0].upper()
-            if sec.startswith("~V"):
+            if sec.endswith("_DATA") or sec.startswith("~A") or sec == "~ASCII":
+                data_sections_seen += 1
+                if data_sections_seen == 1:
+                    current_section = "~A"
+                else:
+                    current_section = "~IGNORED_DATA"
+                    if data_sections_seen == 2:
+                        warnings.append("Multiple data sections found; only the first was read.")
+            elif sec.startswith("~V"):
                 current_section = "~V"
             elif sec.startswith("~W"):
                 current_section = "~W"
@@ -166,16 +175,14 @@ def parse_las_content(
                 current_section = "~P"
             elif sec.startswith("~O"):
                 current_section = "~O"
-            elif sec.startswith("~A"):
-                current_section = "~A"
             else:
                 current_section = sec
 
-            if current_section != "~A":
+            if current_section not in ("~A", "~IGNORED_DATA"):
                 header_lines.append(line)
             continue
 
-        if current_section != "~A":
+        if current_section not in ("~A", "~IGNORED_DATA"):
             header_lines.append(line)
 
         if current_section in ("~V", "~W"):
@@ -223,18 +230,14 @@ def parse_las_content(
         well_name = "UNKNOWN_WELL"
 
     company = re.sub(r"\s+", " ", well_items.get("COMP", LASHeaderItem(mnemonic="COMP", unit="", value="", description="")).value).strip()
-    if not company:
-        company = "NDI-GROUP-5"
 
     field = re.sub(r"\s+", " ", well_items.get("FLD", LASHeaderItem(mnemonic="FLD", unit="", value="", description="")).value).strip()
-    if not field:
-        field = "NIGER DELTA"
 
     location = re.sub(r"\s+", " ", well_items.get("LOC", LASHeaderItem(mnemonic="LOC", unit="", value="", description="")).value).strip()
-    country = re.sub(r"\s+", " ", well_items.get("CTRY", well_items.get("CNTY", LASHeaderItem(mnemonic="CTRY", unit="", value="NIGERIA", description=""))).value).strip() or "NIGERIA"
-    state = re.sub(r"\s+", " ", well_items.get("STAT", LASHeaderItem(mnemonic="STAT", unit="", value="DELTA STATE", description="")).value).strip() or "DELTA STATE"
+    country = re.sub(r"\s+", " ", well_items.get("CTRY", well_items.get("CNTY", LASHeaderItem(mnemonic="CTRY", unit="", value="", description=""))).value).strip()
+    state = re.sub(r"\s+", " ", well_items.get("STAT", LASHeaderItem(mnemonic="STAT", unit="", value="", description="")).value).strip()
     api_uwi = re.sub(r"\s+", " ", well_items.get("API", well_items.get("UWI", LASHeaderItem(mnemonic="API", unit="", value="", description=""))).value).strip()
-    service_company = re.sub(r"\s+", " ", well_items.get("SRVC", LASHeaderItem(mnemonic="SRVC", unit="", value="SLB", description="")).value).strip() or "SLB"
+    service_company = re.sub(r"\s+", " ", well_items.get("SRVC", LASHeaderItem(mnemonic="SRVC", unit="", value="", description="")).value).strip()
     date_str = well_items.get("DATE", LASHeaderItem(mnemonic="DATE", unit="", value="", description="")).value.strip()
 
     lat_val = _float_val("LATI", None)

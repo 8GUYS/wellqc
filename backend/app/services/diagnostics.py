@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 from backend.app.services.curve_utils import is_null_value
 from backend.app.schemas.imputation import CurveMetaPayload, MissingValueDiagnostic, WellInfoPayload
+from backend.app.schemas.enums import DiagnosticCause, ImputationStrategy, ThresholdAction
 
 def diagnose_missing_value_causes(
     depth: List[float],
@@ -38,15 +39,15 @@ def diagnose_missing_value_causes(
                     totalPoints=total_points,
                     nullCount=0,
                     nullPercentage=0.0,
-                    primaryCause="UNKNOWN_SENSOR_GAP",
+                    primaryCause=DiagnosticCause.UNKNOWN_SENSOR_GAP,
                     causeDescription="No missing values detected in log channel.",
-                    recommendedStrategy="LINEAR",
-                    recommendedThresholdAction="NO_ACTION_NEEDED",
+                    recommendedStrategy=ImputationStrategy.LINEAR,
+                    recommendedThresholdAction=ThresholdAction.NO_ACTION_NEEDED,
                 )
             )
             continue
 
-        primary_cause = "UNKNOWN_SENSOR_GAP"
+        primary_cause: DiagnosticCause = DiagnosticCause.UNKNOWN_SENSOR_GAP
         cause_description = "General telemetry gap or isolated missing sample readings."
 
         shallow_nulls = [
@@ -62,7 +63,7 @@ def diagnose_missing_value_causes(
         if (len(shallow_nulls) / null_count > 0.6) and mnemonic_upper in (
             "DT", "RT", "RHOB", "NPHI", "AT40",
         ):
-            primary_cause = "CASING_SHOE_BOUNDARY"
+            primary_cause = DiagnosticCause.CASING_SHOE_BOUNDARY
             cause_description = (
                 f"Null values concentrated near casing shoe / shallow interval "
                 f"({start_depth:.1f} {well_info.depthUnit}). Sensors reading casing metal "
@@ -81,32 +82,32 @@ def diagnose_missing_value_causes(
                 and not is_null_value(cali_values[idx], null_value)
             ]
             if len(washout_nulls) / null_count > 0.3:
-                primary_cause = "BOREHOLE_WASHOUT"
+                primary_cause = DiagnosticCause.BOREHOLE_WASHOUT
                 cause_description = (
                     "Null or invalid sensor readings correlate with severe borehole "
                     "enlargement (caliper > 15.5 in), causing tool pad contact loss."
                 )
         # C. Off-Bottom Window Check
         elif len(deep_nulls) / null_count > 0.6:
-            primary_cause = "OFF_BOTTOM_WINDOW"
+            primary_cause = DiagnosticCause.OFF_BOTTOM_WINDOW
             cause_description = (
                 f"Null readings at bottom hole interval ({stop_depth:.1f} "
                 f"{well_info.depthUnit}) due to tool pickup or survey cutoff."
             )
         # D. Telemetry Dropout Check
         elif null_count >= 15:
-            primary_cause = "TELEMETRY_DROPOUT"
+            primary_cause = DiagnosticCause.TELEMETRY_DROPOUT
             cause_description = (
                 f"Extended cluster of {null_count} missing samples caused by sensor "
                 f"signal dropout or telemetry interruption."
             )
 
-        recommended_strategy = "KNN"
-        recommended_threshold_action = "APPLY_IMPUTATION"
+        recommended_strategy: ImputationStrategy = ImputationStrategy.KNN
+        recommended_threshold_action: ThresholdAction = ThresholdAction.APPLY_IMPUTATION
 
         if null_percentage < 2.0:
-            recommended_threshold_action = "DROP_ROWS"
-            recommended_strategy = "ROW_DROPPING"
+            recommended_threshold_action = ThresholdAction.DROP_ROWS
+            recommended_strategy = ImputationStrategy.ROW_DROPPING
             cause_description += (
                 f" Low missing percentage ({null_percentage:.2f}%) qualifies for "
                 f"listwise row deletion without affecting petrophysical statistics."

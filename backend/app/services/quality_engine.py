@@ -1,28 +1,62 @@
 from __future__ import annotations
-import math
+
 from typing import Dict, List, Optional, Set
+
 import numpy as np
 from pydantic import BaseModel
-from backend.app.services.curve_utils import is_null_value, null_mask
+
+from backend.app.schemas.enums import AnomalySeverity, AnomalyType, QualityGrade
+from backend.app.services.curve_utils import (
+    FLATLINE_EXEMPT,
+    FLATLINE_MIN_RUN,
+    NULL_CLUSTER_MIN_RUN,
+    NULL_REPORT_MIN_RUN,
+    SPIKE_SIGMA,
+    SONIC_CURVES,
+    find_cycle_skips,
+    find_flatline_runs,
+    find_spikes,
+    null_mask,
+    to_float_array,
+    true_runs,
+)
 from backend.app.services.parser import ParsedLAS
 from backend.app.services.standardiser import (
     CustomAliasEntry,
     STANDARD_CURVES,
-    convert_to_standard_unit,
+    convert_series_to_standard_unit,
     standardise_mnemonic,
 )
 
-from backend.app.schemas.enums import AnomalySeverity, QualityGrade
+EXPECTED_KEY_CURVES = ["GR", "RHOB", "NPHI", "DT", "RT", "CALI"]
+
+# Every anomaly found is reported and counted. Scoring is where the limits are: each kind of
+# penalty has a ceiling, so one badly damaged curve cannot drive a score to 0 on its own.
+# Curve score = 100 - null penalty - critical penalty - warning penalty (never below 0).
+SEVERITY_PENALTY = {AnomalySeverity.CRITICAL: 15.0, AnomalySeverity.WARNING: 8.0, AnomalySeverity.INFO: 0.0, "CRITICAL": 15.0, "WARNING": 8.0, "INFO": 0.0}        # points per anomaly
+SEVERITY_PENALTY_CAP = {AnomalySeverity.CRITICAL: 75.0, AnomalySeverity.WARNING: 40.0, AnomalySeverity.INFO: 0.0, "CRITICAL": 75.0, "WARNING": 40.0, "INFO": 0.0}   # most a curve can lose
+NULL_PENALTY_PER_PERCENT = 0.5      # points per 1% of the curve that is empty
+NULL_PENALTY_CAP = 30.0
+# Well-level parts
+MISSING_CURVE_PENALTY = 12.0        # completeness: per missing key curve
+NULL_CLUSTER_PENALTY = 5.0          # completeness: per long run of missing data
+NULL_CLUSTER_PENALTY_CAP = 30.0
+CONSISTENCY_CRITICAL_PENALTY = 12.0
+CONSISTENCY_CRITICAL_CAP = 60.0
+CONSISTENCY_WARNING_PENALTY = 4.0
+CONSISTENCY_WARNING_CAP = 40.0
+
 
 class AnomalyReportItem(BaseModel):
     id: Optional[str] = None
     curveMnemonic: str
     depthStart: float
     depthEnd: float
-    anomalyType: str
+    anomalyType: AnomalyType
     severity: AnomalySeverity
     description: str
     suggestedCorrection: str
+
 
 class CurveHealthSummary(BaseModel):
     mnemonic: str
@@ -38,6 +72,7 @@ class CurveHealthSummary(BaseModel):
     status: QualityGrade
     anomalies: List[AnomalyReportItem]
 
+
 class QualityAnalysisResult(BaseModel):
     overallScore: int
     qualityGrade: QualityGrade
@@ -49,258 +84,344 @@ class QualityAnalysisResult(BaseModel):
     curveSummaries: List[CurveHealthSummary]
     anomalies: List[AnomalyReportItem]
     missingStandardCurves: List[str]
+    # True totals (nothing is capped). Optional extras for the page and the report.
+    infoCount: int = 0
+    anomalyCountsByType: Dict[str, int] = {}
+    anomaliesPer1000Samples: float = 0.0
+
+
+def _grade(score: float) -> QualityGrade:
+    if score < 50:
+        return QualityGrade.CRITICAL
+    if score < 75:
+        return QualityGrade.POOR
+    if score < 90:
+        return QualityGrade.GOOD
+    return QualityGrade.EXCELLENT
+
+
+def _curve_penalty(null_percentage: float, curve_anoms: List[AnomalyReportItem]) -> float:
+    """Points lost by one curve. Every anomaly counts; each kind of penalty has a ceiling."""
+    penalty = min(NULL_PENALTY_CAP, null_percentage * NULL_PENALTY_PER_PERCENT)
+    for severity, per_item in SEVERITY_PENALTY.items():
+        n = sum(1 for a in curve_anoms if a.severity == severity)
+        penalty += min(SEVERITY_PENALTY_CAP[severity], n * per_item)
+    return penalty
+
+
+def _depth_anomalies(las: ParsedLAS, depth: np.ndarray) -> List[AnomalyReportItem]:
+    items: List[AnomalyReportItem] = []
+    unit = las.wellInfo.depthUnit
+
+    # Rows the parser flagged as having a null/invalid depth: report them once, then leave
+    # them out of the duplicate/step/gap checks so they cannot cause false depth gaps.
+    flagged = sorted({i for i in las.nullDepthRows if 0 <= i < depth.size})
+    if flagged:
+        keep = np.ones(depth.size, dtype=bool)
+        keep[flagged] = False
+        valid_depth = depth[keep]
+        first = flagged[0]
+        before = depth[:first][keep[:first]]
+        after = depth[first + 1 :][keep[first + 1 :]]
+        d_start = float(before[-1]) if before.size else (float(valid_depth[0]) if valid_depth.size else 0.0)
+        d_end = float(after[0]) if after.size else d_start
+        rows_txt = ", ".join(str(i + 1) for i in flagged[:10]) + (" ..." if len(flagged) > 10 else "")
+        items.append(
+            AnomalyReportItem(
+                curveMnemonic="DEPT",
+                depthStart=d_start,
+                depthEnd=d_end,
+                anomalyType=AnomalyType.NULL_DEPTH,
+                severity=AnomalySeverity.WARNING,
+                description=f"{len(flagged)} data row(s) have a null or invalid depth (row {rows_txt}).",
+                suggestedCorrection="Check the depth column; the row is kept in the file and left out of the depth checks.",
+            )
+        )
+        depth = valid_depth
+
+    if depth.size < 2:
+        return items
+    steps = np.diff(depth)
+    step_ref = abs(las.wellInfo.step)
+    if step_ref == 0.0:
+        nz = np.abs(steps[np.abs(steps) > 1e-9])
+        step_ref = float(np.median(nz)) if nz.size else 0.0
+
+    dup_idx = np.flatnonzero(np.abs(steps) < 0.0001) + 1
+    for i in dup_idx:
+        d = float(depth[i])
+        items.append(
+            AnomalyReportItem(
+                curveMnemonic="DEPT",
+                depthStart=d,
+                depthEnd=d,
+                anomalyType=AnomalyType.DUPLICATE_DEPTH,
+                severity=AnomalySeverity.CRITICAL,
+                description=f"Duplicate depth value detected at {d} {unit}",
+                suggestedCorrection="Remove duplicate depth index row.",
+            )
+        )
+
+    if step_ref > 0.0:
+        gap_idx = np.flatnonzero((np.abs(steps) > step_ref * 3) & (np.abs(steps) >= 0.0001)) + 1
+        gaps: List[AnomalyReportItem] = []
+        for i in gap_idx:
+            d_prev, d_curr = float(depth[i - 1]), float(depth[i])
+            gaps.append(
+                AnomalyReportItem(
+                    curveMnemonic="DEPT",
+                    depthStart=d_prev,
+                    depthEnd=d_curr,
+                    anomalyType=AnomalyType.DEPTH_GAP,
+                    severity=AnomalySeverity.WARNING,
+                    description=f"Unexplained depth gap of {abs(d_curr - d_prev):.2f} {unit} between {d_prev} and {d_curr}",
+                    suggestedCorrection="Perform linear depth interpolation or verify raw tool telemetry log.",
+                )
+            )
+        items.extend(gaps)
+    return items
 
 
 def analyze_well_log_quality(
     las: ParsedLAS,
     custom_aliases: Optional[List[CustomAliasEntry]] = None,
 ) -> QualityAnalysisResult:
-    depth_array = las.data.depth
+    depth = to_float_array(las.data.depth)
     null_value = las.wellInfo.nullValue
-    total_points = len(depth_array)
-    anomalies: List[AnomalyReportItem] = []
+    total_points = int(depth.size)
+    depth_unit = las.wellInfo.depthUnit
+
+    anomalies: List[AnomalyReportItem] = _depth_anomalies(las, depth)
     curve_summaries: List[CurveHealthSummary] = []
+    present_standard: Set[str] = set()
+    null_cluster_total = 0
 
-    # 1. Check Depth Sequence & Gaps
-    null_depth_rows_set = set(las.nullDepthRows or [])
-    if las.nullDepthRows:
-        valid_bad_depths = [depth_array[r] for r in las.nullDepthRows if r < len(depth_array)]
-        d_start = min(valid_bad_depths) if valid_bad_depths else (las.wellInfo.startDepth or 0.0)
-        d_end = max(valid_bad_depths) if valid_bad_depths else (las.wellInfo.stopDepth or 0.0)
-        anomalies.append(
-            AnomalyReportItem(
-                curveMnemonic="DEPT",
-                depthStart=d_start,
-                depthEnd=d_end,
-                anomalyType="NULL_DEPTH",
-                severity="CRITICAL",
-                description=f"Null or invalid depth value detected at {len(las.nullDepthRows)} row(s).",
-                suggestedCorrection="Remove or repair rows with missing depth coordinates.",
-            )
-        )
-
-    valid_depth_indices = [i for i in range(len(depth_array)) if i not in null_depth_rows_set]
-    duplicate_depth_count = 0
-    step_val = abs(las.wellInfo.step or 0.0)
-
-    for k in range(1, len(valid_depth_indices)):
-        prev_i = valid_depth_indices[k - 1]
-        curr_i = valid_depth_indices[k]
-        d_prev = depth_array[prev_i]
-        d_curr = depth_array[curr_i]
-        step = d_curr - d_prev
-        index_diff = curr_i - prev_i
-
-        if abs(step) < 0.0001:
-            duplicate_depth_count += 1
-            if duplicate_depth_count <= 5:
-                anomalies.append(
-                    AnomalyReportItem(
-                        curveMnemonic="DEPT",
-                        depthStart=d_curr,
-                        depthEnd=d_curr,
-                        anomalyType="DUPLICATE_DEPTH",
-                        severity="CRITICAL",
-                        description=f"Duplicate depth value detected at {d_curr} {las.wellInfo.depthUnit}",
-                        suggestedCorrection="Remove duplicate depth index row.",
-                    )
-                )
-        elif step_val > 0 and step > step_val * max(index_diff, 1) * 3:
-            anomalies.append(
-                AnomalyReportItem(
-                    curveMnemonic="DEPT",
-                    depthStart=d_prev,
-                    depthEnd=d_curr,
-                    anomalyType="DEPTH_GAP",
-                    severity="WARNING",
-                    description=f"Unexplained depth gap of {d_curr - d_prev:.2f} {las.wellInfo.depthUnit} between {d_prev} and {d_curr}",
-                    suggestedCorrection="Perform linear depth interpolation or verify raw tool telemetry log.",
-                )
-            )
-
-    # 2. Track Standard Curves Inventory
-    present_standard_mnemonics: Set[str] = set()
-    expected_key_curves = ["GR", "RHOB", "NPHI", "DT", "RT", "CALI"]
-
-    # 3. Process Each Curve Channel
     for c_meta in las.curves:
-        raw_values = las.data.curves.get(c_meta.mnemonic, [])
+        raw = to_float_array(las.data.curves.get(c_meta.mnemonic, []))
+        if raw.size < total_points:  # short column: the missing tail is missing data
+            raw = np.concatenate([raw, np.full(total_points - raw.size, np.nan)])
+        raw = raw[:total_points]
+        nulls = null_mask(raw, null_value)
+
         std_res = standardise_mnemonic(c_meta.mnemonic, c_meta.unit, custom_aliases)
+        std_key = std_res.standardMnemonic if std_res.isAutoMatched else ""
+        std_def = STANDARD_CURVES.get(std_key)
+        if std_key:
+            present_standard.add(std_key)
 
-        if std_res.standardMnemonic != "UNKNOWN":
-            present_standard_mnemonics.add(std_res.standardMnemonic)
+        curve_anoms: List[AnomalyReportItem] = []
 
-        curve_anomalies: List[AnomalyReportItem] = []
-
-        if std_res.unitMismatch:
-            curve_anomalies.append(
+        if c_meta.originalMnemonic:
+            curve_anoms.append(
                 AnomalyReportItem(
                     curveMnemonic=c_meta.mnemonic,
                     depthStart=las.wellInfo.startDepth,
                     depthEnd=las.wellInfo.stopDepth,
-                    anomalyType="UNIT_MISMATCH",
-                    severity="WARNING",
+                    anomalyType=AnomalyType.DUPLICATE_CURVE,
+                    severity=AnomalySeverity.WARNING,
+                    description=(
+                        f"The header lists {c_meta.originalMnemonic} more than once; "
+                        f"this copy was loaded as {c_meta.mnemonic}."
+                    ),
+                    suggestedCorrection=(
+                        f"Check which tool run each {c_meta.originalMnemonic} channel came from, keep the primary one "
+                        "and rename or drop the other."
+                    ),
+                )
+            )
+
+        if not std_res.isAutoMatched:
+            curve_anoms.append(
+                AnomalyReportItem(
+                    curveMnemonic=c_meta.mnemonic,
+                    depthStart=las.wellInfo.startDepth,
+                    depthEnd=las.wellInfo.stopDepth,
+                    anomalyType=AnomalyType.NON_STANDARD_MNEMONIC,
+                    severity=AnomalySeverity.INFO,
+                    description=f"Mnemonic {c_meta.mnemonic} is not in the standard curve dictionary.",
+                    suggestedCorrection=(
+                        "If this is a known equivalent of a standard curve, add a custom alias on the "
+                        "Standardisation page; otherwise it is kept as a custom curve."
+                    ),
+                )
+            )
+
+        if std_res.unitMismatch:
+            curve_anoms.append(
+                AnomalyReportItem(
+                    curveMnemonic=c_meta.mnemonic,
+                    depthStart=las.wellInfo.startDepth,
+                    depthEnd=las.wellInfo.stopDepth,
+                    anomalyType=AnomalyType.UNIT_MISMATCH,
+                    severity=AnomalySeverity.WARNING,
                     description=f"Curve {c_meta.mnemonic} unit '{c_meta.unit}' does not match standard unit '{std_res.standardUnit}'",
                     suggestedCorrection=f"Convert unit from {c_meta.unit} to {std_res.standardUnit}.",
                 )
             )
 
-        # Filter non-null values
-        valid_points: List[dict] = []
-        null_count = 0
-
-        for idx, v in enumerate(raw_values):
-            if is_null_value(v, null_value):
-                null_count += 1
-            else:
-                conv_val, _ = convert_to_standard_unit(v, c_meta.unit, std_res.standardMnemonic)
-                valid_points.append({
-                    "depth": depth_array[idx] if idx < len(depth_array) else 0.0,
-                    "val": conv_val,
-                    "idx": idx,
-                })
-
-        null_percentage = (null_count / total_points * 100.0) if total_points > 0 else 0.0
-
-        # Extended null runs detection (run >= 10)
-        null_run_start = -1
-        for index in range(len(raw_values) + 1):
-            is_null = (
-                index < len(raw_values)
-                and is_null_value(raw_values[index], null_value)
-            )
-            if is_null and null_run_start == -1:
-                null_run_start = index
-            if not is_null and null_run_start != -1:
-                run_length = index - null_run_start
-                if run_length >= 10:
-                    start_d = depth_array[null_run_start] if null_run_start < len(depth_array) else 0.0
-                    end_d = depth_array[index - 1] if index - 1 < len(depth_array) else 0.0
-                    curve_anomalies.append(
-                        AnomalyReportItem(
-                            curveMnemonic=c_meta.mnemonic,
-                            depthStart=start_d,
-                            depthEnd=end_d,
-                            anomalyType="NULL_CLUSTER",
-                            severity="WARNING",
-                            description=f"Missing-data cluster of {run_length} consecutive samples.",
-                            suggestedCorrection="Review the acquisition interval and retain the samples as null if recovery is not defensible.",
-                        )
-                    )
-                null_run_start = -1
-
-        # Statistical metrics
-        min_val: Optional[float] = None
-        max_val: Optional[float] = None
-        mean_val: Optional[float] = None
-
-        if valid_points:
-            vals = [p["val"] for p in valid_points]
-            min_val = float(min(vals))
-            max_val = float(max(vals))
-            mean_val = float(sum(vals) / len(vals))
-
-            variance = sum((b - mean_val) ** 2 for b in vals) / len(vals)
-            std_dev = math.sqrt(variance)
-
-            std_def = STANDARD_CURVES.get(std_res.standardMnemonic)
-
-            # A. Physical Limit Checks
-            if std_def:
-                impossible_count = 0
-                for p in valid_points:
-                    if p["val"] < std_def.minPhysical or p["val"] > std_def.maxPhysical:
-                        if impossible_count < 4:
-                            null_repr = str(null_value) if null_value is not None else "null"
-                            curve_anomalies.append(
-                                AnomalyReportItem(
-                                    curveMnemonic=c_meta.mnemonic,
-                                    depthStart=p["depth"],
-                                    depthEnd=p["depth"],
-                                    anomalyType="IMPOSSIBLE_VALUE",
-                                    severity="CRITICAL",
-                                    description=f"Physically impossible value {p['val']:.2f} {c_meta.unit} at depth {p['depth']} (expected {std_def.minPhysical}–{std_def.maxPhysical})",
-                                    suggestedCorrection=f"Clip value to physical limits or flag as null ({null_repr}).",
-                                )
-                            )
-                            impossible_count += 1
-
-            # B. Spike Detection (diffPrev > 4.5*stdDev and diffNext > 4.5*stdDev)
-            if std_dev > 0.001 and len(valid_points) >= 3:
-                spike_count = 0
-                for i in range(1, len(valid_points) - 1):
-                    p_prev = valid_points[i - 1]
-                    p_curr = valid_points[i]
-                    p_next = valid_points[i + 1]
-
-                    diff_prev = abs(p_curr["val"] - p_prev["val"])
-                    diff_next = abs(p_curr["val"] - p_next["val"])
-
-                    if diff_prev > 4.5 * std_dev and diff_next > 4.5 * std_dev:
-                        if spike_count < 5:
-                            curve_anomalies.append(
-                                AnomalyReportItem(
-                                    curveMnemonic=c_meta.mnemonic,
-                                    depthStart=p_curr["depth"],
-                                    depthEnd=p_curr["depth"],
-                                    anomalyType="EXTREME_SPIKE",
-                                    severity="WARNING",
-                                    description=f"Unrealistic spike value {p_curr['val']:.2f} detected at depth {p_curr['depth']} {las.wellInfo.depthUnit}",
-                                    suggestedCorrection="Apply median despiking filter across 5-point window.",
-                                )
-                            )
-                            spike_count += 1
-
-            # C. Flatline Sensor Detection (> 25 consecutive identical points)
-            flatline_length = 1
-            flatline_start_depth = valid_points[0]["depth"]
-
-            for i in range(1, len(valid_points)):
-                if abs(valid_points[i]["val"] - valid_points[i - 1]["val"]) < 0.00001:
-                    flatline_length += 1
-                else:
-                    if flatline_length > 25:
-                        curve_anomalies.append(
-                            AnomalyReportItem(
-                                curveMnemonic=c_meta.mnemonic,
-                                depthStart=flatline_start_depth,
-                                depthEnd=valid_points[i - 1]["depth"],
-                                anomalyType="FLATLINE",
-                                severity="WARNING",
-                                description=f"Stuck/flatline sensor output detected over {flatline_length} steps ({flatline_start_depth} to {valid_points[i - 1]['depth']} {las.wellInfo.depthUnit})",
-                                suggestedCorrection="Mark flatline depth interval as unreliable sensor telemetry.",
-                            )
-                        )
-                    flatline_length = 1
-                    flatline_start_depth = valid_points[i]["depth"]
-
-            if flatline_length > 25:
-                curve_anomalies.append(
+        # One conversion decision for the whole curve.
+        valid_raw = raw[~nulls]
+        if std_def is not None:
+            conv = convert_series_to_standard_unit(raw.tolist(), c_meta.unit, std_key, null_value)
+            values = np.asarray(conv.values, dtype=float)
+            unit_label = std_def.standardUnit if conv.converted else c_meta.unit
+            if conv.inferred:
+                curve_anoms.append(
                     AnomalyReportItem(
                         curveMnemonic=c_meta.mnemonic,
-                        depthStart=flatline_start_depth,
-                        depthEnd=valid_points[-1]["depth"],
-                        anomalyType="FLATLINE",
-                        severity="WARNING",
-                        description=f"Stuck/flatline sensor output detected over {flatline_length} steps ({flatline_start_depth} to {valid_points[-1]['depth']} {las.wellInfo.depthUnit})",
-                        suggestedCorrection="Mark flatline depth interval as unreliable sensor telemetry.",
+                        depthStart=las.wellInfo.startDepth,
+                        depthEnd=las.wellInfo.stopDepth,
+                        anomalyType=AnomalyType.UNIT_INFERRED,
+                        severity=AnomalySeverity.INFO,
+                        description=f"Curve {c_meta.mnemonic} has no recognised unit; values were treated as {std_def.standardUnit} after rescaling by {conv.factor:g} based on their magnitude.",
+                        suggestedCorrection=f"Confirm the unit in the LAS header and set it to the actual unit ({std_def.standardUnit} expected).",
+                    )
+                )
+        else:
+            values = raw
+            unit_label = c_meta.unit
+
+        null_count = int(nulls.sum())
+        null_percentage = (null_count / total_points * 100.0) if total_points > 0 else 0.0
+
+        # Only nulls BETWEEN valid readings are reported. Nulls at the very START or END of a
+        # curve (tool not logging yet / already stopped) are normal and are not flagged or
+        # penalised (they still show in the null % column). 10+ in a row = WARNING cluster,
+        # 1-9 = INFO (0 points). A curve that is empty everywhere is still a real problem.
+        all_runs = [(s, e) for s, e in true_runs(nulls) if e - s >= NULL_REPORT_MIN_RUN]
+        has_valid = null_count < len(nulls)
+        edge_runs = [(s, e) for s, e in all_runs if has_valid and (s == 0 or e == len(nulls))]
+        runs = [r for r in all_runs if r not in edge_runs]
+        null_cluster_total += sum(1 for s, e in runs if e - s >= NULL_CLUSTER_MIN_RUN)
+        interior_null_count = sum(e - s for s, e in runs if e - s >= NULL_CLUSTER_MIN_RUN)  # short gaps (1-9) are listed but cost no points
+        cluster_items = [
+            AnomalyReportItem(
+                curveMnemonic=c_meta.mnemonic,
+                depthStart=float(depth[s]),
+                depthEnd=float(depth[e - 1]),
+                anomalyType=AnomalyType.NULL_CLUSTER,
+                severity=AnomalySeverity.WARNING if e - s >= NULL_CLUSTER_MIN_RUN else AnomalySeverity.INFO,
+                description=(
+                    f"Missing-data cluster of {e - s} consecutive samples."
+                    if e - s >= NULL_CLUSTER_MIN_RUN
+                    else (
+                        "Isolated missing value (1 sample)."
+                        if e - s == 1
+                        else f"Short missing-data gap of {e - s} consecutive samples."
+                    )
+                ),
+                suggestedCorrection=(
+                    "Review the acquisition interval and retain the samples as null if recovery is not defensible."
+                    if e - s >= NULL_CLUSTER_MIN_RUN
+                    else "Short gap; can be interpolated if the curve is continuous here."
+                ),
+            )
+            for s, e in runs
+        ]
+        curve_anoms.extend(cluster_items)
+
+        # Statistics in the curve's own unit (matches the stored unit label)
+        min_val = max_val = mean_val = None
+        if valid_raw.size:
+            min_val = float(valid_raw.min())
+            max_val = float(valid_raw.max())
+            mean_val = float(valid_raw.mean())
+
+            valid_conv = values[~nulls]
+
+            # A. Hard physical limits -> CRITICAL, grouped into intervals
+            if std_def is not None:
+                with np.errstate(invalid="ignore"):
+                    impossible = ~nulls & ((values < std_def.minPhysical) | (values > std_def.maxPhysical))
+                imp_runs = true_runs(impossible)
+                imp_items: List[AnomalyReportItem] = []
+                for s, e in imp_runs:
+                    seg = values[s:e]
+                    d0, d1 = float(depth[s]), float(depth[e - 1])
+                    if e - s == 1:
+                        desc = (
+                            f"Physically impossible value {seg[0]:.2f} {unit_label} at depth {d0} "
+                            f"(expected {std_def.minPhysical}–{std_def.maxPhysical})"
+                        )
+                    else:
+                        desc = (
+                            f"{e - s} consecutive physically impossible values ({seg.min():.2f} to {seg.max():.2f} {unit_label}) "
+                            f"between {d0} and {d1} (expected {std_def.minPhysical}–{std_def.maxPhysical})"
+                        )
+                    imp_items.append(
+                        AnomalyReportItem(
+                            curveMnemonic=c_meta.mnemonic,
+                            depthStart=d0,
+                            depthEnd=d1,
+                            anomalyType=AnomalyType.IMPOSSIBLE_VALUE,
+                            severity=AnomalySeverity.CRITICAL,
+                            description=desc,
+                            suggestedCorrection=(
+                                f"Clip value to physical limits or flag as null ({null_value})."
+                                if null_value is not None
+                                else "Clip value to physical limits or flag as null (no NULL marker declared)."
+                            ),
+                        )
+                    )
+                curve_anoms.extend(imp_items)
+
+            # B. Spikes (shared definition with the cleaner)
+            # Spikes and cycle skips are checked on the sonic log (DT) only.
+            is_sonic = std_key in SONIC_CURVES
+            skip_runs = find_cycle_skips(values, nulls) if is_sonic else []
+            spike_idx = find_spikes(values, nulls, SPIKE_SIGMA) if is_sonic else np.array([], dtype=int)
+            if skip_runs and spike_idx.size:
+                in_skip = np.zeros(len(values), dtype=bool)
+                for a0, b0 in skip_runs:
+                    in_skip[a0:b0] = True
+                spike_idx = spike_idx[~in_skip[spike_idx]]
+            spike_items = [
+                AnomalyReportItem(
+                    curveMnemonic=c_meta.mnemonic,
+                    depthStart=float(depth[i]),
+                    depthEnd=float(depth[i]),
+                    anomalyType=AnomalyType.EXTREME_SPIKE,
+                    severity=AnomalySeverity.WARNING,
+                    description=f"Unrealistic spike value {values[i]:.2f} detected at depth {float(depth[i])} {depth_unit}",
+                    suggestedCorrection="Apply median despiking filter across 5-point window.",
+                )
+                for i in spike_idx
+            ]
+            curve_anoms.extend(spike_items)
+
+            for s0, e0 in skip_runs:
+                d0, d1 = float(depth[s0]), float(depth[e0 - 1])
+                curve_anoms.append(
+                    AnomalyReportItem(
+                        curveMnemonic=c_meta.mnemonic,
+                        depthStart=d0,
+                        depthEnd=d1,
+                        anomalyType=AnomalyType.CYCLE_SKIP,
+                        severity=AnomalySeverity.WARNING,
+                        description=f"Probable sonic cycle skip over {e0 - s0} samples ({d0} to {d1} {depth_unit}): readings are unusually slow compared with the surrounding log.",
+                        suggestedCorrection="Treat this interval as unreliable; null it and re-interpolate, or re-pick the sonic transit times.",
                     )
                 )
 
-        # Health score calculation
-        penalty = null_percentage * 0.5
-        for a in curve_anomalies:
-            penalty += 15.0 if a.severity == "CRITICAL" else 8.0
+            # C. Flatlines (stuck sensor)
+            if std_key not in FLATLINE_EXEMPT and valid_conv.size:
+                for s, e in find_flatline_runs(values, nulls, FLATLINE_MIN_RUN):
+                    d0, d1 = float(depth[s]), float(depth[e - 1])
+                    curve_anoms.append(
+                        AnomalyReportItem(
+                            curveMnemonic=c_meta.mnemonic,
+                            depthStart=d0,
+                            depthEnd=d1,
+                            anomalyType=AnomalyType.FLATLINE,
+                            severity=AnomalySeverity.WARNING,
+                            description=f"Stuck/flatline sensor output detected over {e - s} steps ({d0} to {d1} {depth_unit})",
+                            suggestedCorrection="Mark flatline depth interval as unreliable sensor telemetry.",
+                        )
+                    )
 
+        interior_pct = (interior_null_count / total_points * 100.0) if total_points > 0 else 0.0
+        penalty = _curve_penalty(interior_pct, curve_anoms)
         health_score = max(0, min(100, round(100.0 - penalty)))
-        if health_score < 50:
-            status = "CRITICAL"
-        elif health_score < 75:
-            status = "POOR"
-        elif health_score < 90:
-            status = "GOOD"
-        else:
-            status = "EXCELLENT"
 
         curve_summaries.append(
             CurveHealthSummary(
@@ -314,71 +435,76 @@ def analyze_well_log_quality(
                 maxVal=max_val,
                 meanVal=mean_val,
                 healthScore=health_score,
-                status=status,
-                anomalies=curve_anomalies,
+                status=_grade(health_score),
+                anomalies=curve_anoms,
             )
         )
-        anomalies.extend(curve_anomalies)
+        anomalies.extend(curve_anoms)
 
-    # 4. Missing Key Standard Curves
-    missing_standard_curves = [c for c in expected_key_curves if c not in present_standard_mnemonics]
-    for missing_curve in missing_standard_curves:
+    # Missing key curves
+    missing = [c for c in EXPECTED_KEY_CURVES if c not in present_standard]
+    for curve in missing:
         anomalies.append(
             AnomalyReportItem(
-                curveMnemonic=missing_curve,
+                curveMnemonic=curve,
                 depthStart=las.wellInfo.startDepth,
                 depthEnd=las.wellInfo.stopDepth,
-                anomalyType="MISSING_CORE_CURVE",
-                severity="WARNING",
-                description=f"Core standard petrophysical curve {missing_curve} is absent from this well log dataset.",
+                anomalyType=AnomalyType.MISSING_CORE_CURVE,
+                severity=AnomalySeverity.WARNING,
+                description=f"Core standard petrophysical curve {curve} is absent from this well log dataset.",
                 suggestedCorrection="Synthesize channel via multi-log empirical regression or KNN estimation.",
             )
         )
 
-    # Ensure deterministic ID
     for i, a in enumerate(anomalies):
         if not a.id:
             a.id = f"anom-{a.curveMnemonic}-{a.anomalyType}-{round(a.depthStart or 0.0)}-{i}"
 
-    # 5. Aggregate quality scores
-    null_clusters = sum(1 for a in anomalies if a.anomalyType == "NULL_CLUSTER")
-    completeness_score = max(0, round(100.0 - (len(missing_standard_curves) * 12.0 + null_clusters * 5.0)))
-
-    avg_curve_health = (
-        sum(c.healthScore for c in curve_summaries) / len(curve_summaries)
-        if curve_summaries
-        else 50.0
+    # Aggregate scores. All anomalies are counted; the ceilings keep one problem area from
+    # zeroing the whole well.
+    completeness = max(
+        0,
+        round(
+            100.0
+            - (
+                len(missing) * MISSING_CURVE_PENALTY
+                + min(NULL_CLUSTER_PENALTY_CAP, null_cluster_total * NULL_CLUSTER_PENALTY)
+            )
+        ),
     )
-
+    avg_health = (
+        sum(c.healthScore for c in curve_summaries) / len(curve_summaries) if curve_summaries else 50.0
+    )
     critical_count = sum(1 for a in anomalies if a.severity == "CRITICAL")
     warning_count = sum(1 for a in anomalies if a.severity == "WARNING")
-
-    consistency_penalty = critical_count * 12.0 + warning_count * 4.0
-    consistency_score = max(0, round(100.0 - consistency_penalty))
-
-    overall_score = max(
+    info_count = sum(1 for a in anomalies if a.severity == "INFO")
+    consistency = max(
         0,
-        min(100, round(avg_curve_health * 0.5 + completeness_score * 0.3 + consistency_score * 0.2)),
+        round(
+            100.0
+            - min(CONSISTENCY_CRITICAL_CAP, critical_count * CONSISTENCY_CRITICAL_PENALTY)
+            - min(CONSISTENCY_WARNING_CAP, warning_count * CONSISTENCY_WARNING_PENALTY)
+        ),
     )
+    overall = max(0, min(100, round(avg_health * 0.5 + completeness * 0.3 + consistency * 0.2)))
 
-    if overall_score < 50:
-        quality_grade = "CRITICAL"
-    elif overall_score < 75:
-        quality_grade = "POOR"
-    elif overall_score < 90:
-        quality_grade = "GOOD"
-    else:
-        quality_grade = "EXCELLENT"
+    counts_by_type: Dict[str, int] = {}
+    for a in anomalies:
+        counts_by_type[a.anomalyType] = counts_by_type.get(a.anomalyType, 0) + 1
+    per_1000 = round(len(anomalies) / total_points * 1000.0, 2) if total_points > 0 else 0.0
 
     return QualityAnalysisResult(
-        overallScore=overall_score,
-        qualityGrade=quality_grade,
-        completenessScore=completeness_score,
-        consistencyScore=consistency_score,
+        overallScore=overall,
+        qualityGrade=_grade(overall),
+        completenessScore=completeness,
+        consistencyScore=consistency,
         anomalyCount=len(anomalies),
         criticalCount=critical_count,
         warningCount=warning_count,
         curveSummaries=curve_summaries,
         anomalies=anomalies,
-        missingStandardCurves=missing_standard_curves,
+        missingStandardCurves=missing,
+        infoCount=info_count,
+        anomalyCountsByType=counts_by_type,
+        anomaliesPer1000Samples=per_1000,
     )

@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
-    "test:python": "pytest backend/tests"
+    "test:python": "python scripts/test_runner.py"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

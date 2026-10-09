@@ -1,18 +1,36 @@
 from __future__ import annotations
+
 import math
+import re
 from datetime import datetime, timezone
 from typing import Dict, List, Literal, Optional, Tuple
-from pydantic import BaseModel
-from backend.app.services.curve_utils import is_null_value, null_mask
-from backend.app.services.parser import LASCurveMeta, ParsedLAS, LASData
+
+import numpy as np
+from pydantic import BaseModel, Field
+
+from backend.app.services.curve_utils import (
+    FLATLINE_EXEMPT,
+    SPIKE_SIGMA,
+    find_flatline_runs,
+    find_spikes,
+    is_null_value,
+    null_mask,
+    to_float_array,
+    true_runs,
+)
+from backend.app.schemas.enums import QualityGrade
+from backend.app.services.imputation import impute_knn_all, impute_linear, impute_median
+from backend.app.services.parser import LASCurveMeta, LASData, ParsedLAS
 from backend.app.services.quality_engine import QualityAnalysisResult, analyze_well_log_quality
 from backend.app.services.standardiser import (
     STANDARD_CURVES,
     CustomAliasEntry,
-    convert_to_standard_unit,
+    convert_series_to_standard_unit,
     standardise_mnemonic,
 )
-from backend.app.services.imputation import impute_knn, impute_linear, impute_median
+
+IMPUTE_MAX_NULL_FRACTION = 0.4
+
 
 class CleaningOptions(BaseModel):
     despiking: bool = True
@@ -22,6 +40,10 @@ class CleaningOptions(BaseModel):
     flatlineHandling: bool = True
     depthGapInterpolation: bool = True
     imputationStrategy: Literal["NONE", "KNN", "LINEAR", "MEDIAN"] = "KNN"
+    spikeSigma: float = SPIKE_SIGMA
+    maxImputeGapSamples: int = 20
+    maxDepthGapFillSteps: int = 10
+
 
 class VerificationReport(BaseModel):
     outliersRemovedCount: int
@@ -33,11 +55,14 @@ class VerificationReport(BaseModel):
     depthGapsInterpolatedCount: int
     originalQualityScore: int
     cleanedQualityScore: int
-    originalGrade: str
-    cleanedGrade: str
+    originalGrade: QualityGrade
+    cleanedGrade: QualityGrade
     scoreImprovement: int
     isVerifiedClean: bool
     summaryMessage: str
+    imputedByCurve: Dict[str, int] = Field(default_factory=dict)
+    notes: List[str] = Field(default_factory=list)
+
 
 class CleanedLogResult(BaseModel):
     cleanedLas: ParsedLAS
@@ -47,37 +72,52 @@ class CleanedLogResult(BaseModel):
     cleanedCsvText: str
 
 
-def despike_series(values: List[float], null_val: Optional[float] = None) -> Tuple[List[float], int]:
-    valid_vals = [v for v in values if not is_null_value(v, null_val)]
-    if len(valid_vals) < 5:
+def despike_series(
+    values: List[float], null_val: float, sigma: float = SPIKE_SIGMA
+) -> Tuple[List[float], int]:
+    """Replace each spike with the mean of its two neighbours. Returns (values, count)."""
+    arr = to_float_array(values)
+    nulls = null_mask(arr, null_val)
+    idx = find_spikes(arr, nulls, sigma)
+    if idx.size == 0:
         return list(values), 0
+    out = arr.copy()
+    out[idx] = (arr[idx - 1] + arr[idx + 1]) / 2.0
+    return out.tolist(), int(idx.size)
 
-    mean = sum(valid_vals) / len(valid_vals)
-    std = math.sqrt(sum((v - mean) ** 2 for v in valid_vals) / len(valid_vals))
 
-    if std < 0.001:
-        return list(values), 0
-
-    cleaned = list(values)
-    count = 0
-
-    for i in range(1, len(values) - 1):
-        prev = values[i - 1]
-        curr = values[i]
-        next_val = values[i + 1]
-
-        if is_null_value(prev, null_val) or is_null_value(curr, null_val) or is_null_value(next_val, null_val):
+def _gap_rows(
+    depth: np.ndarray, step: float, max_fill_steps: int
+) -> Tuple[np.ndarray, np.ndarray, int]:
+    """Rows to insert so regular depth gaps (> 3 steps) become continuous again."""
+    empty = (np.array([], dtype=int), np.array([], dtype=float), 0)
+    if step <= 0 or depth.size < 2:
+        return empty
+    diffs = np.diff(depth)
+    positions: List[int] = []
+    values: List[float] = []
+    gaps = 0
+    for i in np.flatnonzero(np.abs(diffs) > step * 3):
+        gap = float(diffs[i])
+        m = int(round(abs(gap) / step))
+        if m < 3 or m > max_fill_steps or abs(abs(gap) - m * step) > 0.25 * step:
             continue
+        for k in range(1, m):
+            positions.append(int(i) + 1)
+            values.append(float(depth[i]) + k * gap / m)
+        gaps += 1
+    if not positions:
+        return empty
+    return np.array(positions, dtype=int), np.array(values, dtype=float), gaps
 
-        if abs(curr - prev) > 2.5 * std and abs(curr - next_val) > 2.5 * std:
-            cleaned[i] = (prev + next_val) / 2.0
-            count += 1
 
-    return cleaned, count
+def _clean_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value or "").strip()
 
 
 def build_las_file_string(las: ParsedLAS, qa: QualityAnalysisResult, report: VerificationReport) -> str:
-    null_val = las.wellInfo.nullValue if (las.wellInfo.nullValue is not None and math.isfinite(las.wellInfo.nullValue)) else -999.25
+    null_val = las.wellInfo.nullValue if las.wellInfo.nullValue is not None else -999.25
+    wi = las.wellInfo
     now_iso = datetime.now(timezone.utc).isoformat()
     lines = [
         "~VERSION INFORMATION",
@@ -86,81 +126,62 @@ def build_las_file_string(las: ParsedLAS, qa: QualityAnalysisResult, report: Ver
         "~WELL INFORMATION",
         f"# Cleaned & Repaired by WellQC+ Enterprise Engine on {now_iso}",
         f"# Verification Audit: Initial Score {report.originalQualityScore}% ({report.originalGrade}) -> Cleaned Score {report.cleanedQualityScore}% ({report.cleanedGrade})",
-        f"# Outliers Clipped: {report.outliersRemovedCount} | Spikes Despiked: {report.spikesDespikedCount} | Units Standardized: {report.unitsConvertedCount} | Imputed Values: {report.nullsImputedCount}",
+        f"# Outliers Nulled: {report.outliersRemovedCount} | Spikes Despiked: {report.spikesDespikedCount} | Units Standardized: {report.unitsConvertedCount} | Imputed Values: {report.nullsImputedCount}",
     ]
-
-    depth_unit = las.wellInfo.depthUnit or "M"
-    if "STRT" in las.rawHeader.upper() or (las.wellInfo.startDepth and las.wellInfo.startDepth != 0.0):
-        lines.append(f"STRT.{depth_unit:<6} {las.wellInfo.startDepth:>12.4f} : START DEPTH")
-    else:
-        lines.append(f"STRT.{depth_unit:<6}              : START DEPTH")
-
-    if "STOP" in las.rawHeader.upper() or (las.wellInfo.stopDepth and las.wellInfo.stopDepth != 0.0):
-        lines.append(f"STOP.{depth_unit:<6} {las.wellInfo.stopDepth:>12.4f} : STOP DEPTH")
-    else:
-        lines.append(f"STOP.{depth_unit:<6}              : STOP DEPTH")
-
-    if "STEP" in las.rawHeader.upper():
-        lines.append(f"STEP.{depth_unit:<6} {las.wellInfo.step:>12.4f} : STEP VALUE")
-    else:
-        lines.append(f"STEP.{depth_unit:<6}              : STEP VALUE")
-
-    lines.append(f"NULL.        {null_val:>12.2f} : NULL VALUE")
-
-    if las.wellInfo.wellName and las.wellInfo.wellName != "UNKNOWN_WELL":
-        lines.append(f"WELL.        {las.wellInfo.wellName:>12} : WELL NAME")
-    else:
-        lines.append(f"WELL.                     : WELL NAME")
-
-    if las.wellInfo.company and las.wellInfo.company != "NDI-GROUP-5":
-        lines.append(f"COMP.        {las.wellInfo.company:>12} : COMPANY")
-    else:
-        lines.append(f"COMP.                     : COMPANY")
-
-    if las.wellInfo.field and las.wellInfo.field != "NIGER DELTA":
-        lines.append(f"FLD .        {las.wellInfo.field:>12} : FIELD")
-    else:
-        lines.append(f"FLD .                     : FIELD")
+    if report.imputedByCurve:
+        listing = ", ".join(f"{k}={v}" for k, v in report.imputedByCurve.items())
+        lines.append(f"# Imputed samples by curve (not measured data): {listing}")
+    lines += [
+        f"STRT.{wi.depthUnit:<6} {(f'{wi.startDepth:>12.4f}' if las.data.depth else ' ' * 12)} : START DEPTH",
+        f"STOP.{wi.depthUnit:<6} {(f'{wi.stopDepth:>12.4f}' if las.data.depth else ' ' * 12)} : STOP DEPTH",
+        f"STEP.{wi.depthUnit:<6} {(f'{wi.step:>12.4f}' if wi.step else ' ' * 12)} : STEP VALUE",
+        f"NULL.        {null_val:>12.2f} : NULL VALUE",
+        f"WELL.        {_clean_text(wi.wellName)} : WELL NAME",
+    ]
+    optional = [
+        ("COMP", _clean_text(wi.company), "COMPANY"),
+        ("FLD ", _clean_text(wi.field), "FIELD"),
+        ("LOC ", _clean_text(wi.location), "LOCATION"),
+        ("CTRY", _clean_text(wi.country), "COUNTRY"),
+        ("STAT", _clean_text(wi.state), "STATE"),
+        ("SRVC", _clean_text(wi.serviceCompany), "SERVICE COMPANY"),
+        ("API ", _clean_text(wi.apiUwi), "API / UWI"),
+        ("DATE", _clean_text(wi.date), "LOG DATE"),
+        ("LATI", f"{wi.latitude:.6f}" if wi.latitude is not None else "", "LATITUDE"),
+        ("LONG", f"{wi.longitude:.6f}" if wi.longitude is not None else "", "LONGITUDE"),
+    ]
+    for key, value, desc in optional:
+        if value:
+            lines.append(f"{key}.        {value} : {desc}")
 
     lines.append("~CURVE INFORMATION")
-    lines.append(f"DEPT.{depth_unit:<6}             : 1 MEASURED DEPTH")
-
+    lines.append(f"DEPT.{wi.depthUnit:<6}             : 1 MEASURED DEPTH")
     for i, c in enumerate(las.curves):
-        u = c.unit if c.unit else ""
-        lines.append(f"{c.mnemonic}.{u:<6} : {i + 2} {c.description}")
-
+        lines.append(f"{c.mnemonic}.{c.unit:<6} : {i + 2} {c.description}")
     lines.append("~ASCII")
 
-    for idx, d in enumerate(las.data.depth):
-        d_str = f"{null_val:>10.2f}" if (d is None or not math.isfinite(d) or is_null_value(d, null_val)) else f"{d:>10.4f}"
-        row = [d_str]
-        for c in las.curves:
-            val = las.data.curves.get(c.mnemonic, [null_val] * len(las.data.depth))[idx]
-            if is_null_value(val, null_val):
-                row.append(f"{null_val:>10.2f}")
-            else:
-                row.append(f"{val:>10.4f}")
+    n = len(las.data.depth)
+    columns: List[List[str]] = [[f"{d:>10.4f}" if math.isfinite(d) else f"{null_val:>10.2f}" for d in las.data.depth]]
+    for c in las.curves:
+        col = las.data.curves.get(c.mnemonic) or [null_val] * n
+        mask = null_mask(col, null_val)
+        columns.append([f"{null_val:>10.2f}" if m else f"{v:>10.4f}" for v, m in zip(col, mask)])
+    for row in zip(*columns):
         lines.append(" ".join(row))
-
     return "\n".join(lines) + "\n"
 
 
 def build_csv_file_string(las: ParsedLAS) -> str:
-    null_val = las.wellInfo.nullValue if (las.wellInfo.nullValue is not None and math.isfinite(las.wellInfo.nullValue)) else -999.25
-    header = ["DEPTH"] + [c.mnemonic for c in las.curves]
-    rows = [",".join(header)]
-
-    for idx, d in enumerate(las.data.depth):
-        d_str = "" if (d is None or not math.isfinite(d) or is_null_value(d, null_val)) else f"{d:.4f}"
-        row = [d_str]
-        for c in las.curves:
-            val = las.data.curves.get(c.mnemonic, [null_val] * len(las.data.depth))[idx]
-            if is_null_value(val, null_val):
-                row.append("")
-            else:
-                row.append(f"{val:.4f}")
+    null_val = las.wellInfo.nullValue if las.wellInfo.nullValue is not None else -999.25
+    n = len(las.data.depth)
+    rows = [",".join(["DEPTH"] + [c.mnemonic for c in las.curves])]
+    columns: List[List[str]] = [[f"{d:.4f}" if math.isfinite(d) else "" for d in las.data.depth]]
+    for c in las.curves:
+        col = las.data.curves.get(c.mnemonic) or [null_val] * n
+        mask = null_mask(col, null_val)
+        columns.append(["" if m else f"{v:.4f}" for v, m in zip(col, mask)])
+    for row in zip(*columns):
         rows.append(",".join(row))
-
     return "\n".join(rows) + "\n"
 
 
@@ -171,224 +192,256 @@ def clean_las_log_data(
     custom_aliases: Optional[List[CustomAliasEntry]] = None,
 ) -> CleanedLogResult:
     opts = options or CleaningOptions()
-    raw_qa = initial_qa or analyze_well_log_quality(las, custom_aliases=custom_aliases)
-    had_no_null_marker = (las.wellInfo.nullValue is None)
-    null_val = las.wellInfo.nullValue if (las.wellInfo.nullValue is not None and math.isfinite(las.wellInfo.nullValue)) else -999.25
+    raw_qa = initial_qa or analyze_well_log_quality(las, custom_aliases)
+    notes: List[str] = []
+    declared_null = las.wellInfo.nullValue
+    no_marker = declared_null is None or not math.isfinite(declared_null)
+    if no_marker:
+        # No marker declared and none found in the data: the cleaned file still needs one.
+        null_val = -999.25
+        notes.append("The file had no NULL marker; -999.25 was used in the cleaned output.")
+    else:
+        null_val = declared_null
 
-    outliers_removed_count = 0
-    spikes_despiked_count = 0
-    units_converted_count = 0
-    duplicate_depths_pruned_count = 0
-    nulls_imputed_count = 0
-    flatlines_handled_count = 0
-    depth_gaps_interpolated_count = 0
+    outliers_removed = spikes_despiked = units_converted = 0
+    duplicate_depths_pruned = nulls_imputed = flatlines_handled = 0
+    depth_gaps_repaired = 0
 
-    # 1. Prune Duplicate Depths (leaving null-depth rows untouched)
-    depth_array = list(las.data.depth)
-    original_row_count = len(depth_array)
-    valid_depth_indexes = list(range(original_row_count))
-    null_depth_set = set(las.nullDepthRows or [])
-
+    # 1. Prune duplicate / non-finite depths (keep the first of each)
+    depth_full = to_float_array(las.data.depth)
+    n0 = depth_full.size
+    keep = np.arange(n0)
     if opts.duplicateDepthPruning:
-        seen_depths = set()
-        pruned_indexes = []
-        for idx, d in enumerate(depth_array):
-            if idx in null_depth_set or not math.isfinite(d) or is_null_value(d, null_val):
-                pruned_indexes.append(idx)
-                continue
-            key = f"{d:.6f}"
-            if key not in seen_depths:
-                seen_depths.add(key)
-                pruned_indexes.append(idx)
-        duplicate_depths_pruned_count = original_row_count - len(pruned_indexes)
-        valid_depth_indexes = pruned_indexes
-        depth_array = [las.data.depth[i] for i in valid_depth_indexes]
+        finite_idx = np.flatnonzero(np.isfinite(depth_full))
+        _, first = np.unique(np.round(depth_full[finite_idx], 6), return_index=True)
+        keep = np.sort(finite_idx[first])
+        duplicate_depths_pruned = n0 - keep.size
+    depth = depth_full[keep]
+    flagged_orig = set(las.nullDepthRows)
+    null_depth_flag = np.array([int(orig) in flagged_orig for orig in keep], dtype=bool)
 
-    # Count depth gaps
-    if opts.depthGapInterpolation:
-        step_val = abs(las.wellInfo.step or 0.0)
-        if step_val > 0:
-            for i in range(1, len(depth_array)):
-                d_prev = depth_array[i - 1]
-                d_curr = depth_array[i]
-                if (
-                    math.isfinite(d_prev)
-                    and math.isfinite(d_curr)
-                    and not is_null_value(d_prev, null_val)
-                    and not is_null_value(d_curr, null_val)
-                ):
-                    if d_curr - d_prev > step_val * 3:
-                        depth_gaps_interpolated_count += 1
+    # 2. Clean each curve (arrays, once per curve)
+    metas = list(las.curves)
+    stds = [standardise_mnemonic(m.mnemonic, m.unit, custom_aliases) for m in metas]
+    original_names = {m.mnemonic for m in metas}
+    used_names: set = set()
+    cleaned: Dict[str, np.ndarray] = {}
+    new_metas: List[LASCurveMeta] = []
 
-    # 2. Clean Curves
-    new_curves: List[LASCurveMeta] = []
-    cleaned_curve_data: Dict[str, List[float]] = {}
-    cleaned_curve_data["DEPT"] = depth_array
+    for meta, std in zip(metas, stds):
+        if std.category == "DEPTH":
+            notes.append(f"{meta.mnemonic} is a depth index, not a log curve; it was not cleaned as one.")
+            continue
 
-    for c_meta in las.curves:
-        raw_values = [
-            las.data.curves.get(c_meta.mnemonic, [null_val] * original_row_count)[i]
-            for i in valid_depth_indexes
-        ]
-        std = standardise_mnemonic(c_meta.mnemonic, c_meta.unit, custom_aliases=custom_aliases)
+        raw = to_float_array(las.data.curves.get(meta.mnemonic, []))
+        if raw.size < n0:
+            raw = np.concatenate([raw, np.full(n0 - raw.size, np.nan)])
+        vals = raw[:n0][keep].copy()
+        nulls = null_mask(vals, null_val)
+        vals[nulls] = null_val
 
-        clean_mnemonic = c_meta.mnemonic
-        clean_unit = c_meta.unit or ""
-        is_blank_unit = not clean_unit.strip()
+        matched = std.isAutoMatched
+        std_key = std.standardMnemonic if matched else ""
+        std_def = STANDARD_CURVES.get(std_key)
 
-        # Decision 2: blank unit curves keep their blank unit without forced conversion
-        if opts.unitStandardization and std.isAutoMatched and not is_blank_unit:
-            std_def = STANDARD_CURVES.get(std.standardMnemonic)
-            if std_def:
-                clean_mnemonic = std.standardMnemonic
-                clean_unit = std_def.standardUnit
+        # Unit conversion: one factor for the whole curve. A blank or unrecognised unit is never
+        # converted or relabelled on a guess; the values stay as they are and the user is warned.
+        keep_unit = False
+        if opts.unitStandardization and matched:
+            conv = convert_series_to_standard_unit(vals.tolist(), meta.unit, std_key, null_val)
+            if conv.converted and conv.inferred:
+                keep_unit = True
+                notes.append(
+                    f"{meta.mnemonic}: unit missing or unrecognised; values left unchanged. "
+                    f"They look like they need a x{conv.factor:g} factor. Confirm the unit."
+                )
+            elif conv.converted:
+                vals = np.asarray(conv.values, dtype=float)
+                units_converted += int((~nulls).sum())
+            if not meta.unit.strip():
+                keep_unit = True
+                if not (conv.converted and conv.inferred):
+                    notes.append(f"{meta.mnemonic}: unit is blank in the file; it was left blank. Confirm the unit.")
 
-        values = list(raw_values)
+        # Physically impossible values -> null
+        if opts.outlierClipping and std_def is not None:
+            with np.errstate(invalid="ignore"):
+                bad = ~nulls & ((vals < std_def.minPhysical) | (vals > std_def.maxPhysical))
+            outliers_removed += int(bad.sum())
+            vals[bad] = null_val
+            nulls |= bad
 
-        # Unit conversion
-        if opts.unitStandardization and not is_blank_unit:
-            converted_vals = []
-            for v in values:
-                if is_null_value(v, null_val):
-                    converted_vals.append(null_val)
-                else:
-                    conv_val, converted = convert_to_standard_unit(v, c_meta.unit, std.standardMnemonic)
-                    if converted:
-                        units_converted_count += 1
-                    converted_vals.append(conv_val)
-            values = converted_vals
-
-        # Despiking via 5-point median window
+        # Spikes -> mean of neighbours
         if opts.despiking:
-            values, d_count = despike_series(values, null_val)
-            spikes_despiked_count += d_count
+            idx = find_spikes(vals, nulls, opts.spikeSigma)
+            if idx.size:
+                original = vals.copy()
+                vals[idx] = (original[idx - 1] + original[idx + 1]) / 2.0
+                spikes_despiked += int(idx.size)
 
-        # Physical outlier clipping
-        if opts.outlierClipping:
-            std_def = STANDARD_CURVES.get(std.standardMnemonic)
-            if std_def:
-                clipped = []
-                for v in values:
-                    if is_null_value(v, null_val):
-                        clipped.append(null_val)
-                    elif v < std_def.minPhysical or v > std_def.maxPhysical:
-                        outliers_removed_count += 1
-                        clipped.append(null_val)
-                    else:
-                        clipped.append(v)
-                values = clipped
+        # Flatlines -> null
+        if opts.flatlineHandling and std_key not in FLATLINE_EXEMPT:
+            runs = find_flatline_runs(vals, nulls)
+            for s, e in runs:
+                vals[s:e] = null_val
+                nulls[s:e] = True
+            flatlines_handled += len(runs)
 
-        # Flatline handling
-        if opts.flatlineHandling:
-            flat_start = 0
-            flat_count = 1
-            for i in range(1, len(values)):
-                v_curr = values[i]
-                v_prev = values[i - 1]
-                if not is_null_value(v_curr, null_val) and not is_null_value(v_prev, null_val) and abs(v_curr - v_prev) < 0.00001:
-                    flat_count += 1
-                else:
-                    if flat_count > 25:
-                        flatlines_handled_count += 1
-                        for k in range(flat_start, i):
-                            values[k] = null_val
-                    flat_count = 1
-                    flat_start = i
-            if flat_count > 25:
-                flatlines_handled_count += 1
-                for k in range(flat_start, len(values)):
-                    values[k] = null_val
+        # Naming: never overwrite another curve
+        clean_name, clean_unit = meta.mnemonic, meta.unit
+        if opts.unitStandardization and matched and std_def is not None:
+            clean_unit = meta.unit if keep_unit else std_def.standardUnit
+            target = std.standardMnemonic
+            if target == meta.mnemonic or (target not in used_names and target not in original_names):
+                clean_name = target
+            else:
+                notes.append(f"{meta.mnemonic} kept its name because {target} is already in use by another curve.")
+        used_names.add(clean_name)
 
-        new_curves.append(
+        new_metas.append(
             LASCurveMeta(
-                mnemonic=clean_mnemonic,
+                mnemonic=clean_name,
                 unit=clean_unit,
-                code=c_meta.code or "0",
-                description=std.matchedName or c_meta.description,
+                code=meta.code or "0",
+                description=std.matchedName if matched else meta.description,
             )
         )
-        cleaned_curve_data[clean_mnemonic] = values
+        cleaned[clean_name] = vals
 
-    # 3. Imputation of Missing Gaps
-    if opts.imputationStrategy != "NONE":
-        for c_meta in new_curves:
-            mnem = c_meta.mnemonic
-            if mnem == "DEPT":
-                continue
-            series = cleaned_curve_data.get(mnem, [])
-            null_indices = [i for i, v in enumerate(series) if is_null_value(v, null_val)]
+    # 3. Repair regular depth gaps by inserting the missing rows (they are filled below)
+    inserted_rows = np.zeros(depth.size, dtype=bool)
+    if opts.depthGapInterpolation and opts.imputationStrategy != "NONE" and cleaned:
+        ins_idx, ins_val, _ = _gap_rows(depth, abs(las.wellInfo.step), opts.maxDepthGapFillSteps)
+        if ins_idx.size:
+            depth = np.insert(depth, ins_idx, ins_val)
+            for name in cleaned:
+                cleaned[name] = np.insert(cleaned[name], ins_idx, null_val)
+            inserted_rows = np.insert(inserted_rows, ins_idx, True)
+            null_depth_flag = np.insert(null_depth_flag, ins_idx, False)
 
-            if 0 < len(null_indices) < len(series) * 0.4:
-                imputed = []
-                if opts.imputationStrategy == "KNN":
-                    imputed = impute_knn(cleaned_curve_data, mnem, null_val, 5)
-                elif opts.imputationStrategy == "LINEAR":
-                    imputed = impute_linear(series, null_val)
-                elif opts.imputationStrategy == "MEDIAN":
-                    imputed = impute_median(series, null_val)
+    # 4. Fill interior gaps only
+    imputed_by_curve: Dict[str, int] = {}
+    if opts.imputationStrategy != "NONE" and cleaned:
+        n = depth.size
+        plans: Dict[str, Tuple[np.ndarray, int, int]] = {}
+        for name, arr in cleaned.items():
+            nulls = null_mask(arr, null_val)
+            valid_idx = np.flatnonzero(~nulls)
+            n_null = int(nulls.sum())
+            if valid_idx.size >= 2 and 0 < n_null < n * IMPUTE_MAX_NULL_FRACTION:
+                plans[name] = (nulls, int(valid_idx[0]), int(valid_idx[-1]))
 
-                if len(imputed) == len(series):
-                    for idx in null_indices:
-                        if not is_null_value(imputed[idx], null_val):
-                            cleaned_curve_data[mnem][idx] = round(imputed[idx], 4)
-                            nulls_imputed_count += 1
+        if plans:
+            as_lists = {k: v.tolist() for k, v in cleaned.items()}
+            strategy = opts.imputationStrategy
+            knn_results: Dict[str, List[float]] = {}
+            if strategy == "KNN":
+                try:
+                    knn_results = impute_knn_all(as_lists, null_val, 5, list(plans))
+                except Exception as exc:  # fall back rather than fail the whole clean
+                    notes.append(f"KNN imputation failed ({type(exc).__name__}); linear interpolation was used instead.")
+                    strategy = "LINEAR"
 
-    # Recompute null depth rows after pruning/updates
-    cleaned_null_depth_rows = [
-        i for i, d in enumerate(depth_array)
-        if not math.isfinite(d) or is_null_value(d, null_val)
-    ]
+            for name, (nulls, first_valid, last_valid) in plans.items():
+                if strategy == "KNN":
+                    imputed = knn_results.get(name)
+                elif strategy == "LINEAR":
+                    imputed = impute_linear(as_lists[name], null_val)
+                else:
+                    imputed = impute_median(as_lists[name], null_val)
+                if imputed is None or len(imputed) != n:
+                    continue
+                arr = cleaned[name]
+                filled = 0
+                for s, e in true_runs(nulls):
+                    if s <= first_valid or e - 1 >= last_valid:
+                        continue  # leading/trailing: casing shoe or off-bottom, not recoverable
+                    if e - s > opts.maxImputeGapSamples:
+                        continue
+                    for i in range(s, e):
+                        v = imputed[i]
+                        if not is_null_value(v, null_val):
+                            arr[i] = round(float(v), 4)
+                            filled += 1
+                if filled:
+                    imputed_by_curve[name] = filled
+                    nulls_imputed += filled
 
-    cleaned_well_info = las.wellInfo.model_copy(update={
-        "nullValue": null_val,
-        "startDepth": depth_array[0] if depth_array else las.wellInfo.startDepth,
-        "stopDepth": depth_array[-1] if depth_array else las.wellInfo.stopDepth,
-    })
+    # Count depth gaps that were actually repaired
+    for s, e in true_runs(inserted_rows):
+        if any(not null_mask(arr[s:e], null_val).any() for arr in cleaned.values()):
+            depth_gaps_repaired += 1
 
-    cleaned_las = las.model_copy(update={
-        "wellInfo": cleaned_well_info,
-        "curves": new_curves,
-        "data": LASData(depth=depth_array, curves=cleaned_curve_data),
-        "totalPoints": len(depth_array),
-        "nullDepthRows": cleaned_null_depth_rows,
-    })
+    cleaned_las = las.model_copy(
+        update={
+            "curves": new_metas,
+            "data": LASData(depth=depth.tolist(), curves={k: v.tolist() for k, v in cleaned.items()}),
+            "totalPoints": int(depth.size),
+            "wrap": False,
+            "nullDepthRows": np.flatnonzero(null_depth_flag).tolist(),
+            "wellInfo": las.wellInfo.model_copy(
+                update={
+                    "nullValue": null_val,
+                    "startDepth": float(depth[0]) if depth.size else las.wellInfo.startDepth,
+                    "stopDepth": float(depth[-1]) if depth.size else las.wellInfo.stopDepth,
+                }
+            ),
+        }
+    )
 
-    cleaned_qa = analyze_well_log_quality(cleaned_las, custom_aliases=custom_aliases)
-    score_improvement = max(0, cleaned_qa.overallScore - raw_qa.overallScore)
+    cleaned_qa = analyze_well_log_quality(cleaned_las, custom_aliases)
+    score_improvement = cleaned_qa.overallScore - raw_qa.overallScore
     is_verified_clean = cleaned_qa.overallScore >= 80 and cleaned_qa.criticalCount == 0
 
-    base_summary = (
-        f"Data successfully cleaned and verified. Quality score boosted by +{score_improvement}% to {cleaned_qa.overallScore}% ({cleaned_qa.qualityGrade})."
-        if is_verified_clean
-        else f"Data partially repaired. Quality score improved by +{score_improvement}% to {cleaned_qa.overallScore}%. Some sensor gaps require manual petrophysical review."
-    )
-    if had_no_null_marker:
-        base_summary += f" Note: original file had no NULL marker; {null_val} was used in the cleaned output."
+    if score_improvement < 0:
+        notes.append(
+            f"The quality score went DOWN by {-score_improvement} after cleaning; review the changes before using this output."
+        )
 
-    verification_report = VerificationReport(
-        outliersRemovedCount=outliers_removed_count,
-        spikesDespikedCount=spikes_despiked_count,
-        unitsConvertedCount=units_converted_count,
-        duplicateDepthsPrunedCount=duplicate_depths_pruned_count,
-        nullsImputedCount=nulls_imputed_count,
-        flatlinesHandledCount=flatlines_handled_count,
-        depthGapsInterpolatedCount=depth_gaps_interpolated_count,
+    if is_verified_clean:
+        change = (
+            f"boosted by +{score_improvement}%" if score_improvement > 0
+            else "unchanged" if score_improvement == 0
+            else f"reduced by {-score_improvement}%"
+        )
+        summary = f"Data cleaned and verified. Quality score {change} to {cleaned_qa.overallScore}% ({cleaned_qa.qualityGrade})."
+    else:
+        change = (
+            f"improved by +{score_improvement}%" if score_improvement > 0
+            else "unchanged" if score_improvement == 0
+            else f"reduced by {-score_improvement}%"
+        )
+        summary = (
+            f"Data partially repaired. Quality score {change} to {cleaned_qa.overallScore}%. "
+            f"Some sensor gaps require manual petrophysical review."
+        )
+
+    if no_marker:
+        summary = "The file had no NULL marker, so -999.25 was used in the cleaned output. " + summary
+
+    report = VerificationReport(
+        outliersRemovedCount=outliers_removed,
+        spikesDespikedCount=spikes_despiked,
+        unitsConvertedCount=units_converted,
+        duplicateDepthsPrunedCount=duplicate_depths_pruned,
+        nullsImputedCount=nulls_imputed,
+        flatlinesHandledCount=flatlines_handled,
+        depthGapsInterpolatedCount=depth_gaps_repaired,
         originalQualityScore=raw_qa.overallScore,
         cleanedQualityScore=cleaned_qa.overallScore,
         originalGrade=raw_qa.qualityGrade,
         cleanedGrade=cleaned_qa.qualityGrade,
         scoreImprovement=score_improvement,
         isVerifiedClean=is_verified_clean,
-        summaryMessage=base_summary,
+        summaryMessage=summary,
+        imputedByCurve=imputed_by_curve,
+        notes=notes,
     )
-
-    cleaned_las_text = build_las_file_string(cleaned_las, cleaned_qa, verification_report)
-    cleaned_csv_text = build_csv_file_string(cleaned_las)
 
     return CleanedLogResult(
         cleanedLas=cleaned_las,
         cleanedQa=cleaned_qa,
-        verificationReport=verification_report,
-        cleanedLasText=cleaned_las_text,
-        cleanedCsvText=cleaned_csv_text,
+        verificationReport=report,
+        cleanedLasText=build_las_file_string(cleaned_las, cleaned_qa, report),
+        cleanedCsvText=build_csv_file_string(cleaned_las),
     )

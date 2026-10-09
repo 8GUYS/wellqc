@@ -12,13 +12,15 @@ from backend.app.services.standardiser import (
     standardise_mnemonic,
 )
 
+from backend.app.schemas.enums import AnomalySeverity, QualityGrade
+
 class AnomalyReportItem(BaseModel):
     id: Optional[str] = None
     curveMnemonic: str
     depthStart: float
     depthEnd: float
     anomalyType: str
-    severity: str  # 'CRITICAL' | 'WARNING' | 'INFO'
+    severity: AnomalySeverity
     description: str
     suggestedCorrection: str
 
@@ -33,12 +35,12 @@ class CurveHealthSummary(BaseModel):
     maxVal: Optional[float] = None
     meanVal: Optional[float] = None
     healthScore: int
-    status: str  # 'EXCELLENT' | 'GOOD' | 'POOR' | 'CRITICAL'
+    status: QualityGrade
     anomalies: List[AnomalyReportItem]
 
 class QualityAnalysisResult(BaseModel):
     overallScore: int
-    qualityGrade: str  # 'EXCELLENT' | 'GOOD' | 'POOR' | 'CRITICAL'
+    qualityGrade: QualityGrade
     completenessScore: int
     consistencyScore: int
     anomalyCount: int

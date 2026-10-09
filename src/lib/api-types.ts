@@ -1,11 +1,20 @@
-export type CurveHealthStatus = "EXCELLENT" | "GOOD" | "POOR" | "CRITICAL";
+export * from "@/types/enums";
+import {
+  AnomalySeverity,
+  DiagnosticCause,
+  ImputationStrategy,
+  QualityGrade,
+  ThresholdAction,
+} from "@/types/enums";
+
+export type CurveHealthStatus = QualityGrade;
 
 export interface CurveAnomalyItem {
   curveMnemonic: string;
   depthStart: number;
   depthEnd: number;
   anomalyType: string;
-  severity: "CRITICAL" | "WARNING" | "INFO";
+  severity: AnomalySeverity;
   description: string;
   suggestedCorrection: string;
 }
@@ -502,14 +511,7 @@ export interface CleanedLogResult {
   cleanedCsvText: string;
 }
 
-export type ImputationStrategy = 'KNN' | 'LINEAR' | 'MEAN' | 'MEDIAN' | 'SPLINE' | 'ROW_DROPPING';
-
-export type MissingValueCause =
-  | 'CASING_SHOE_BOUNDARY'
-  | 'BOREHOLE_WASHOUT'
-  | 'TELEMETRY_DROPOUT'
-  | 'OFF_BOTTOM_WINDOW'
-  | 'UNKNOWN_SENSOR_GAP';
+export type MissingValueCause = DiagnosticCause;
 
 export interface MissingValueDiagnostic {
   curveMnemonic: string;
@@ -519,7 +521,7 @@ export interface MissingValueDiagnostic {
   primaryCause: MissingValueCause;
   causeDescription: string;
   recommendedStrategy: ImputationStrategy;
-  recommendedThresholdAction: 'DROP_ROWS' | 'APPLY_IMPUTATION' | 'NO_ACTION_NEEDED';
+  recommendedThresholdAction: ThresholdAction;
 }
 
 export interface ImputationBenchmarkMetric {

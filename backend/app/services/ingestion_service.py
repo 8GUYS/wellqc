@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import json
+import math
 from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 from backend.app.models.models import (
@@ -164,7 +165,16 @@ def commit_las_file_transaction(
             maxVal=summary.maxVal,
             meanVal=summary.meanVal,
             status=status_str,
-            dataJson=json.dumps(sampled),
+                        # NaN is not valid JSON (the browser cannot parse it): store null for missing values.
+            dataJson=json.dumps(
+                [
+                    {
+                        k: (v if v is None or math.isfinite(v) else None)
+                        for k, v in point.items()
+                    }
+                    for point in sampled
+                ]
+            ),
             ownerId=user.id,
         )
         db.add(curve_rec)

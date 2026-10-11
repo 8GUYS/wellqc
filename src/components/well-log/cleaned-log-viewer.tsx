@@ -7,12 +7,6 @@ import {
   ZoomOut,
   RotateCcw,
   Printer,
-  Sparkles,
-  Sliders,
-  CheckSquare,
-  Square,
-  Activity,
-  ChevronDown,
 } from "lucide-react";
 
 interface CleanedLogViewerProps {

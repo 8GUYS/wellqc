@@ -2,14 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   ShieldCheck,
   Lock,
   FileText,
   CheckCircle2,
   AlertCircle,
-  Activity,
   ArrowRight,
   LogOut,
   RefreshCw,

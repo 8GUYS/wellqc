@@ -9,14 +9,10 @@ import {
   Shield,
   CheckCircle2,
   Lock,
-  Key,
   FileText,
   AlertCircle,
-  ArrowUpRight,
-  Download,
   RefreshCw,
   Calendar,
-  Layers,
   Award,
 } from "lucide-react";
 

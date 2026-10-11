@@ -59,3 +59,12 @@ class WellDetailResponse(BaseModel):
     curvesData: List[Dict[str, Any]]
     curveSummaries: List[Dict[str, Any]]
     anomalies: List[Dict[str, Any]]
+
+class BulkDeleteWellsRequest(BaseModel):
+    wellIds: List[str]
+
+class BulkDeleteWellsResponse(BaseModel):
+    success: bool
+    deletedCount: int
+    deletedIds: List[str]
+    message: str

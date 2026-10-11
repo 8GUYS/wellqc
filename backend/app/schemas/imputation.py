@@ -2,17 +2,11 @@ from __future__ import annotations
 from typing import Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
-ImputationStrategy = Literal["KNN", "LINEAR", "MEAN", "MEDIAN", "SPLINE", "ROW_DROPPING"]
-
-MissingValueCause = Literal[
-    "CASING_SHOE_BOUNDARY",
-    "BOREHOLE_WASHOUT",
-    "TELEMETRY_DROPOUT",
-    "OFF_BOTTOM_WINDOW",
-    "UNKNOWN_SENSOR_GAP",
-]
-
-ThresholdAction = Literal["DROP_ROWS", "APPLY_IMPUTATION", "NO_ACTION_NEEDED"]
+from backend.app.schemas.enums import (
+    DiagnosticCause as MissingValueCause,
+    ImputationStrategy,
+    ThresholdAction,
+)
 
 class WellInfoPayload(BaseModel):
     nullValue: Optional[float] = None

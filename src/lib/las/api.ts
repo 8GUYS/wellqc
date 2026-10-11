@@ -3,15 +3,17 @@
  * Connects frontend Next.js pages directly to FastAPI endpoints.
  */
 
-import { ParsedLAS } from "./parser";
-import { QualityAnalysisResult } from "./quality-engine";
-import { AIAnalysisOutput } from "./ai-analyzer";
-import { CleanedLogResult, CleaningOptions, VerificationReport } from "./cleaner";
 import {
+  ParsedLAS,
+  QualityAnalysisResult,
+  AIAnalysisOutput,
+  CleanedLogResult,
+  CleaningOptions,
+  VerificationReport,
   MissingValueDiagnostic,
   ImputationBenchmarkResult,
-} from "./imputation-engine";
-import { CustomAliasEntry } from "./standardiser";
+  CustomAliasEntry,
+} from "@/lib/api-types";
 
 export interface AnalyzeLASResponse {
   parsed: ParsedLAS;
@@ -241,3 +243,96 @@ export async function fetchUserAliases(): Promise<{ aliases: CustomAliasEntry[] 
   }
   return res.json();
 }
+
+// ─── Petrophysical QA & Anomaly Repair Engine ────────────────────────────────
+
+export interface QARepairRequestPayload {
+  wellId?: string;
+  wellName?: string;
+  rawLasText?: string;
+  rawLas?: ParsedLAS;
+  despiking?: boolean;
+  outlierClipping?: boolean;
+  duplicateDepthPruning?: boolean;
+  imputationStrategy?: string;
+}
+
+export interface QARepairResponse {
+  success: boolean;
+  message: string;
+  wellName: string;
+  wellId?: string;
+  originalScore: number;
+  cleanedScore: number;
+  scoreDelta: number;
+  originalGrade: string;
+  cleanedGrade: string;
+  isVerifiedClean: boolean;
+  verificationReport: VerificationReport;
+  cleanedLas: ParsedLAS;
+  cleanedQa: QualityAnalysisResult;
+  cleanedLasText: string;
+  cleanedCsvText: string;
+  auditCertificateId: string;
+  auditLogEntry: {
+    certificateId: string;
+    userName: string;
+    userRole: string;
+    timestamp: string;
+    details: string;
+    actionsApplied: Record<string, boolean | string>;
+  };
+}
+
+export interface QAEngineRule {
+  ruleId: string;
+  ruleName: string;
+  description: string;
+  enabled: boolean;
+  threshold: number;
+  unit: string;
+  severity: string;
+}
+
+export interface QAEngineOverviewResponse {
+  rules: QAEngineRule[];
+  systemStatus: string;
+  evaluatedWellsCount: number;
+  totalAnomaliesDetected: number;
+  targetAnomalyTypes: string[];
+  supportedRepairActions: string[];
+}
+
+/**
+ * Execute verified petrophysical repairs via QA Engine
+ */
+export async function repairQAEngine(
+  payload: QARepairRequestPayload
+): Promise<QARepairResponse> {
+  const res = await fetch("/api/qa-engine/repair", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `QA Engine repair failed with status ${res.status}`);
+  }
+  return res.json();
+}
+
+/**
+ * Fetch QA Engine rules overview and system status
+ */
+export async function getQAEngineOverview(): Promise<QAEngineOverviewResponse> {
+  const res = await fetch("/api/qa-engine", {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to fetch QA Engine overview: status ${res.status}`);
+  }
+  return res.json();
+}
+

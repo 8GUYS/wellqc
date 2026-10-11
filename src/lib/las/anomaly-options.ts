@@ -204,7 +204,7 @@ export function getCorrectionOptionsForType(anomalyType: string): AnomalyOption[
     return ANOMALY_CORRECTION_OPTIONS[normalized];
   }
 
-  // Generic fallback options for custom/unclassified anomalies
+  // fallback options for custom/unclassified anomalies
   return [
     {
       id: "AUTO_RECOMMENDED_FIX",

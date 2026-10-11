@@ -256,6 +256,82 @@ def test_user_cannot_delete_another_users_well():
         db.close()
 
 
+def test_bulk_delete_wells_authorization():
+    """Test bulk deletion of wells: authorization and mass deletion."""
+    db = TestingSessionLocal()
+    try:
+        user_alpha = create_test_user(db, "user-alpha-bulk", "alpha-bulk@example.com", "User Alpha Bulk")
+        user_beta = create_test_user(db, "user-beta-bulk", "beta-bulk@example.com", "User Beta Bulk")
+        # Create two wells for Alpha
+        w1 = Well(
+            id="well-bulk-1",
+            apiNo="API-BULK-001",
+            name="BULK_WELL_1",
+            operatorName="Alpha Corp",
+            fieldName="Deep Water",
+            basin="Niger Delta",
+            country="Nigeria",
+            latitude=5.1,
+            longitude=4.1,
+            ownerId=user_alpha["id"],
+        )
+        w2 = Well(
+            id="well-bulk-2",
+            apiNo="API-BULK-002",
+            name="BULK_WELL_2",
+            operatorName="Alpha Corp",
+            fieldName="Deep Water",
+            basin="Niger Delta",
+            country="Nigeria",
+            latitude=5.2,
+            longitude=4.2,
+            ownerId=user_alpha["id"],
+        )
+        db.add_all([w1, w2])
+        db.commit()
+    finally:
+        db.close()
+
+    client = TestClient(app)
+
+    # 1. User Beta cannot bulk delete User Alpha's wells
+    res_beta = client.post(
+        "/api/wells/bulk-delete",
+        json={"wellIds": ["well-bulk-1", "well-bulk-2"]},
+        cookies=user_beta["cookies"],
+    )
+    assert res_beta.status_code == 403
+
+    # 2. Empty payload returns 400
+    res_empty = client.post(
+        "/api/wells/bulk-delete",
+        json={"wellIds": []},
+        cookies=user_alpha["cookies"],
+    )
+    assert res_empty.status_code == 400
+
+    # 3. User Alpha CAN bulk delete their own wells
+    res_alpha = client.post(
+        "/api/wells/bulk-delete",
+        json={"wellIds": ["well-bulk-1", "well-bulk-2"]},
+        cookies=user_alpha["cookies"],
+    )
+    assert res_alpha.status_code == 200
+    data = res_alpha.json()
+    assert data["success"] is True
+    assert data["deletedCount"] == 2
+    assert "well-bulk-1" in data["deletedIds"]
+    assert "well-bulk-2" in data["deletedIds"]
+
+    # Verify both wells are deleted from DB
+    db = TestingSessionLocal()
+    try:
+        remaining = db.query(Well).filter(Well.id.in_(["well-bulk-1", "well-bulk-2"])).all()
+        assert len(remaining) == 0
+    finally:
+        db.close()
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. LAS APPLY-FIXES OBJECT-LEVEL AUTHORIZATION TESTS
 # ─────────────────────────────────────────────────────────────────────────────

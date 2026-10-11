@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle2, Database, RefreshCw } from "lucide-react";
+import { CheckCircle2, Database, RefreshCw, Sparkles } from "lucide-react";
 import { ParsedLAS } from "@/lib/las/parser";
 import { QualityAnalysisResult } from "@/lib/las/quality-engine";
 
@@ -48,20 +48,20 @@ export function WellOverviewCard({
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-300 font-mono">
-            <span>Company: <span className="text-white">{parsedLAS.wellInfo.company || "NDI-GROUP-5"}</span></span>
+            <span>Company: <span className="text-white">{parsedLAS.wellInfo.company || "Not provided in file"}</span></span>
             <span className="text-slate-600">|</span>
-            <span>Field: <span className="text-white">{parsedLAS.wellInfo.field || "NIGER DELTA"}</span></span>
+            <span>Field: <span className="text-white">{parsedLAS.wellInfo.field || "Not provided in file"}</span></span>
             <span className="text-slate-600">|</span>
-            <span>API: <span className="text-white">{parsedLAS.wellInfo.apiUwi || "API-8086938832"}</span></span>
+            <span>API: <span className="text-white">{parsedLAS.wellInfo.apiUwi || "Not provided in file"}</span></span>
           </div>
           <p className="text-xs text-slate-400 font-mono">
             Depth Interval: {parsedLAS.wellInfo.startDepth} – {parsedLAS.wellInfo.stopDepth} {parsedLAS.wellInfo.depthUnit} (Step: {parsedLAS.wellInfo.step})
           </p>
         </div>
 
-        {/* Right Side: Score Box & Upload Action */}
+        {/* Right Side: Score Box & Upload / QA Actions */}
         <div className="flex flex-col sm:flex-row items-center gap-4 shrink-0">
-          <div className="px-8 py-3.5 rounded-2xl bg-wellqc-card border border-wellqc-border flex flex-col items-center justify-center min-w-[220px] shadow-lg">
+          <div className="px-8 py-3.5 rounded-2xl bg-wellqc-card border border-wellqc-border flex flex-col items-center justify-center min-w-[200px] shadow-lg">
             <span className="text-[11px] font-mono font-semibold text-slate-400 uppercase tracking-widest">
               WELL QUALITY SCORE
             </span>
@@ -70,16 +70,27 @@ export function WellOverviewCard({
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={onCommitToDatabase}
-            disabled={isSaving}
-            className="w-full sm:w-auto flex items-center justify-center space-x-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all disabled:opacity-60 cursor-pointer"
-            title="Save and index this well in the WellQC database"
-          >
-            {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
-            <span>{isSaving ? "Saving to DB..." : savedSuccess ? "Saved to Database ✓" : "Upload to Database"}</span>
-          </button>
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+            <Link
+              href="/qa-engine"
+              className="w-full sm:w-auto flex items-center justify-center space-x-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white font-bold text-xs shadow-lg shadow-purple-500/25 transition-all cursor-pointer font-mono"
+              title="Launch QA Engine workspace for automated despiking, boundary clamping, and duplicate depth repairs"
+            >
+              <Sparkles className="w-4 h-4 text-purple-200" />
+              <span>Repair in QA Engine →</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={onCommitToDatabase}
+              disabled={isSaving}
+              className="w-full sm:w-auto flex items-center justify-center space-x-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all disabled:opacity-60 cursor-pointer"
+              title="Save and index this well in the WellQC database"
+            >
+              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+              <span>{isSaving ? "Saving to DB..." : savedSuccess ? "Saved to Database ✓" : "Upload to Database"}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -98,6 +109,14 @@ export function WellOverviewCard({
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/qa-engine"
+              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-mono font-bold text-xs hover:from-purple-500 hover:to-indigo-500 transition-all flex items-center gap-1.5 shadow-sm"
+              title="Clean anomalies in QA Engine"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-200" />
+              <span>Clean in QA Engine →</span>
+            </Link>
             <Link
               href={`/wells/${savedWell.id}`}
               className="px-3 py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-mono font-bold text-xs hover:bg-emerald-400 transition-all"

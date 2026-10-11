@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "LASFile" ALTER COLUMN "nullValue" DROP NOT NULL,
+ALTER COLUMN "nullValue" DROP DEFAULT;

@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -95,7 +95,7 @@ model LASFile {
   startDepth   Float
   stopDepth    Float
   stepDepth    Float
-  nullValue    Float           @default(-999.25)
+  nullValue    Float?
   depthUnit    String          @default("FT")
   rawHeader    String
   curveCount   Int             @default(0)

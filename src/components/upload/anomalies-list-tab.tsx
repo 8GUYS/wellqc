@@ -1,4 +1,5 @@
-import { CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, ShieldCheck, Sparkles, ArrowRight } from "lucide-react";
 import { QualityAnomaly } from "@/lib/las/quality-engine";
 
 interface AnomaliesListTabProps {
@@ -19,7 +20,32 @@ export function AnomaliesListTab({ anomalies }: AnomaliesListTabProps) {
   }
 
   return (
-    <div className="p-5 space-y-2.5">
+    <div className="p-5 space-y-3">
+      {/* QA Engine Action Callout Banner */}
+      <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <ShieldCheck className="w-5 h-5 text-purple-400 shrink-0" />
+          <div className="space-y-0.5">
+            <span className="text-xs font-mono font-bold text-white">
+              {anomalies.length} Wireline Anomalies Detected
+            </span>
+            <p className="text-[11px] font-mono text-purple-200/80">
+              Execute user-approved despiking, physical boundary clamping, and duplicate-depth repairs in the interactive QA Engine.
+            </p>
+          </div>
+        </div>
+
+        <Link
+          href="/qa-engine"
+          className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-mono font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-md shrink-0"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-purple-200" />
+          <span>Clean in QA Engine</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+
+      <div className="space-y-2.5">
       {anomalies.map((anom, idx) => (
         <div
           key={`${anom.curveMnemonic}-${anom.anomalyType}-${idx}`}
@@ -60,6 +86,7 @@ export function AnomaliesListTab({ anomalies }: AnomaliesListTabProps) {
           )}
         </div>
       ))}
+      </div>
     </div>
   );
 }

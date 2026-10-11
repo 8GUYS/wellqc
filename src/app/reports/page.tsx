@@ -8,14 +8,9 @@ import {
   Download,
   ShieldCheck,
   CheckCircle2,
-  AlertTriangle,
   FileText,
   Printer,
-  Sparkles,
   Database,
-  ArrowRight,
-  Layers,
-  History,
 } from "lucide-react";
 import { safeReadJson } from "@/lib/http-client";
 

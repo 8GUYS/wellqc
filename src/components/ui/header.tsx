@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ActivityListItem } from "@/lib/api-types";
 import { safeReadJson } from "@/lib/http-client";
-import { Search, Bell, Globe, LogOut, Menu } from "lucide-react";
+import { Search, Bell, LogOut, Menu } from "lucide-react";
 
 interface HeaderProps {
   currentRole?: string;

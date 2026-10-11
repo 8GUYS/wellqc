@@ -193,6 +193,7 @@ export default function QAEngineWorkspace() {
         const parsedData = JSON.parse(stored);
         if (parsedData && (!parsedData.userId || !activeUserId || parsedData.userId === activeUserId)) {
           if (parsedData.parsedLAS) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage; it cannot be read during render without a hydration mismatch
             setRawLas(parsedData.parsedLAS);
             setRawLasText(parsedData.rawText || "");
             const rawWn = parsedData.parsedLAS.wellInfo?.wellName || "";
@@ -278,7 +279,7 @@ export default function QAEngineWorkspace() {
         // Construct QualityAnalysisResult from anomalies and score
         const qaFromDb: QualityAnalysisResult = {
           overallScore: detail.well.qualityScore || 80,
-          qualityGrade: (detail.well.qualityGrade as any) || "GOOD",
+          qualityGrade: (detail.well.qualityGrade as QualityAnalysisResult["qualityGrade"]) || "GOOD",
           completenessScore: 85,
           consistencyScore: 85,
           anomalyCount: detail.anomalies?.length || 0,
@@ -290,16 +291,16 @@ export default function QAEngineWorkspace() {
             curveMnemonic: a.curveMnemonic,
             depthStart: a.depthStart,
             depthEnd: a.depthEnd,
-            anomalyType: a.anomalyType as any,
-            severity: a.severity as any,
+            anomalyType: a.anomalyType as AnomalyReportItem["anomalyType"],
+            severity: a.severity as AnomalyReportItem["severity"],
             description: a.description,
             suggestedCorrection: a.suggestedCorrection,
           })),
           missingStandardCurves: [],
         };
         setQaResult(qaFromDb);
-      } catch (err: any) {
-        setErrorMessage(err.message || "Failed to load database well details.");
+      } catch (err: unknown) {
+        setErrorMessage((err instanceof Error && err.message) || "Failed to load database well details.");
       }
     },
     []
@@ -325,8 +326,8 @@ export default function QAEngineWorkspace() {
       setField(analysis.parsed.wellInfo?.field || "Direct Upload Basin");
       setDepthUnit(analysis.parsed.wellInfo?.depthUnit || "FT");
       setSourceMode("DIRECT_DROP");
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to analyze uploaded LAS file.");
+    } catch (err: unknown) {
+      setErrorMessage((err instanceof Error && err.message) || "Failed to analyze uploaded LAS file.");
     }
   }, []);
 
@@ -343,10 +344,11 @@ export default function QAEngineWorkspace() {
   }, [qaResult]);
 
   // Sync selected anomalies set with detected target anomalies
-  useEffect(() => {
-    const ids = new Set(targetAnomalies.map((a) => a.id!));
-    setSelectedAnomalyIds(ids);
-  }, [targetAnomalies]);
+  const [syncedAnomalies, setSyncedAnomalies] = useState<AnomalyReportItem[] | null>(null);
+  if (syncedAnomalies !== targetAnomalies) {
+    setSyncedAnomalies(targetAnomalies);
+    setSelectedAnomalyIds(new Set(targetAnomalies.map((a) => a.id!)));
+  }
 
   // Filter by category pill
   const filteredAnomalies = useMemo(() => {
@@ -427,8 +429,8 @@ export default function QAEngineWorkspace() {
 
       const result = await repairQAEngine(payload);
       setRepairResult(result);
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to execute petrophysical repair.");
+    } catch (err: unknown) {
+      setErrorMessage((err instanceof Error && err.message) || "Failed to execute petrophysical repair.");
     } finally {
       setIsExecutingRepair(false);
     }

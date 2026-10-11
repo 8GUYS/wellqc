@@ -18,6 +18,7 @@ from backend.app.api import (
     auth,
     dashboard,
     las,
+    qa_engine,
     standardisation,
     user,
     wells,
@@ -77,6 +78,7 @@ app.include_router(standardisation.router) # /api/standardisation: Mnemonic dict
 app.include_router(dashboard.router)      # /api/dashboard: Executive quality KPI rollups
 app.include_router(analytics.router)      # /api/analytics: Operator and anomaly telemetry
 app.include_router(activity.router)       # /api/activity: Audit trail and security activity logs
+app.include_router(qa_engine.router)      # /api/qa-engine: QA Engine rules and petrophysical repairs
 app.include_router(user.router)           # /api/user: User profile, settings, API tokens
 app.include_router(admin.router)          # /api/admin: Tenant administration & user management
 

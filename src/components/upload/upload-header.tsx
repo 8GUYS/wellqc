@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Database, RotateCcw } from "lucide-react";
+import { Database, RotateCcw, ShieldCheck } from "lucide-react";
 
 interface UploadHeaderProps {
   hasActiveSession: boolean;
@@ -36,6 +36,14 @@ export function UploadHeader({
             <span>New Upload</span>
           </button>
         )}
+        <Link
+          href="/qa-engine"
+          className="px-3.5 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/40 text-purple-300 hover:text-purple-200 font-mono text-xs transition-all flex items-center gap-2"
+          title="Go to QA Engine workspace for data repair"
+        >
+          <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+          <span>QA Engine</span>
+        </Link>
         <Link
           href="/wells"
           className="px-3.5 py-2 rounded-xl bg-wellqc-card hover:bg-wellqc-panel border border-wellqc-border text-slate-300 hover:text-white font-mono text-xs transition-all flex items-center gap-2"

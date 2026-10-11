@@ -3,7 +3,7 @@
 import React from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import Link from "next/link";
-import { ShieldCheck, Layers, ArrowRight, CheckCircle2, Clock } from "lucide-react";
+import { ShieldCheck, ArrowRight, CheckCircle2, Clock } from "lucide-react";
 
 export default function QualityEnginePage() {
   return (

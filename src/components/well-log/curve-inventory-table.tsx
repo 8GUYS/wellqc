@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { CurveHealthSummary } from "@/lib/las/quality-engine";
 import { ParsedLAS } from "@/lib/las/parser";
-import { CheckCircle2, AlertTriangle, ChevronDown, ChevronRight, Layers } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
 
 interface CurveInventoryTableProps {
   curveSummaries: CurveHealthSummary[];

@@ -535,10 +535,11 @@ export function AuditCertificateModal({
   data: AuditCertificateData | null;
 }) {
   const [copied, setCopied] = useState(false);
+  const [certSuffix] = useState(() => Math.random().toString(16).slice(2, 6).toUpperCase());
 
   if (!isOpen || !data) return null;
 
-  const certId = data.auditCertificateId || `WQC-NUPRC-CERT-${data.wellName.replace(/[^A-Z0-9]/gi, "").slice(0, 4)}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
+  const certId = data.auditCertificateId || `WQC-NUPRC-CERT-${data.wellName.replace(/[^A-Z0-9]/gi, "").slice(0, 4)}-${certSuffix}`;
 
   const handlePrint = () => {
     openPrintableAuditCertificate({ ...data, auditCertificateId: certId });

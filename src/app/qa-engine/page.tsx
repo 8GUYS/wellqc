@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useSyncExternalStore } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CleanedLogViewer } from "@/components/well-log/cleaned-log-viewer";
 import {
@@ -110,6 +110,19 @@ function getGradeBadgeClass(grade: string): string {
   }
 }
 
+// Saved upload workspace helpers (used by "2. Load the active upload" inside the component).
+function readSavedWorkspace(): string | null {
+  try {
+    const stored = localStorage.getItem("wellqc_upload_workspace");
+    if (!stored) return null;
+    return JSON.stringify({ userId: localStorage.getItem("wellqc_active_user_id"), stored });
+  } catch {
+    return null;
+  }
+}
+const subscribeToNothing = () => () => {};
+const getServerWorkspace = (): string | null => null;
+
 export default function QAEngineWorkspace() {
   // Data source mode: active upload workspace vs saved database wells
   const [sourceMode, setSourceMode] = useState<"ACTIVE_UPLOAD" | "DATABASE_WELL" | "DIRECT_DROP">("ACTIVE_UPLOAD");
@@ -182,42 +195,41 @@ export default function QAEngineWorkspace() {
     };
   }, []);
 
-  // 2. Load Active Upload from localStorage on Mount
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
+  // 2. Load the active upload saved by the upload page. useSyncExternalStore gives the server
+  // render and the first client render the same (empty) value, then supplies the saved value
+  // right after hydration. The subscription is a no-op on purpose: the saved workspace is
+  // applied once, and changes made in other tabs later are ignored.
+  const savedWorkspace = useSyncExternalStore(subscribeToNothing, readSavedWorkspace, getServerWorkspace);
+  const [appliedWorkspace, setAppliedWorkspace] = useState<string | null>(null);
+  if (savedWorkspace !== appliedWorkspace) {
+    setAppliedWorkspace(savedWorkspace);
     try {
-      const activeUserId = localStorage.getItem("wellqc_active_user_id");
-      const stored = localStorage.getItem("wellqc_upload_workspace");
+      const { userId: activeUserId, stored } = JSON.parse(savedWorkspace ?? "{}");
       if (stored) {
         const parsedData = JSON.parse(stored);
-        if (parsedData && (!parsedData.userId || !activeUserId || parsedData.userId === activeUserId)) {
-          if (parsedData.parsedLAS) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage; it cannot be read during render without a hydration mismatch
-            setRawLas(parsedData.parsedLAS);
-            setRawLasText(parsedData.rawText || "");
-            const rawWn = parsedData.parsedLAS.wellInfo?.wellName || "";
-            const validName =
-              rawWn && rawWn !== "2" && !/^\d+$/.test(rawWn)
-                ? rawWn
-                : parsedData.fileName
-                ? parsedData.fileName.replace(/\.(las|txt)$/i, "")
-                : "Active Upload Well";
-            setWellName(validName);
-            setWellId("active-upload");
-            setOperator(parsedData.parsedLAS.wellInfo?.company || "WellQC Petrophysics");
-            setField(parsedData.parsedLAS.wellInfo?.field || "Deepwater Basin");
-            setDepthUnit(parsedData.parsedLAS.wellInfo?.depthUnit || "FT");
-            setQaResult(parsedData.qaResult || null);
-            setSourceMode("ACTIVE_UPLOAD");
-            return;
-          }
+        if (parsedData?.parsedLAS && (!parsedData.userId || !activeUserId || parsedData.userId === activeUserId)) {
+          setRawLas(parsedData.parsedLAS);
+          setRawLasText(parsedData.rawText || "");
+          const rawWn = parsedData.parsedLAS.wellInfo?.wellName || "";
+          const validName =
+            rawWn && rawWn !== "2" && !/^\d+$/.test(rawWn)
+              ? rawWn
+              : parsedData.fileName
+              ? parsedData.fileName.replace(/\.(las|txt)$/i, "")
+              : "Active Upload Well";
+          setWellName(validName);
+          setWellId("active-upload");
+          setOperator(parsedData.parsedLAS.wellInfo?.company || "WellQC Petrophysics");
+          setField(parsedData.parsedLAS.wellInfo?.field || "Deepwater Basin");
+          setDepthUnit(parsedData.parsedLAS.wellInfo?.depthUnit || "FT");
+          setQaResult(parsedData.qaResult || null);
+          setSourceMode("ACTIVE_UPLOAD");
         }
       }
     } catch (e) {
       console.warn("Error reading active upload workspace:", e);
     }
-  }, []);
+  }
 
   // 3. Handle Selecting a Database Well
   const handleSelectDbWell = useCallback(

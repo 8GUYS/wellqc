@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     # Session cookie & Auth settings (exact match with Next.js src/lib/auth.ts)
     AUTH_SECRET: str = os.getenv("AUTH_SECRET", "wellqc-local-development-secret")
     SESSION_COOKIE_NAME: str = "wellqc_session"
-    SESSION_MAX_AGE_SECONDS: int = 7 * 24 * 60 * 60  # 7 days
+    SESSION_MAX_AGE_SECONDS: int = int(os.getenv("SESSION_MAX_AGE_SECONDS", str(30 * 60)))  # 30 minutes (1,800s)
     
     # Database
     DATABASE_URL: str = os.getenv(

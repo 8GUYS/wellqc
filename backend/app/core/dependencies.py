@@ -15,6 +15,10 @@ from backend.app.core.security import read_session_token
 from backend.app.models.models import User
 from backend.app.core.config import settings
 
+import logging
+
+logger = logging.getLogger("uvicorn.error")
+
 # OpenAPI security scheme for Swagger UI (/docs) Authorize button
 security_bearer = HTTPBearer(auto_error=False)
 
@@ -55,10 +59,14 @@ def get_current_user_optional(
     if not session_data or "id" not in session_data:
         return None
     
-    user = db.query(User).filter(User.id == session_data["id"]).first()
-    if not user and session_data.get("email"):
-        user = db.query(User).filter(User.email == session_data["email"]).first()
-    return user
+    try:
+        user = db.query(User).filter(User.id == session_data["id"]).first()
+        if not user and session_data.get("email"):
+            user = db.query(User).filter(User.email == session_data["email"]).first()
+        return user
+    except Exception as e:
+        logger.error(f"Error querying user session: {e}", exc_info=True)
+        return None
 
 def get_current_user(
     current_user: Optional[User] = Depends(get_current_user_optional),

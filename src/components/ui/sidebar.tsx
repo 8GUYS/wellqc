@@ -15,6 +15,9 @@ import {
   Sparkles,
   User,
   X,
+  GitCompare,
+  FileSpreadsheet,
+  History,
 } from "lucide-react";
 
 /**
@@ -48,7 +51,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
     // Modules scheduled for upcoming release cycles:
     // { label: "Well Comparison", href: "/comparison", icon: GitCompare },
     // { label: "Audit Reports", href: "/reports", icon: FileSpreadsheet },
-    // { label: "Activity Logs", href: "/activity", icon: History },
+    { label: "Activity Logs", href: "/activity", icon: History },
     { label: "User Profile", href: "/profile", icon: User },
   ];
 

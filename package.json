@@ -5,22 +5,26 @@
   "scripts": {
     "dev": "next dev",
     "dev:python": "uvicorn backend.app.main:app --reload --port 8000",
+    "python:install": "uv pip install -e .",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
-    "test:python": "python scripts/test_runner.py"
+    "test:python": "python scripts/test_runner.py",
+    "test:all": "npm test && npm run test:python"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
     "@neondatabase/serverless": "^1.1.0",
     "@prisma/adapter-neon": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@types/jszip": "^3.4.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "framer-motion": "^13.1.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
+    "jszip": "^3.10.2",
     "lucide-react": "^1.35.0",
     "next": "16.3.3",
     "papaparse": "^5.7.0",

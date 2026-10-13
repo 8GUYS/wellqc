@@ -16,8 +16,11 @@ db_url = get_engine_url(settings.DATABASE_URL)
 engine = create_engine(
     db_url,
     pool_pre_ping=True,
+    pool_recycle=300,
+    pool_timeout=30,
     pool_size=10,
     max_overflow=20,
+    connect_args={"connect_timeout": 15},
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

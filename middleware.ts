@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicAuthPaths = ["/login", "/register"];
+const authFormPaths = ["/login", "/register"];
+const publicVerificationPaths = ["/verify-email", "/verify-email-pending"];
 const publicGeneralPaths = ["/", "/pricing"];
 
 export function middleware(request: NextRequest) {
@@ -9,17 +10,17 @@ export function middleware(request: NextRequest) {
   const hasSession = Boolean(request.cookies.get("wellqc_session")?.value);
 
   // If user is on login/register and already logged in, send to dashboard
-  if (publicAuthPaths.includes(pathname) && hasSession) {
+  if (authFormPaths.includes(pathname) && hasSession) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // Public general pages are accessible to everyone
-  if (publicGeneralPaths.includes(pathname)) {
+  // Verification routes and public pages are accessible without session
+  if (publicVerificationPaths.includes(pathname) || publicGeneralPaths.includes(pathname)) {
     return NextResponse.next();
   }
 
-  // All other pages require session
-  if (!publicAuthPaths.includes(pathname) && !hasSession) {
+  // All other pages require an authenticated session
+  if (!authFormPaths.includes(pathname) && !hasSession) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

@@ -1,5 +1,5 @@
 """
-WellQC+ Domain Data Models.
+WellQC Domain Data Models.
 
 Defines SQLAlchemy 2.0 ORM models representing the subsurface analytics schema:
 - User: Multi-tenant user accounts with role-based access and subscription tiers.
@@ -56,6 +56,8 @@ class User(Base):
     department = Column(String, default="Subsurface Analytics", nullable=True)
     avatarUrl = Column(String, nullable=True)
     ndaAcceptedAt = Column(DateTime, nullable=True)
+    isEmailVerified = Column(Boolean, default=False, nullable=False)
+    emailVerifiedAt = Column(DateTime, nullable=True)
 
     tier = Column(String, default="FREE", nullable=False)
     freeChecksUsed = Column(Integer, default=0, nullable=False)
@@ -287,3 +289,13 @@ class CustomAlias(Base):
     __table_args__ = (
         UniqueConstraint("standardMnemonic", "alias", "userId", name="CustomAlias_standardMnemonic_alias_userId_key"),
     )
+
+
+class SystemSetting(Base):
+    __tablename__ = "SystemSetting"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    key = Column(String, unique=True, nullable=False, index=True)
+    value = Column(Text, nullable=False)
+    updatedAt = Column(DateTime, default=now_utc, onupdate=now_utc, nullable=False)
+

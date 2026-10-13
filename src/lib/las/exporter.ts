@@ -45,7 +45,7 @@ export function buildCleanedDataExport(las: ParsedLAS, qa: QualityAnalysisResult
     "VERS.                 2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0",
     "WRAP.                  NO : ONE LINE PER DEPTH STEP",
     "~WELL INFORMATION",
-    `# Cleaned by WellQC+ on ${new Date().toISOString()}`,
+    `# Cleaned by WellQC on ${new Date().toISOString()}`,
     `# QA grade ${qa.qualityGrade}; score ${qa.overallScore}/100; anomalies ${qa.anomalyCount}`,
     `# Duplicate depth rows removed: ${duplicateDepthRowsRemoved}`,
     formatHeaderLine("STRT", depthUnit, firstDepth, "START DEPTH"),
@@ -71,8 +71,8 @@ export function buildCleanedDataExport(las: ParsedLAS, qa: QualityAnalysisResult
       ),
     ),
     "~PARAMETER INFORMATION",
-    formatHeaderLine("QC_SCORE", "", qa.overallScore, "WELLQC+ QUALITY SCORE"),
-    formatHeaderLine("QC_GRADE", "", qa.qualityGrade, "WELLQC+ QUALITY GRADE"),
+    formatHeaderLine("QC_SCORE", "", qa.overallScore, "WellQC QUALITY SCORE"),
+    formatHeaderLine("QC_GRADE", "", qa.qualityGrade, "WellQC QUALITY GRADE"),
     formatHeaderLine("QC_WARN", "", qa.warningCount, "WARNING ANOMALY COUNT"),
     formatHeaderLine("QC_CRIT", "", qa.criticalCount, "CRITICAL ANOMALY COUNT"),
     "~ASCII",
@@ -440,8 +440,9 @@ function formatCurveLine(mnemonic: string, unit: string, description: string): s
   return `${mnemonic}.${unit.padEnd(8)} : ${description}`;
 }
 
-function cleanHeaderText(value: string): string {
-  return value.replace(/\r?\n/g, " ").trim();
+function cleanHeaderText(value: string | undefined | null): string {
+  if (value === undefined || value === null) return "";
+  return String(value).replace(/\r?\n/g, " ").trim();
 }
 
 function formatNumber(value: number): string {

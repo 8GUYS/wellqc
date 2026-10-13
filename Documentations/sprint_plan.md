@@ -1,6 +1,6 @@
-# WellQC+ — Master 3-Month Development Sprint Plan & Ownership Matrix
+# WellQC — Master 3-Month Development Sprint Plan & Ownership Matrix
 
-> **Project:** WellQC+ — AI-Powered Well Log Quality Assurance & Subsurface Analytics Platform  
+> **Project:** WellQC — AI-Powered Well Log Quality Assurance & Subsurface Analytics Platform  
 > **Team Structure (8 Members):** 2 Software Engineers · 4 Data Analysts · 2 Cloud Engineers  
 > **Timeline:** 3 Months (12 Weeks) · 6 × 2-Week Sprints  
 > **Active Sprint:** Sprint 6 — Hardened Production Release, Security Audit & Platform Integration  
@@ -11,7 +11,7 @@
 
 ## 🏗️ 1. Current Codebase Implementation Audit
 
-The WellQC+ platform is structured as an enterprise-grade AI well log quality assurance platform with a high-performance Python FastAPI backend and a Next.js 15 App Router frontend:
+The WellQC platform is structured as an enterprise-grade AI well log quality assurance platform with a high-performance Python FastAPI backend and a Next.js 15 App Router frontend:
 
 ### 1. Unified Python FastAPI Backend Architecture (`backend/app/`)
 * **FastAPI Service Core ([`backend/app/main.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/backend/app/main.py))**: Unified asynchronous backend serving all API endpoints (`/api/*`), interactive Swagger UI documentation (`/docs`), OpenAPI schemas (`/openapi.json`), and global structured JSON error handling.
@@ -96,7 +96,7 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
 
 ### 🟢 SPRINT 2 (Weeks 3–4): Foundation, Auth & Multi-Tenant Database
 * **Theme:** Database schema push, authentication stack, route protection middleware, and responsive app shell.
-* **SE1:** Build [`src/lib/auth.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/auth.ts) password hashing with scrypt + random salt; implement `verifyPassword` with `timingSafeEqual` and HMAC session token helpers.
+* **SE1:** Build [`src/lib/auth.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC/src/lib/auth.ts) password hashing with scrypt + random salt; implement `verifyPassword` with `timingSafeEqual` and HMAC session token helpers.
 * **SE2:** Build public Landing Page (`src/app/page.tsx`); build Auth API routes (`/api/auth/login`, `/register`, `/logout`, `/me`); build `app-shell.tsx`, `sidebar.tsx`, `header.tsx`, and `middleware.ts`.
 * **DA1:** Build initial raw mnemonic alias dictionary for standardisation (mapping `GAMMA`, `DEN`, `CNL`, `AC` to API standards).
 * **DA2:** Benchmark baseline imputation algorithms (Mean, Median, Linear Interpolation, Row Dropping).
@@ -184,7 +184,7 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
 ## 📊 4. Quick Reference Responsibility Matrix
 
 ```
-WellQC+ Development Team (8 Members)
+WellQC Development Team (8 Members)
 │
 ├── 🧑‍💻 SE1 (Core Engine & AI Lead)
 │    ├─ S1: Architecture & Data Pipeline Contract  ├─ S2: Scrypt & HMAC Auth Engine

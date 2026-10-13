@@ -12,6 +12,21 @@ class Settings(BaseSettings):
     SESSION_COOKIE_NAME: str = "wellqc_session"
     SESSION_MAX_AGE_SECONDS: int = int(os.getenv("SESSION_MAX_AGE_SECONDS", str(30 * 60)))  # 30 minutes (1,800s)
     
+    # Email Verification & Notifications
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_SECONDS: int = int(
+        os.getenv("EMAIL_VERIFICATION_TOKEN_EXPIRE_SECONDS", str(24 * 3600))  # 24 hours
+    )
+    REQUIRE_EMAIL_VERIFICATION: bool = os.getenv("REQUIRE_EMAIL_VERIFICATION", "true").lower() in ("true", "1", "t")
+    EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "EMAILJS")  # "EMAILJS", "RESEND", "DEV_LOGGER"
+    EMAILJS_SERVICE_ID: str = os.getenv("EMAILJS_SERVICE_ID", "")
+    EMAILJS_TEMPLATE_ID: str = os.getenv("EMAILJS_TEMPLATE_ID", "")
+    EMAILJS_RESET_TEMPLATE_ID: str = os.getenv("EMAILJS_RESET_TEMPLATE_ID", "")
+    EMAILJS_PUBLIC_KEY: str = os.getenv("EMAILJS_PUBLIC_KEY", "")
+    EMAILJS_PRIVATE_KEY: str = os.getenv("EMAILJS_PRIVATE_KEY", "")
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    RESEND_FROM_EMAIL: str = os.getenv("RESEND_FROM_EMAIL", "WellQC <onboarding@resend.dev>")
+    
     # Database
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",

@@ -1,0 +1,58 @@
+Metadata-Version: 2.4
+Name: wellqc
+Version: 0.1.0
+Summary: WellQC Subsurface Petrophysical Log Quality Assurance Microservice
+Author: WellQC Engineering Team
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn[standard]>=0.30.0
+Requires-Dist: pydantic>=2.9.0
+Requires-Dist: pydantic-settings>=2.5.0
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: psycopg2-binary>=2.9.9
+Requires-Dist: cryptography>=43.0.0
+Requires-Dist: pyjwt>=2.9.0
+Requires-Dist: argon2-cffi>=23.1.0
+Requires-Dist: python-multipart>=0.0.12
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: pandas>=2.2.0
+Requires-Dist: numpy>=2.0.0
+Requires-Dist: scipy>=1.14.0
+Requires-Dist: scikit-learn>=1.5.0
+Requires-Dist: lasio>=0.31
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: uv>=0.4.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"
+Requires-Dist: anyio>=4.4.0; extra == "dev"
+
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+
+## Deploy on Vercel
+
+

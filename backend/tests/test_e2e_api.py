@@ -55,6 +55,11 @@ def _get_auth_client(role="PETROPHYSICIST"):
         },
     )
     assert reg_resp.status_code == 201
+    verification_token = reg_resp.json().get("verificationToken")
+    if verification_token:
+        verify_resp = client.get(f"/api/auth/verify-email?token={verification_token}")
+        assert verify_resp.status_code == 200
+
     login_resp = client.post(
         "/api/auth/login",
         json={"email": email, "password": pwd},

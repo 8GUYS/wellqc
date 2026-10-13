@@ -1,5 +1,5 @@
 """
-WellQC+ Unified Python Backend Entrypoint.
+WellQC Unified Python Backend Entrypoint.
 
 This module initializes the FastAPI application instance, configures cross-origin
 resource sharing (CORS), registers the global JSON exception interceptor to avoid

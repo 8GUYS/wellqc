@@ -1,0 +1,7 @@
+README.md
+pyproject.toml
+src/wellqc.egg-info/PKG-INFO
+src/wellqc.egg-info/SOURCES.txt
+src/wellqc.egg-info/dependency_links.txt
+src/wellqc.egg-info/requires.txt
+src/wellqc.egg-info/top_level.txt

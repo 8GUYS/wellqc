@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 import json
+import logging
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import desc, asc, or_
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
@@ -25,6 +26,8 @@ from backend.app.schemas.well import (
     BulkDeleteWellsResponse,
 )
 
+logger = logging.getLogger("uvicorn.error")
+
 router = APIRouter(prefix="/api/wells", tags=["wells"])
 
 def _extract_curve_summaries(
@@ -39,11 +42,16 @@ def _extract_curve_summaries(
         except Exception:
             pass
 
-    if not latest_las_file or not latest_las_file.curves:
+    if not latest_las_file:
+        return []
+
+    # Safe check if curves are loaded in memory to avoid costly remote N+1 queries
+    curves = getattr(latest_las_file, "curves", None)
+    if not curves:
         return []
 
     summaries = []
-    for curve in latest_las_file.curves:
+    for curve in curves:
         health_score = 100
         null_pct = curve.nullPercentage or 0.0
         if null_pct > 50:
@@ -101,7 +109,7 @@ def _to_well_list_item(well: Well) -> Dict[str, Any]:
 
     anomaly_cnt = 0
     if latest_report:
-        anomaly_cnt = len(latest_report.anomalies) if latest_report.anomalies is not None else latest_report.anomalyCount
+        anomaly_cnt = latest_report.anomalyCount if latest_report.anomalyCount is not None else 0
 
     return {
         "id": well.id,
@@ -137,12 +145,15 @@ def list_wells(
     db: Session = Depends(get_db),
 ):
     try:
+        query = db.query(Well).options(
+            selectinload(Well.lasFiles).selectinload(LASFile.reports),
+            selectinload(Well.reports),
+        )
         if current_user.role in ("ADMIN", "SUPERVISOR"):
-            wells = db.query(Well).order_by(desc(Well.updatedAt)).all()
+            wells = query.order_by(desc(Well.updatedAt)).all()
         else:
             wells = (
-                db.query(Well)
-                .filter(
+                query.filter(
                     or_(
                         Well.ownerId == current_user.id,
                         Well.ownerId.is_(None),
@@ -153,6 +164,7 @@ def list_wells(
             )
         return {"wells": [_to_well_list_item(w) for w in wells]}
     except Exception as e:
+        logger.error(f"Error listing wells: {e}", exc_info=True)
         return {"wells": [], "error": f"Database error: {str(e)}"}
 
 
@@ -264,6 +276,11 @@ def get_well_detail(
     # Allow query by internal UUID, API/UWI number, or well name
     well = (
         db.query(Well)
+        .options(
+            selectinload(Well.lasFiles).selectinload(LASFile.reports),
+            selectinload(Well.lasFiles).selectinload(LASFile.curves),
+            selectinload(Well.reports),
+        )
         .filter(
             or_(
                 Well.id == clean_id,

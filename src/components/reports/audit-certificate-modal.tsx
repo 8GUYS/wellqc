@@ -17,6 +17,8 @@ import {
   Layers,
   ChevronRight,
 } from "lucide-react";
+import { CryptographicBadge } from "./cryptographic-badge";
+import { computeWellSignature } from "@/lib/crypto-signature";
 
 export interface AuditCertificateData {
   wellName: string;
@@ -97,6 +99,12 @@ function generatePrintableHTML(data: AuditCertificateData): string {
   const cleanedGrade = data.cleanedGrade || "EXCELLENT";
   const petroName = data.petrophysicistName || "Engr. C. Ekwebelam, FNAPE (COMEG Registered)";
   const petroRole = data.petrophysicistRole || "Lead Petrophysicist & Subsurface QA Lead";
+  const sig = computeWellSignature({
+    wellName: data.wellName,
+    qualityScore: data.qualityScore,
+    apiNo: data.apiNo,
+    timestamp: data.timestamp,
+  });
 
   // Build Anomaly Rows (up to 15 for formal document)
   const anomaliesList = data.anomalies.length > 0 ? data.anomalies : [
@@ -356,11 +364,11 @@ function generatePrintableHTML(data: AuditCertificateData): string {
       </table>
 
       <!-- Meta Bar -->
-      <div class="cert-meta-bar">
+      <div class="cert-meta-bar" style="background: #f0fdf4; border-color: #047857; color: #065f46;">
         <span>CERTIFICATE ID: <strong>${certId}</strong></span>
         <span>FORM: <strong>NUPRC-WQC-08-A</strong></span>
-        <span>ISSUANCE: <strong>${timestamp}</strong></span>
-        <span>STATUS: <strong style="color: #047857;">CERTIFIED AUDIT</strong></span>
+        <span>SHA-256 SEAL: <strong style="font-family: monospace;">${sig.shortHash}</strong></span>
+        <span>STATUS: <strong style="color: #047857;">VERIFIED AUDIT ✓</strong></span>
       </div>
 
       <!-- Section 1: Well Asset Metadata -->
@@ -491,7 +499,7 @@ function generatePrintableHTML(data: AuditCertificateData): string {
       </div>
 
       <div class="security-stamp">
-        WELLQC+ ENTERPRISE PETROPHYSICAL ENGINE • ENCRYPTED SHA-256 INTEGRITY DIGEST • RECORD ID: ${certId}
+        WellQC ENTERPRISE PETROPHYSICAL ENGINE • ENCRYPTED SHA-256 INTEGRITY DIGEST: ${sig.hash} • SEAL ID: ${sig.sealId} • RECORD ID: ${certId}
       </div>
 
     </div>
@@ -521,7 +529,7 @@ export function openPrintableAuditCertificate(data: AuditCertificateData) {
     try {
       printWindow.focus();
       printWindow.print();
-    } catch {}
+    } catch { }
   }, 350);
 }
 
@@ -684,6 +692,13 @@ export function AuditCertificateModal({
             </button>
           </div>
 
+          {/* Cryptographic Verification Badge */}
+          <CryptographicBadge
+            wellName={data.wellName}
+            qualityScore={data.qualityScore}
+            apiNo={data.apiNo}
+          />
+
           {/* Section 1: Well Identification */}
           <div className="bg-wellqc-panel border border-wellqc-border rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-wellqc-border/60 pb-2">
@@ -806,11 +821,10 @@ export function AuditCertificateModal({
                       </td>
                       <td className="py-2 px-3">
                         <span
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                            a.severity === "CRITICAL"
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${a.severity === "CRITICAL"
                               ? "bg-rose-500/20 text-rose-300"
                               : "bg-amber-500/20 text-amber-300"
-                          }`}
+                            }`}
                         >
                           {a.severity}
                         </span>

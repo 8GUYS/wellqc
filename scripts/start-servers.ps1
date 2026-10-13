@@ -1,4 +1,4 @@
-# WellQC+ Development Server Launcher
+# WellQC Development Server Launcher
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
@@ -12,7 +12,7 @@ $ToolsPythonScripts = "$env:USERPROFILE\.tools\python314\Scripts"
 $env:PATH = "$ToolsNode;$ToolsPython;$ToolsPythonScripts;" + $env:PATH
 
 Write-Host "=========================================" -ForegroundColor Cyan
-Write-Host "  Starting WellQC+ Development Servers   " -ForegroundColor Cyan
+Write-Host "  Starting WellQC Development Servers   " -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
 
 # 1. Start Python Backend Engine

@@ -13,5 +13,5 @@ if PROJECT_ROOT not in sys.path:
 import uvicorn
 
 if __name__ == "__main__":
-    print(f"Starting WellQC+ Engine on http://127.0.0.1:8000 (PID: {os.getpid()})")
+    print(f"Starting WellQC Engine on http://127.0.0.1:8000 (PID: {os.getpid()})")
     uvicorn.run("backend.app.main:app", host="0.0.0.0", port=8000, reload=True)

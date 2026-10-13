@@ -34,9 +34,9 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "compliance" | "security">("profile");
-  
+
   const [profile, setProfile] = useState<UserProfileData | null>(null);
-  
+
   // Form State
   const [formData, setFormData] = useState({
     name: "",
@@ -46,7 +46,7 @@ export default function UserProfilePage() {
     newPassword: "",
     confirmPassword: "",
   });
-  
+
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
@@ -132,7 +132,7 @@ export default function UserProfilePage() {
         {/* Profile Header Summary Banner */}
         <div className="bg-gradient-to-r from-wellqc-panel via-wellqc-card to-blue-950/40 border border-wellqc-border rounded-2xl p-6 relative overflow-hidden shadow-2xl">
           <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
-          
+
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
             <div className="flex items-center space-x-5">
               <div className="relative">
@@ -153,7 +153,7 @@ export default function UserProfilePage() {
                     WORKSPACE ACTIVE
                   </span>
                 </div>
-                
+
                 <p className="text-xs text-wellqc-muted mt-1 flex items-center space-x-4">
                   <span className="flex items-center space-x-1">
                     <Mail className="w-3.5 h-3.5 text-cyan-400" />
@@ -195,11 +195,10 @@ export default function UserProfilePage() {
         <div className="flex items-center space-x-2 border-b border-wellqc-border pb-2 overflow-x-auto">
           <button
             onClick={() => setActiveTab("profile")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
-              activeTab === "profile"
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${activeTab === "profile"
                 ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 shadow-sm"
                 : "text-slate-400 hover:text-white hover:bg-wellqc-card"
-            }`}
+              }`}
           >
             <User className="w-4 h-4" />
             <span>Profile Credentials</span>
@@ -207,11 +206,10 @@ export default function UserProfilePage() {
 
           <button
             onClick={() => setActiveTab("compliance")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
-              activeTab === "compliance"
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${activeTab === "compliance"
                 ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 shadow-sm"
                 : "text-slate-400 hover:text-white hover:bg-wellqc-card"
-            }`}
+              }`}
           >
             <Shield className="w-4 h-4" />
             <span>Compliance & NDA</span>
@@ -232,11 +230,10 @@ export default function UserProfilePage() {
 
         {/* Feedback Alert Banner */}
         {feedback && (
-          <div className={`p-4 rounded-xl border text-xs flex items-center justify-between ${
-            feedback.type === "success"
+          <div className={`p-4 rounded-xl border text-xs flex items-center justify-between ${feedback.type === "success"
               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
               : "bg-red-500/10 border-red-500/30 text-red-300"
-          }`}>
+            }`}>
             <div className="flex items-center space-x-2">
               {feedback.type === "success" ? (
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -436,7 +433,7 @@ export default function UserProfilePage() {
                   <span>Petrophysical Data Processing & NDA Compliance</span>
                 </h3>
                 <p className="text-xs text-wellqc-muted mt-0.5">
-                  WellQC+ maintains strict multi-tenant data confidentiality standards under International E&P data protection regulations.
+                  WellQC maintains strict multi-tenant data confidentiality standards under International E&P data protection regulations.
                 </p>
               </div>
 
@@ -453,7 +450,7 @@ export default function UserProfilePage() {
                   <span>Subsurface Data Confidentiality Terms</span>
                 </h4>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  All LAS well log curves, headers (`~W`, `~C`), depth coordinates, and petrophysical anomalies processed by WellQC+ are strictly isolated within your organization workspace via encrypted multi-tenant filtering.
+                  All LAS well log curves, headers (`~W`, `~C`), depth coordinates, and petrophysical anomalies processed by WellQC are strictly isolated within your organization workspace via encrypted multi-tenant filtering.
                 </p>
               </div>
 

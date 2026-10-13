@@ -293,7 +293,7 @@ export function WellLogViewer({
               <div className="flex justify-around text-xs font-mono">
                 <span>Field: Niger Delta</span>
                 <span>Depth Range: {minDepth} – {maxDepth} {depthUnit}</span>
-                <span>Operator: WellQC+ Telemetry</span>
+                <span>Operator: WellQC Telemetry</span>
               </div>
             </div>
             <div className="w-36 text-right text-xs font-sans hidden md:block">
@@ -615,11 +615,10 @@ export function WellLogViewer({
           <div className="flex items-center bg-wellqc-card border border-wellqc-border rounded-xl p-1 shadow-inner">
             <button
               onClick={() => handleLayoutModeChange("GRAPH")}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
-                layoutMode === "GRAPH"
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${layoutMode === "GRAPH"
                   ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
                   : "text-slate-400 hover:text-white"
-              }`}
+                }`}
               title="Show graphical well log plot only"
             >
               <LineChart className="w-3.5 h-3.5" />
@@ -628,11 +627,10 @@ export function WellLogViewer({
 
             <button
               onClick={() => handleLayoutModeChange("SPLIT")}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
-                layoutMode === "SPLIT"
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${layoutMode === "SPLIT"
                   ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
                   : "text-slate-400 hover:text-white"
-              }`}
+                }`}
               title="Show graphical log and tabular data side-by-side"
             >
               <Columns className="w-3.5 h-3.5" />
@@ -641,11 +639,10 @@ export function WellLogViewer({
 
             <button
               onClick={() => handleLayoutModeChange("TABLE")}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
-                layoutMode === "TABLE"
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${layoutMode === "TABLE"
                   ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
                   : "text-slate-400 hover:text-white"
-              }`}
+                }`}
               title="Show full tabular numerical spreadsheet view"
             >
               <Table className="w-3.5 h-3.5" />
@@ -658,11 +655,10 @@ export function WellLogViewer({
             <div className="flex items-center bg-wellqc-card border border-wellqc-border rounded-xl p-1 shadow-inner">
               <button
                 onClick={() => setViewMode("CLASSIC_PAPER")}
-                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg font-bold transition-all ${
-                  viewMode === "CLASSIC_PAPER"
+                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg font-bold transition-all ${viewMode === "CLASSIC_PAPER"
                     ? "bg-red-600 text-white shadow-md shadow-red-600/30"
                     : "text-slate-400 hover:text-white"
-                }`}
+                  }`}
                 title="Switch to Classic Borehole Paper Log styling"
               >
                 <FileText className="w-3.5 h-3.5" />
@@ -671,11 +667,10 @@ export function WellLogViewer({
 
               <button
                 onClick={() => setViewMode("DARK_MODERN")}
-                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg font-bold transition-all ${
-                  viewMode === "DARK_MODERN"
+                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg font-bold transition-all ${viewMode === "DARK_MODERN"
                     ? "bg-cyan-500 text-black shadow-md shadow-cyan-500/30"
                     : "text-slate-400 hover:text-white"
-                }`}
+                  }`}
                 title="Switch to Dark Subsurface styling"
               >
                 <Layout className="w-3.5 h-3.5" />

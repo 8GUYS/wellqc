@@ -5,7 +5,7 @@ cd /d "%~dp0\.."
 set "PATH=%USERPROFILE%\.tools\nodejs;%USERPROFILE%\.tools\python314;%USERPROFILE%\.tools\python314\Scripts;%PATH%"
 
 echo =========================================
-echo   Starting WellQC+ Development Servers   
+echo   Starting WellQC Development Servers   
 echo =========================================
 
 echo [1/2] Launching Python FastAPI Backend on http://127.0.0.1:8000...

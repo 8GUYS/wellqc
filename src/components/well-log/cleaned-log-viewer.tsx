@@ -30,7 +30,7 @@ interface TrackConfig {
 export function CleanedLogViewer({
   wellName,
   field = "Deepwater Basin",
-  operator = "WellQC+ Petrophysics",
+  operator = "WellQC Petrophysics",
   depthUnit = "FT",
   rawLas,
   cleanedLas,
@@ -276,21 +276,19 @@ export function CleanedLogViewer({
           <div className="flex items-center bg-wellqc-card border border-wellqc-border rounded-xl p-1 shadow-inner">
             <button
               onClick={() => setViewMode("CLASSIC_PAPER")}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                viewMode === "CLASSIC_PAPER"
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${viewMode === "CLASSIC_PAPER"
                   ? "bg-red-600 text-white shadow-md shadow-red-600/30"
                   : "text-slate-400 hover:text-white"
-              }`}
+                }`}
             >
               Classic Paper
             </button>
             <button
               onClick={() => setViewMode("DARK_MODERN")}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                viewMode === "DARK_MODERN"
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${viewMode === "DARK_MODERN"
                   ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30"
                   : "text-slate-400 hover:text-white"
-              }`}
+                }`}
             >
               Modern Dark
             </button>
@@ -443,7 +441,7 @@ export function CleanedLogViewer({
             </div>
             <div className="w-36 text-right text-xs font-sans hidden md:block">
               Scale: 1:500 Wireline <br />
-              <span className="text-[10px] text-slate-600 font-mono">WellQC+ Calibrated</span>
+              <span className="text-[10px] text-slate-600 font-mono">WellQC Calibrated</span>
             </div>
           </div>
 

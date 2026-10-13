@@ -1,6 +1,6 @@
-# WellQC+ Database Entity-Relationship Diagram (ERD) & ID Connection Guide
+# WellQC Database Entity-Relationship Diagram (ERD) & ID Connection Guide
 
-This document details the complete relational architecture of the WellQC+ platform based on the Prisma schema, illustrating all entity relationships, key mappings, cascade rules, and multi-tenant isolation pathways.
+This document details the complete relational architecture of the WellQC platform based on the Prisma schema, illustrating all entity relationships, key mappings, cascade rules, and multi-tenant isolation pathways.
 
 ---
 
@@ -206,7 +206,7 @@ erDiagram
 
 ## 2. ID Connection Matrix & Relational Mappings
 
-Every entity in WellQC+ uses **UUID v4 strings** as its primary key (`id`). The table below outlines each relationship, the joining keys, and the deletion cascades:
+Every entity in WellQC uses **UUID v4 strings** as its primary key (`id`). The table below outlines each relationship, the joining keys, and the deletion cascades:
 
 | Source Entity | Relationship Type | Target Entity | Foreign Key Column | Referenced Key Column | On Delete Cascade | Business Purpose |
 |---|---|---|---|---|---|---|

@@ -12,7 +12,7 @@ WellQC+ is a full-stack cloud platform that automatically validates, cleans, sta
 - Native **TypeScript LAS 2.0/3.0 parser** — extracts `~V`, `~W`, `~C`, `~P`, `~A` header sections, depth arrays, null values, units, and curve data matrices
 - **Automated Mnemonic Standardisation** — maps raw logging mnemonics (e.g., `GAMMA`, `DEN`, `CNL`, `ILD`, `AC`, `HCAL`) to standard API mnemonics (`GR`, `RHOB`, `NPHI`, `RT`, `DT`, `CALI`, `PEF`, `SP`, `MSFL`, `LLS`) with confidence scoring (1.0 exact, 0.95 alias, 0.50 fallback)
 - **Persistent Custom Alias Registration** — user-defined aliases stored in `localStorage`
-- Optional **Python FastAPI microservice** for high-throughput `lasio` + `scikit-learn` batch processing
+- **FastAPI backend (Python)** handling LAS parsing, quality scoring, standardisation and imputation
 
 ### 🧠 AI Quality Engine
 - Computes **Completeness Score**, **Consistency Score**, and **Overall Quality Score (0–100)** using the weighted formula:
@@ -125,11 +125,12 @@ WellQC+ is a full-stack cloud platform that automatically validates, cleans, sta
 | [date-fns](https://date-fns.org/) | ^4.1.0 | Date formatting & manipulation |
 | clsx + tailwind-merge | ^2.1.1 / ^2.5.4 | Conditional class utilities |
 
-### Backend Microservice (Optional)
+### Backend (FastAPI)
 | Technology | Purpose |
 |---|---|
-| Python 3 | Runtime for advanced petrophysical analytics |
-| FastAPI | High-performance REST API for LAS batch processing |
+| Python 3 | Runtime for the backend API and petrophysical analytics |
+| FastAPI | REST API for authentication, uploads, wells, analytics and LAS processing |
+| SQLAlchemy | Query layer over the Prisma-managed schema |
 | lasio | Industry-standard Python LAS file reader |
 | scikit-learn | `KNNImputer` for missing curve value estimation |
 | pandas | Curve data manipulation & statistical analysis |
@@ -158,9 +159,7 @@ WellQC+/
 ├── prisma/
 │   ├── schema.prisma              # Database schema (12+ models incl. billing tier fields)
 │   └── seed.ts                   # Sample data: Niger Delta demo wells
-├── services/
-│   └── python_parser/
-│       └── main.py               # Optional FastAPI LAS microservice (KNNImputer)
+├── backend/                       # FastAPI backend (Render): auth, uploads, wells, analytics, standardisation, quality engine, imputation
 └── src/
     ├── app/
     │   ├── page.tsx               # Public landing page with Paystack pricing section
@@ -258,14 +257,6 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.
-
-### Optional: Python Microservice
-
-```bash
-cd services/python_parser
-pip install fastapi uvicorn lasio pandas numpy scikit-learn
-uvicorn main:app --reload --port 8000
-```
 
 ---
 

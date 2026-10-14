@@ -851,7 +851,7 @@ export default function AdminPanelPage() {
                           )}
                         </div>
                         <p className="text-[11px] text-slate-400 font-mono mt-3 leading-relaxed">
-                          Direct dispatch via Resend REST API. Note: Free onboarding domain only delivers to the owner's account; requires verified domain for all public recipients.
+                          Direct dispatch via Resend REST API. Note: Free onboarding domain only delivers to the owner&apos;s account; requires verified domain for all public recipients.
                         </p>
                       </div>
 
@@ -991,7 +991,7 @@ export default function AdminPanelPage() {
                               {showEmailJsSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
                           </div>
-                          <p className="text-[10px] text-slate-400 mt-1">Optional. Required if "Strict mode" is enabled in EmailJS Account Security.</p>
+                          <p className="text-[10px] text-slate-400 mt-1">Optional. Required if &quot;Strict mode&quot; is enabled in EmailJS Account Security.</p>
                         </div>
                       </div>
 

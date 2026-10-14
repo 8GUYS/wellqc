@@ -201,8 +201,8 @@ export default function QAEngineWorkspace() {
   const [openRowApproveId, setOpenRowApproveId] = useState<string | null>(null);
   const [selectedMethodPerRow, setSelectedMethodPerRow] = useState<Record<string, string>>({});
 
-  // Batch action selection method
-  const [batchMethod, setBatchMethod] = useState<string>("");
+  // Batch action selection method override
+  const [batchMethodOverride, setBatchMethodOverride] = useState<string | null>(null);
 
   // ─── Section 3 & 4 Execution & Export State ────────────────────────────────
   const [isExecutingRepair, setIsExecutingRepair] = useState<boolean>(false);
@@ -483,14 +483,15 @@ export default function QAEngineWorkspace() {
     return found ? normalizeProblemType(found.anomalyType) : null;
   }, [selectedAnomalyIds, targetAnomalies]);
 
-  // Update default batch method when batchActiveType changes
-  useEffect(() => {
-    if (batchActiveType) {
-      const methods = CLEANING_METHODS[batchActiveType];
-      const rec = methods.find((m) => m.recommended) || methods[0];
-      setBatchMethod(rec?.id || "");
-    }
+  // Derive default batch method from active batch type
+  const defaultBatchMethod = useMemo(() => {
+    if (!batchActiveType) return "";
+    const methods = CLEANING_METHODS[batchActiveType];
+    const rec = methods.find((m) => m.recommended) || methods[0];
+    return rec?.id || "";
   }, [batchActiveType]);
+
+  const batchMethod = batchMethodOverride ?? defaultBatchMethod;
 
   // Toggle tick box on a row
   const handleToggleTick = (id: string, itemType: TargetProblemType) => {
@@ -527,6 +528,7 @@ export default function QAEngineWorkspace() {
       return next;
     });
     setSelectedAnomalyIds(new Set());
+    setBatchMethodOverride(null);
   };
 
   // Single Row Approve flow
@@ -950,7 +952,7 @@ export default function QAEngineWorkspace() {
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={batchMethod}
-                  onChange={(e) => setBatchMethod(e.target.value)}
+                  onChange={(e) => setBatchMethodOverride(e.target.value)}
                   className="bg-wellqc-dark border border-cyan-500/50 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none"
                 >
                   {CLEANING_METHODS[batchActiveType].map((m) => (
@@ -970,7 +972,10 @@ export default function QAEngineWorkspace() {
 
                 <button
                   type="button"
-                  onClick={() => setSelectedAnomalyIds(new Set())}
+                  onClick={() => {
+                    setSelectedAnomalyIds(new Set());
+                    setBatchMethodOverride(null);
+                  }}
                   className="px-2.5 py-1.5 rounded-lg bg-wellqc-dark hover:bg-slate-800 text-slate-300 font-mono text-xs border border-wellqc-border transition-all"
                 >
                   Clear selection

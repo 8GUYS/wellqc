@@ -444,7 +444,7 @@ def send_password_reset_email(
     name: str,
     token: str,
     expires_in_hours: int = 1,
-    db: Optional[Session] = None,
+    db: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Dispatch a password reset email using the active email provider

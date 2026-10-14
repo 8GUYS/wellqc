@@ -142,7 +142,7 @@ def register(req: RegisterRequest, response: Response, db: Session = Depends(get
         passwordHash=hash_password(req.password),
         role=safe_role,
         ndaAcceptedAt=now,
-        isEmailVerified=False,
+        isEmailVerified=not settings.REQUIRE_EMAIL_VERIFICATION,
     )
     db.add(new_user)
     db.commit()
@@ -155,12 +155,16 @@ def register(req: RegisterRequest, response: Response, db: Session = Depends(get
     )
 
     # Dispatch verification email via transactional service (EmailJS, Resend, or dev logger)
-    send_verification_email(
-        email=new_user.email,
-        name=new_user.name,
-        token=verification_token,
-        db=db,
-    )
+    try:
+        send_verification_email(
+            email=new_user.email,
+            name=new_user.name,
+            token=verification_token,
+            db=db,
+        )
+    except Exception as email_err:
+        import logging
+        logging.getLogger("wellqc.auth").warning(f"Verification email dispatch warning: {email_err}")
 
     user_dict = _format_user(new_user)
 

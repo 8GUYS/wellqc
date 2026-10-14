@@ -7,6 +7,7 @@ plain-text 500 responses, and mounts all domain-specific API routers.
 """
 
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -26,12 +27,39 @@ from backend.app.api import (
 
 logger = logging.getLogger("uvicorn.error")
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Ensure database schema compatibility on service startup.
+    Verifies that User email verification columns and the SystemSetting table exist.
+    """
+    from backend.app.core.database import engine
+    from sqlalchemy import text
+    try:
+        with engine.begin() as conn:
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isEmailVerified" BOOLEAN NOT NULL DEFAULT false;'))
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "emailVerifiedAt" TIMESTAMP(3);'))
+            conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS "SystemSetting" (
+                    "id" TEXT NOT NULL PRIMARY KEY,
+                    "key" TEXT NOT NULL UNIQUE,
+                    "value" TEXT NOT NULL,
+                    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+            '''))
+            conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "SystemSetting_key_key" ON "SystemSetting"("key");'))
+        logger.info("Database schema compatibility check completed successfully.")
+    except Exception as e:
+        logger.warning(f"Database schema check warning on startup: {e}")
+    yield
+
 # Instantiate FastAPI application with metadata for OpenAPI / Swagger documentation
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="Enterprise Well Log Quality Assurance & Petrophysics API",
     swagger_ui_parameters={"persistAuthorization": True},
+    lifespan=lifespan,
 )
 
 @app.exception_handler(Exception)

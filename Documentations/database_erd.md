@@ -52,6 +52,13 @@ erDiagram
         datetime createdAt
     }
 
+    SYSTEM_SETTING {
+        string id PK "uuid"
+        string key UK "setting key"
+        string value "setting text/JSON"
+        datetime updatedAt
+    }
+
     USER {
         string id PK "uuid"
         string email UK
@@ -61,6 +68,8 @@ erDiagram
         string department
         string avatarUrl
         datetime ndaAcceptedAt
+        boolean isEmailVerified
+        datetime emailVerifiedAt
         string tier
         int freeChecksUsed
         string stripeCustomerId UK
@@ -227,6 +236,8 @@ Every entity in WellQC uses **UUID v4 strings** as its primary key (`id`). The t
 | **`LASFile`** | $1 : N$ | **`QualityReport`** | `QualityReport.lasFileId` | `LASFile.id` | `Cascade` | Each LAS file generation produces a formal QA report. |
 | **`QualityReport`** | $1 : N$ | **`Anomaly`** | `Anomaly.qualityReportId` | `QualityReport.id` | `Cascade` | Deleting a report removes all identified anomaly flags. |
 | **`Curve`** | $1 : N$ | **`Anomaly`** | `Anomaly.curveId` | `Curve.id` | `SetNull` / Optional | Connects an anomaly to its specific curve channel (e.g., RHOB spike). |
+| **`SystemSetting`** | Standalone | N/A | N/A | N/A | N/A | Live platform configuration store (EmailJS templates, rate-limiting params). |
+| **`Webhook`** | Standalone | N/A | N/A | N/A | N/A | Event-driven webhook destinations for outbound data pipeline dispatch. |
 
 > [!NOTE]
 > **Optional / Nullable Fields**: `LASFile.nullValue` is optional (`Float?` in Prisma, `nullable=True` in SQLAlchemy with default `None`), ensuring that files lacking explicit NULL header markers can be ingested without database schema violation. `Curve.minVal`, `Curve.maxVal`, and `Curve.meanVal` are likewise nullable for empty or all-null curve logs.

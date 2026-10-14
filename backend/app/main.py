@@ -37,17 +37,26 @@ async def lifespan(app: FastAPI):
     from sqlalchemy import text
     try:
         with engine.begin() as conn:
-            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isEmailVerified" BOOLEAN NOT NULL DEFAULT false;'))
-            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "emailVerifiedAt" TIMESTAMP(3);'))
-            conn.execute(text('''
-                CREATE TABLE IF NOT EXISTS "SystemSetting" (
-                    "id" TEXT NOT NULL PRIMARY KEY,
-                    "key" TEXT NOT NULL UNIQUE,
-                    "value" TEXT NOT NULL,
-                    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-                );
-            '''))
-            conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "SystemSetting_key_key" ON "SystemSetting"("key");'))
+            cols = {r[0] for r in conn.execute(text(
+                "select column_name from information_schema.columns "
+                "where table_schema='public' and table_name='User'"))}
+            has_setting = conn.execute(text(
+                """select to_regclass('public."SystemSetting"') is not null""")).scalar()
+
+            if "isEmailVerified" not in cols:
+                conn.execute(text('ALTER TABLE "User" ADD COLUMN "isEmailVerified" BOOLEAN NOT NULL DEFAULT false;'))
+            if "emailVerifiedAt" not in cols:
+                conn.execute(text('ALTER TABLE "User" ADD COLUMN "emailVerifiedAt" TIMESTAMP(3);'))
+            if not has_setting:
+                conn.execute(text('''
+                    CREATE TABLE "SystemSetting" (
+                        "id" TEXT NOT NULL PRIMARY KEY,
+                        "key" TEXT NOT NULL UNIQUE,
+                        "value" TEXT NOT NULL,
+                        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                '''))
+                conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "SystemSetting_key_key" ON "SystemSetting"("key");'))
         logger.info("Database schema compatibility check completed successfully.")
     except Exception as e:
         logger.warning(f"Database schema check warning on startup: {e}")

@@ -155,6 +155,12 @@ function getGradeBadgeStyle(grade: string): string {
   }
 }
 
+interface FixDecision {
+  status: "APPROVED" | "REJECTED";
+  method?: string;
+  methodId?: string;
+}
+
 // Saved upload workspace helpers (used by "2. Load the active upload" inside the component).
 function readSavedWorkspace(): string | null {
   try {
@@ -170,7 +176,8 @@ const getServerWorkspace = (): string | null => null;
 
 export default function QAEngineWorkspace() {
   // Data source mode: active upload workspace vs saved database wells
-  const [sourceMode, setSourceMode] = useState<"ACTIVE_UPLOAD" | "DATABASE_WELL" | "DIRECT_DROP">("ACTIVE_UPLOAD");
+  const [sourceChoice, setSourceChoice] = useState<"ACTIVE_UPLOAD" | "DATABASE_WELL">("ACTIVE_UPLOAD");
+  const [activeUploadAvailable, setActiveUploadAvailable] = useState<boolean>(false);
 
   // Well Data State
   const [wellName, setWellName] = useState<string>("Select a well...");
@@ -225,7 +232,7 @@ export default function QAEngineWorkspace() {
       }
     }
 
-    loadInitialData();
+    loadDbWells();
     return () => {
       active = false;
     };
@@ -259,11 +266,12 @@ export default function QAEngineWorkspace() {
           setField(parsedData.parsedLAS.wellInfo?.field || "Deepwater Basin");
           setDepthUnit(parsedData.parsedLAS.wellInfo?.depthUnit || "FT");
           setQaResult(parsedData.qaResult || null);
-          setSourceMode("ACTIVE_UPLOAD");
+          setActiveUploadAvailable(true);
+          setSourceChoice("ACTIVE_UPLOAD");
         }
-      } catch (err) {
-        console.warn("Could not read active upload workspace:", err);
       }
+    } catch (err) {
+      console.warn("Could not read active upload workspace:", err);
     }
   }
 

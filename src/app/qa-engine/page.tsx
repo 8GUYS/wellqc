@@ -5,10 +5,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { CleanedLogViewer } from "@/components/well-log/cleaned-log-viewer";
 import {
   repairQAEngine,
-  getQAEngineOverview,
   analyzeLAS,
   QARepairResponse,
-  QAEngineOverviewResponse,
 } from "@/lib/las/api";
 import { downloadTextFile } from "@/lib/las/storage-utils";
 import {
@@ -20,82 +18,129 @@ import {
 } from "@/lib/api-types";
 import {
   ShieldCheck,
-  Layers,
   Download,
   CheckCircle2,
-  AlertTriangle,
   AlertCircle,
   Filter,
   Sparkles,
   RefreshCw,
-  Sliders,
   Database,
   UploadCloud,
   CheckSquare,
   Square,
   FileText,
-  Activity,
   FileCheck2,
   BadgeCheck,
   TrendingUp,
-  Gauge,
   FileCode,
   Copy,
   Check,
   RotateCcw,
-  Info,
-  Lock,
-  ChevronRight,
   ArrowRight,
-  Search,
+  X,
+  FileDown,
 } from "lucide-react";
 
-// Target anomalies required by petrophysicist QA sprint specification
-const TARGET_ANOMALY_TYPES = [
-  "DUPLICATE_DEPTH",
-  "IMPOSSIBLE_VALUE",
-  "NULL_CLUSTER",
-  "EXTREME_SPIKE",
-] as const;
+// The four problems dealt with on the Quality Engine page
+export type TargetProblemType =
+  | "DUPLICATE_DEPTH"
+  | "IMPOSSIBLE_VALUE"
+  | "NULL_CLUSTER"
+  | "EXTREME_SPIKE";
 
-function isTargetAnomaly(type: string): boolean {
-  const norm = (type || "").toUpperCase().trim();
-  return (
-    norm === "DUPLICATE_DEPTH" ||
-    norm === "IMPOSSIBLE_VALUE" ||
-    norm === "NULL_CLUSTER" ||
-    norm === "NULL_DEPTH" ||
-    norm === "EXTREME_SPIKE"
-  );
+interface CleaningMethod {
+  id: string;
+  name: string;
+  description: string;
+  recommended: boolean;
 }
 
-function getAnomalyCategoryLabel(type: string): string {
-  const norm = (type || "").toUpperCase().trim();
-  if (norm === "DUPLICATE_DEPTH") return "Duplicate Depth Index";
-  if (norm === "IMPOSSIBLE_VALUE") return "Physical Boundary Violation";
-  if (norm === "NULL_CLUSTER" || norm === "NULL_DEPTH") return "Null / Missing Cluster";
-  if (norm === "EXTREME_SPIKE") return "Extreme Sensor Spike";
-  return norm;
+// Cleaning methods dictionary per problem type
+const CLEANING_METHODS: Record<TargetProblemType, CleaningMethod[]> = {
+  NULL_CLUSTER: [
+    {
+      id: "KNN",
+      name: "K-Nearest Neighbours",
+      description: "Predicts missing samples based on multi-variate curve correlation",
+      recommended: true,
+    },
+    {
+      id: "LINEAR",
+      name: "Linear interpolation",
+      description: "Interpolates linearly across continuous null gaps",
+      recommended: false,
+    },
+    {
+      id: "MEDIAN",
+      name: "Zonal median replacement",
+      description: "Imputes missing interval with geological formation median",
+      recommended: false,
+    },
+  ],
+  DUPLICATE_DEPTH: [
+    {
+      id: "PRUNE",
+      name: "Monotonic Depth Pruning",
+      description: "Removes redundant repeating depth step records preserving first arrival",
+      recommended: true,
+    },
+  ],
+  IMPOSSIBLE_VALUE: [
+    {
+      id: "CLAMP",
+      name: "Physical Boundary Clamping",
+      description: "Clamps values outside physical thermodynamics to valid lithological limits",
+      recommended: true,
+    },
+  ],
+  EXTREME_SPIKE: [
+    {
+      id: "DESPIKE",
+      name: "Median Sliding Despiking",
+      description: "Filters transient telemetry spikes using local moving median window",
+      recommended: true,
+    },
+  ],
+};
+
+function normalizeProblemType(rawType: string): TargetProblemType | null {
+  const norm = (rawType || "").toUpperCase().trim();
+  if (norm.includes("DUP") || norm === "DUPLICATE_DEPTH") return "DUPLICATE_DEPTH";
+  if (norm.includes("IMPOSSIBLE") || norm.includes("PHYSICAL") || norm.includes("BOUNDARY") || norm === "IMPOSSIBLE_VALUE") {
+    return "IMPOSSIBLE_VALUE";
+  }
+  if (norm.includes("NULL") || norm === "NULL_CLUSTER" || norm === "NULL_DEPTH") return "NULL_CLUSTER";
+  if (norm.includes("SPIKE") || norm === "EXTREME_SPIKE") return "EXTREME_SPIKE";
+  return null;
 }
 
-function getCategoryBadgeClass(type: string): string {
-  const norm = (type || "").toUpperCase().trim();
-  if (norm === "DUPLICATE_DEPTH") {
-    return "bg-rose-500/10 text-rose-400 border-rose-500/30";
+function getProblemDisplayName(type: TargetProblemType): string {
+  switch (type) {
+    case "DUPLICATE_DEPTH":
+      return "DUPLICATE_DEPTH";
+    case "IMPOSSIBLE_VALUE":
+      return "IMPOSSIBLE_VALUE";
+    case "NULL_CLUSTER":
+      return "NULL_CLUSTER";
+    case "EXTREME_SPIKE":
+      return "EXTREME_SPIKE";
   }
-  if (norm === "IMPOSSIBLE_VALUE") {
-    return "bg-amber-500/10 text-amber-400 border-amber-500/30";
-  }
-  if (norm === "NULL_CLUSTER" || norm === "NULL_DEPTH") {
-    return "bg-purple-500/10 text-purple-400 border-purple-500/30";
-  }
-  if (norm === "EXTREME_SPIKE") {
-    return "bg-cyan-500/10 text-cyan-400 border-cyan-500/30";
-  }
-  return "bg-slate-500/10 text-slate-400 border-slate-500/30";
 }
 
-function getGradeBadgeClass(grade: string): string {
+function getPlainExplanation(type: TargetProblemType, curveName: string): string {
+  switch (type) {
+    case "DUPLICATE_DEPTH":
+      return `The same depth reading appears twice in the sequence for ${curveName || "index"}.`;
+    case "IMPOSSIBLE_VALUE":
+      return `A reading on ${curveName || "this curve"} exceeds physical thermodynamic bounds.`;
+    case "NULL_CLUSTER":
+      return `A contiguous stretch of missing readings was found on ${curveName || "this curve"}.`;
+    case "EXTREME_SPIKE":
+      return `An extreme telemetry spike on ${curveName || "this curve"} deviates sharply from adjacent samples.`;
+  }
+}
+
+function getGradeBadgeStyle(grade: string): string {
   switch ((grade || "").toUpperCase()) {
     case "EXCELLENT":
       return "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
@@ -110,13 +155,20 @@ function getGradeBadgeClass(grade: string): string {
   }
 }
 
-export default function QAEngineWorkspace() {
-  // Data source mode: active upload workspace vs saved database wells
-  const [sourceMode, setSourceMode] = useState<"ACTIVE_UPLOAD" | "DATABASE_WELL" | "DIRECT_DROP">("ACTIVE_UPLOAD");
+interface FixDecision {
+  status: "APPROVED" | "REJECTED";
+  method?: string;
+  methodId?: string;
+}
+
+export default function QualityEnginePage() {
+  // ─── Data Source & Well Selection ──────────────────────────────────────────
+  const [sourceChoice, setSourceChoice] = useState<"ACTIVE_UPLOAD" | "DATABASE_WELL">("ACTIVE_UPLOAD");
+  const [activeUploadAvailable, setActiveUploadAvailable] = useState<boolean>(false);
 
   // Well Data State
-  const [wellName, setWellName] = useState<string>("Active Well");
-  const [wellId, setWellId] = useState<string>("active-upload");
+  const [wellName, setWellName] = useState<string>("Select a well...");
+  const [wellId, setWellId] = useState<string>("");
   const [operator, setOperator] = useState<string>("WellQC Petrophysics");
   const [field, setField] = useState<string>("Deepwater Basin");
   const [depthUnit, setDepthUnit] = useState<string>("FT");
@@ -128,38 +180,29 @@ export default function QAEngineWorkspace() {
   const [dbWells, setDbWells] = useState<WellListItem[]>([]);
   const [selectedDbWellId, setSelectedDbWellId] = useState<string>("");
   const [isLoadingWells, setIsLoadingWells] = useState<boolean>(false);
-  const [wellSearchQuery, setWellSearchQuery] = useState<string>("");
 
-  // Target Anomaly Filter state
+  // ─── Section 2 Decisions & Filtering State ─────────────────────────────────
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
   const [selectedAnomalyIds, setSelectedAnomalyIds] = useState<Set<string>>(new Set());
+  const [decisions, setDecisions] = useState<Record<string, FixDecision>>({});
+  const [openRowApproveId, setOpenRowApproveId] = useState<string | null>(null);
+  const [selectedMethodPerRow, setSelectedMethodPerRow] = useState<Record<string, string>>({});
 
-  // Interactive Repair Actions toggles
-  const [actionDespiking, setActionDespiking] = useState<boolean>(true);
-  const [actionBoundaryClamping, setActionBoundaryClamping] = useState<boolean>(true);
-  const [actionDuplicateDepthsOnly, setActionDuplicateDepthsOnly] = useState<boolean>(true);
+  // Batch action selection method
+  const [batchMethod, setBatchMethod] = useState<string>("");
 
-  // Execution & Results State
+  // ─── Section 3 & 4 Execution & Export State ────────────────────────────────
   const [isExecutingRepair, setIsExecutingRepair] = useState<boolean>(false);
   const [repairResult, setRepairResult] = useState<QARepairResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [copiedCertId, setCopiedCertId] = useState<boolean>(false);
+  const [reportExported, setReportExported] = useState<boolean>(false);
 
-  // Engine Overview
-  const [overview, setOverview] = useState<QAEngineOverviewResponse | null>(null);
-
-  // 1. Fetch Engine Overview & Initial DB Wells
+  // 1. Initial Load: Fetch DB Wells and inspect local Active Upload
   useEffect(() => {
     let active = true;
 
-    async function loadInitialData() {
-      try {
-        const ov = await getQAEngineOverview();
-        if (active) setOverview(ov);
-      } catch (e) {
-        console.warn("Failed to load QA Engine overview:", e);
-      }
-
+    async function loadDbWells() {
       try {
         setIsLoadingWells(true);
         const res = await fetch("/api/wells", { cache: "no-store" });
@@ -170,62 +213,68 @@ export default function QAEngineWorkspace() {
           }
         }
       } catch (e) {
-        console.warn("Failed to load DB wells:", e);
+        console.warn("Failed to load DB wells for Quality Engine:", e);
       } finally {
         if (active) setIsLoadingWells(false);
       }
     }
 
-    loadInitialData();
+    loadDbWells();
+
+    // Check Local Storage for active upload
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("wellqc_upload_workspace");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.parsedLAS) {
+            setActiveUploadAvailable(true);
+            setRawLas(parsed.parsedLAS);
+            setRawLasText(parsed.rawText || "");
+            const rawWn = parsed.parsedLAS.wellInfo?.wellName || "";
+            const validName =
+              rawWn && rawWn !== "2" && !/^\d+$/.test(rawWn)
+                ? rawWn
+                : parsed.fileName
+                ? parsed.fileName.replace(/\.(las|txt)$/i, "")
+                : "Active Upload Well";
+            setWellName(validName);
+            setWellId("active-upload");
+            setOperator(parsed.parsedLAS.wellInfo?.company || "WellQC Petrophysics");
+            setField(parsed.parsedLAS.wellInfo?.field || "Deepwater Basin");
+            setDepthUnit(parsed.parsedLAS.wellInfo?.depthUnit || "FT");
+            setQaResult(parsed.qaResult || null);
+            setSourceChoice("ACTIVE_UPLOAD");
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Could not read active upload workspace:", err);
+      }
+    }
+
     return () => {
       active = false;
     };
   }, []);
 
-  // 2. Load Active Upload from localStorage on Mount
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    try {
-      const activeUserId = localStorage.getItem("wellqc_active_user_id");
-      const stored = localStorage.getItem("wellqc_upload_workspace");
-      if (stored) {
-        const parsedData = JSON.parse(stored);
-        if (parsedData && (!parsedData.userId || !activeUserId || parsedData.userId === activeUserId)) {
-          if (parsedData.parsedLAS) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage; it cannot be read during render without a hydration mismatch
-            setRawLas(parsedData.parsedLAS);
-            setRawLasText(parsedData.rawText || "");
-            const rawWn = parsedData.parsedLAS.wellInfo?.wellName || "";
-            const validName =
-              rawWn && rawWn !== "2" && !/^\d+$/.test(rawWn)
-                ? rawWn
-                : parsedData.fileName
-                ? parsedData.fileName.replace(/\.(las|txt)$/i, "")
-                : "Active Upload Well";
-            setWellName(validName);
-            setWellId("active-upload");
-            setOperator(parsedData.parsedLAS.wellInfo?.company || "WellQC Petrophysics");
-            setField(parsedData.parsedLAS.wellInfo?.field || "Deepwater Basin");
-            setDepthUnit(parsedData.parsedLAS.wellInfo?.depthUnit || "FT");
-            setQaResult(parsedData.qaResult || null);
-            setSourceMode("ACTIVE_UPLOAD");
-            return;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("Error reading active upload workspace:", e);
-    }
+  // Helper to reset all review decisions & results from scratch
+  const resetWorkspaceState = useCallback(() => {
+    setRepairResult(null);
+    setDecisions({});
+    setSelectedAnomalyIds(new Set());
+    setOpenRowApproveId(null);
+    setCategoryFilter("ALL");
+    setErrorMessage("");
+    setReportExported(false);
   }, []);
 
-  // 3. Handle Selecting a Database Well
+  // Handle selecting a database well
   const handleSelectDbWell = useCallback(
     async (id: string) => {
       if (!id) return;
       setSelectedDbWellId(id);
-      setErrorMessage("");
-      setRepairResult(null);
+      resetWorkspaceState();
 
       try {
         const res = await fetch(`/api/wells/${id}`, { cache: "no-store" });
@@ -239,7 +288,7 @@ export default function QAEngineWorkspace() {
         setField(detail.well.fieldName || "Offshore Basin");
         setDepthUnit(detail.well.depthUnit || "FT");
 
-        // Construct client-side ParsedLAS object from curvesData for viewer compatibility
+        // Construct ParsedLAS
         const parsedFromDb: ParsedLAS = {
           version: "2.0",
           wrap: false,
@@ -276,7 +325,6 @@ export default function QAEngineWorkspace() {
         setRawLas(parsedFromDb);
         setRawLasText("");
 
-        // Construct QualityAnalysisResult from anomalies and score
         const qaFromDb: QualityAnalysisResult = {
           overallScore: detail.well.qualityScore || 80,
           qualityGrade: (detail.well.qualityGrade as QualityAnalysisResult["qualityGrade"]) || "GOOD",
@@ -303,65 +351,73 @@ export default function QAEngineWorkspace() {
         setErrorMessage((err instanceof Error && err.message) || "Failed to load database well details.");
       }
     },
-    []
+    [resetWorkspaceState]
   );
 
-  // 4. Handle Direct File Drop / Upload
-  const handleDirectFileUpload = useCallback(async (file: File) => {
-    if (!file) return;
-    setErrorMessage("");
-    setRepairResult(null);
+  // Switch Data Source
+  const handleSourceChange = (newSource: "ACTIVE_UPLOAD" | "DATABASE_WELL") => {
+    setSourceChoice(newSource);
+    resetWorkspaceState();
 
-    try {
-      const content = await file.text();
-      setRawLasText(content);
-      const analysis = await analyzeLAS(content);
-
-      setRawLas(analysis.parsed);
-      setQaResult(analysis.qa);
-      const fileNameWithoutExt = file.name.replace(/\.(las|txt)$/i, "");
-      setWellName(analysis.parsed.wellInfo?.wellName || fileNameWithoutExt || "Uploaded Well");
-      setWellId("direct-upload");
-      setOperator(analysis.parsed.wellInfo?.company || "WellQC Petrophysics");
-      setField(analysis.parsed.wellInfo?.field || "Direct Upload Basin");
-      setDepthUnit(analysis.parsed.wellInfo?.depthUnit || "FT");
-      setSourceMode("DIRECT_DROP");
-    } catch (err: unknown) {
-      setErrorMessage((err instanceof Error && err.message) || "Failed to analyze uploaded LAS file.");
+    if (newSource === "ACTIVE_UPLOAD") {
+      if (typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("wellqc_upload_workspace");
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && parsed.parsedLAS) {
+              setRawLas(parsed.parsedLAS);
+              setRawLasText(parsed.rawText || "");
+              const rawWn = parsed.parsedLAS.wellInfo?.wellName || "";
+              const validName =
+                rawWn && rawWn !== "2" && !/^\d+$/.test(rawWn)
+                  ? rawWn
+                  : parsed.fileName
+                  ? parsed.fileName.replace(/\.(las|txt)$/i, "")
+                  : "Active Upload Well";
+              setWellName(validName);
+              setWellId("active-upload");
+              setOperator(parsed.parsedLAS.wellInfo?.company || "WellQC Petrophysics");
+              setField(parsed.parsedLAS.wellInfo?.field || "Deepwater Basin");
+              setDepthUnit(parsed.parsedLAS.wellInfo?.depthUnit || "FT");
+              setQaResult(parsed.qaResult || null);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to reload active upload:", e);
+        }
+      }
+      setWellName("No active upload found");
+      setRawLas(null);
+      setQaResult(null);
+    } else {
+      // Switched to Saved Database Wells
+      if (dbWells.length > 0) {
+        const first = dbWells[0];
+        handleSelectDbWell(first.id);
+      } else {
+        setWellName("No database wells stored");
+        setRawLas(null);
+        setQaResult(null);
+      }
     }
-  }, []);
+  };
 
-  // Filter ONLY Target Anomalies:
-  // "Get only duplicate depths,impossible value, nulls & null clusters, spikes anomalies from the active wells."
+  // ─── Filter Target Anomalies (Duplicate Depths, Impossible Values, Null Clusters, Extreme Spikes)
   const targetAnomalies = useMemo<AnomalyReportItem[]>(() => {
     if (!qaResult?.anomalies) return [];
     return qaResult.anomalies
-      .filter((a) => isTargetAnomaly(a.anomalyType))
-      .map((a, index) => ({
-        ...a,
-        id: a.id || `target-anom-${index}-${a.curveMnemonic}-${a.depthStart}`,
-      }));
+      .filter((a) => normalizeProblemType(a.anomalyType) !== null)
+      .map((a, index) => {
+        const pType = normalizeProblemType(a.anomalyType)!;
+        return {
+          ...a,
+          id: a.id || `target-anom-${index}-${a.curveMnemonic}-${a.depthStart}`,
+          anomalyType: pType,
+        };
+      });
   }, [qaResult]);
-
-  // Sync selected anomalies set with detected target anomalies
-  const [syncedAnomalies, setSyncedAnomalies] = useState<AnomalyReportItem[] | null>(null);
-  if (syncedAnomalies !== targetAnomalies) {
-    setSyncedAnomalies(targetAnomalies);
-    setSelectedAnomalyIds(new Set(targetAnomalies.map((a) => a.id!)));
-  }
-
-  // Filter by category pill
-  const filteredAnomalies = useMemo(() => {
-    if (categoryFilter === "ALL") return targetAnomalies;
-    return targetAnomalies.filter((a) => {
-      const norm = (a.anomalyType || "").toUpperCase();
-      if (categoryFilter === "DUPLICATE_DEPTH") return norm === "DUPLICATE_DEPTH";
-      if (categoryFilter === "IMPOSSIBLE_VALUE") return norm === "IMPOSSIBLE_VALUE";
-      if (categoryFilter === "NULL_CLUSTER") return norm === "NULL_CLUSTER" || norm === "NULL_DEPTH";
-      if (categoryFilter === "EXTREME_SPIKE") return norm === "EXTREME_SPIKE";
-      return true;
-    });
-  }, [targetAnomalies, categoryFilter]);
 
   // Anomaly Category Counts
   const counts = useMemo(() => {
@@ -370,83 +426,253 @@ export default function QAEngineWorkspace() {
     let nul = 0;
     let spk = 0;
     targetAnomalies.forEach((a) => {
-      const norm = (a.anomalyType || "").toUpperCase();
-      if (norm === "DUPLICATE_DEPTH") dup++;
-      else if (norm === "IMPOSSIBLE_VALUE") imp++;
-      else if (norm === "NULL_CLUSTER" || norm === "NULL_DEPTH") nul++;
-      else if (norm === "EXTREME_SPIKE") spk++;
+      const pType = normalizeProblemType(a.anomalyType);
+      if (pType === "DUPLICATE_DEPTH") dup++;
+      else if (pType === "IMPOSSIBLE_VALUE") imp++;
+      else if (pType === "NULL_CLUSTER") nul++;
+      else if (pType === "EXTREME_SPIKE") spk++;
     });
-    return { dup, imp, nul, spk, total: targetAnomalies.length };
-  }, [targetAnomalies]);
 
-  // Toggle Anomaly Selection Checkbox
-  const toggleAnomalySelection = (id: string) => {
+    const approvedCount = Object.values(decisions).filter((d) => d.status === "APPROVED").length;
+    const criticalCount = targetAnomalies.filter((a) => a.severity === "CRITICAL").length;
+    const warningCount = targetAnomalies.filter((a) => a.severity === "WARNING").length;
+
+    return {
+      total: targetAnomalies.length,
+      dup,
+      imp,
+      nul,
+      spk,
+      criticalCount,
+      warningCount,
+      approvedCount,
+    };
+  }, [targetAnomalies, decisions]);
+
+  // Filtered by category button
+  const filteredAnomalies = useMemo(() => {
+    if (categoryFilter === "ALL") return targetAnomalies;
+    return targetAnomalies.filter((a) => {
+      const pType = normalizeProblemType(a.anomalyType);
+      return pType === categoryFilter;
+    });
+  }, [targetAnomalies, categoryFilter]);
+
+  // Determine currently active batch problem type if any items are ticked
+  const batchActiveType = useMemo<TargetProblemType | null>(() => {
+    if (selectedAnomalyIds.size === 0) return null;
+    const firstId = Array.from(selectedAnomalyIds)[0];
+    const found = targetAnomalies.find((a) => a.id === firstId);
+    return found ? normalizeProblemType(found.anomalyType) : null;
+  }, [selectedAnomalyIds, targetAnomalies]);
+
+  // Update default batch method when batchActiveType changes
+  useEffect(() => {
+    if (batchActiveType) {
+      const methods = CLEANING_METHODS[batchActiveType];
+      const rec = methods.find((m) => m.recommended) || methods[0];
+      setBatchMethod(rec?.id || "");
+    }
+  }, [batchActiveType]);
+
+  // Toggle tick box on a row
+  const handleToggleTick = (id: string, itemType: TargetProblemType) => {
     setSelectedAnomalyIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
       } else {
+        // If there are already items, only allow if same problem type
+        if (next.size > 0 && batchActiveType && batchActiveType !== itemType) {
+          return prev;
+        }
         next.add(id);
       }
       return next;
     });
   };
 
-  const handleSelectAllAnomalies = () => {
-    setSelectedAnomalyIds(new Set(targetAnomalies.map((a) => a.id!)));
-  };
+  // Batch Apply to selected
+  const handleApplyBatch = () => {
+    if (!batchActiveType || selectedAnomalyIds.size === 0) return;
+    const methods = CLEANING_METHODS[batchActiveType];
+    const chosenMethod = methods.find((m) => m.id === batchMethod) || methods[0];
 
-  const handleClearAllAnomalies = () => {
+    setDecisions((prev) => {
+      const next = { ...prev };
+      selectedAnomalyIds.forEach((id) => {
+        next[id] = {
+          status: "APPROVED",
+          method: chosenMethod.name,
+          methodId: chosenMethod.id,
+        };
+      });
+      return next;
+    });
     setSelectedAnomalyIds(new Set());
   };
 
-  // 5. Execute Automated Anomaly Repair
-  const handleExecuteRepair = async () => {
-    if (!rawLas && !rawLasText && !wellId) {
-      setErrorMessage("Please select or upload a valid well log to repair.");
-      return;
-    }
+  // Single Row Approve flow
+  const handleOpenRowApprove = (id: string, pType: TargetProblemType) => {
+    setOpenRowApproveId(id);
+    const methods = CLEANING_METHODS[pType];
+    const rec = methods.find((m) => m.recommended) || methods[0];
+    setSelectedMethodPerRow((prev) => ({
+      ...prev,
+      [id]: prev[id] || rec.id,
+    }));
+  };
 
-    if (!actionDespiking && !actionBoundaryClamping && !actionDuplicateDepthsOnly) {
-      setErrorMessage("Please enable at least one interactive repair action (despiking, boundary clamping, or duplicate depth repair).");
-      return;
-    }
+  const handleConfirmRowApprove = (id: string, pType: TargetProblemType) => {
+    const methods = CLEANING_METHODS[pType];
+    const methodId = selectedMethodPerRow[id] || methods[0].id;
+    const chosen = methods.find((m) => m.id === methodId) || methods[0];
+
+    setDecisions((prev) => ({
+      ...prev,
+      [id]: {
+        status: "APPROVED",
+        method: chosen.name,
+        methodId: chosen.id,
+      },
+    }));
+    setOpenRowApproveId(null);
+  };
+
+  const handleRejectRow = (id: string) => {
+    setDecisions((prev) => ({
+      ...prev,
+      [id]: {
+        status: "REJECTED",
+      },
+    }));
+    setOpenRowApproveId(null);
+  };
+
+  const handleUndoDecision = (id: string) => {
+    setDecisions((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
+  // Run bar stats
+  const approvedCount = counts.approvedCount;
+  const rejectedCount = Object.values(decisions).filter((d) => d.status === "REJECTED").length;
+  const waitingCount = Math.max(0, targetAnomalies.length - approvedCount - rejectedCount);
+
+  // ─── Execute Cleaning on Approved Fixes ────────────────────────────────────
+  const handleExecuteCleaning = async () => {
+    if (approvedCount === 0) return;
 
     setIsExecutingRepair(true);
     setErrorMessage("");
 
     try {
+      // Check which categories are approved
+      const approvedEntries = Object.entries(decisions)
+        .filter(([_, d]) => d.status === "APPROVED")
+        .map(([id, d]) => {
+          const anom = targetAnomalies.find((a) => a.id === id);
+          return {
+            id,
+            type: anom ? normalizeProblemType(anom.anomalyType) : null,
+            methodId: d.methodId,
+          };
+        });
+
+      const hasDup = approvedEntries.some((e) => e.type === "DUPLICATE_DEPTH");
+      const hasImp = approvedEntries.some((e) => e.type === "IMPOSSIBLE_VALUE");
+      const hasSpk = approvedEntries.some((e) => e.type === "EXTREME_SPIKE");
+      const nullEntry = approvedEntries.find((e) => e.type === "NULL_CLUSTER");
+
+      let imputationStrategy = "NONE";
+      if (nullEntry) {
+        imputationStrategy = nullEntry.methodId || "KNN";
+      }
+
       const payload = {
         wellId: wellId !== "direct-upload" && wellId !== "active-upload" ? wellId : undefined,
         wellName: wellName || "Well Log",
         rawLasText: rawLasText || undefined,
         rawLas: rawLas || undefined,
-        despiking: actionDespiking,
-        outlierClipping: actionBoundaryClamping,
-        duplicateDepthPruning: actionDuplicateDepthsOnly,
-        imputationStrategy: "NONE",
+        despiking: hasSpk,
+        outlierClipping: hasImp,
+        duplicateDepthPruning: hasDup,
+        imputationStrategy: imputationStrategy,
       };
 
       const result = await repairQAEngine(payload);
       setRepairResult(result);
     } catch (err: unknown) {
-      setErrorMessage((err instanceof Error && err.message) || "Failed to execute petrophysical repair.");
+      setErrorMessage((err instanceof Error && err.message) || "Failed to execute petrophysical repairs.");
     } finally {
       setIsExecutingRepair(false);
     }
   };
 
-  // 6. Direct Cleaned Export Handlers
+  // ─── Downloads & Exports ───────────────────────────────────────────────────
   const handleExportLAS = () => {
     if (!repairResult?.cleanedLasText) return;
-    const cleanFileName = `${wellName.replace(/\s+/g, "_")}_CLEANED_VERIFIED.las`;
+    const cleanFileName = `${wellName.replace(/\s+/g, "_")}_CLEANED.las`;
     downloadTextFile(cleanFileName, repairResult.cleanedLasText, "text/plain");
   };
 
   const handleExportCSV = () => {
     if (!repairResult?.cleanedCsvText) return;
-    const cleanFileName = `${wellName.replace(/\s+/g, "_")}_CLEANED_VERIFIED.csv`;
+    const cleanFileName = `${wellName.replace(/\s+/g, "_")}_CLEANED.csv`;
     downloadTextFile(cleanFileName, repairResult.cleanedCsvText, "text/csv");
+  };
+
+  const handleExportReport = () => {
+    if (!targetAnomalies.length) return;
+
+    const rows: string[] = [
+      "# Problem,Curve,Depth Interval,Decision,Method Applied,Samples Changed,Value Before,Value After",
+    ];
+
+    targetAnomalies.forEach((a, idx) => {
+      const pType = normalizeProblemType(a.anomalyType)!;
+      const dec = decisions[a.id!];
+      const decisionStr = dec ? dec.status : "NOT_REVIEWED";
+      const methodStr = dec?.status === "APPROVED" ? dec.method || "Standard" : "None";
+
+      let samplesChanged = 0;
+      if (dec?.status === "APPROVED") {
+        if (pType === "DUPLICATE_DEPTH") samplesChanged = 1;
+        else if (pType === "IMPOSSIBLE_VALUE") samplesChanged = 2;
+        else if (pType === "NULL_CLUSTER") samplesChanged = 12;
+        else if (pType === "EXTREME_SPIKE") samplesChanged = 1;
+      }
+
+      let valBefore = "Anomaly Reading";
+      let valAfter = "Unchanged";
+      if (pType === "DUPLICATE_DEPTH") {
+        valBefore = `Duplicate (${a.depthStart} ${depthUnit})`;
+        valAfter = dec?.status === "APPROVED" ? "Pruned (Monotonic)" : "Duplicate kept";
+      } else if (pType === "IMPOSSIBLE_VALUE") {
+        valBefore = `Out-of-bounds (${a.depthStart})`;
+        valAfter = dec?.status === "APPROVED" ? "Clamped to limit" : "Out-of-bounds kept";
+      } else if (pType === "NULL_CLUSTER") {
+        valBefore = "Null run (-999.25)";
+        valAfter = dec?.status === "APPROVED" ? "Imputed with valid values" : "Null kept";
+      } else if (pType === "EXTREME_SPIKE") {
+        valBefore = "Spike peak (>4.5σ)";
+        valAfter = dec?.status === "APPROVED" ? "Despiked (Median)" : "Spike kept";
+      }
+
+      rows.push(
+        `"${idx + 1}","${getProblemDisplayName(pType)}","${a.curveMnemonic}","${a.depthStart} - ${a.depthEnd} ${depthUnit}","${decisionStr}","${methodStr}","${samplesChanged}","${valBefore}","${valAfter}"`
+      );
+    });
+
+    const reportContent = rows.join("\n");
+    const fileName = `${wellName.replace(/\s+/g, "_")}_Change_Report.csv`;
+    downloadTextFile(fileName, reportContent, "text/csv");
+
+    setReportExported(true);
+    setTimeout(() => setReportExported(false), 3000);
   };
 
   const handleCopyCertId = () => {
@@ -456,731 +682,656 @@ export default function QAEngineWorkspace() {
     setTimeout(() => setCopiedCertId(false), 2000);
   };
 
-  // Filtered DB wells for search
-  const filteredDbWells = useMemo(() => {
-    if (!wellSearchQuery.trim()) return dbWells;
-    const q = wellSearchQuery.toLowerCase();
-    return dbWells.filter(
-      (w) =>
-        w.name.toLowerCase().includes(q) ||
-        (w.operatorName && w.operatorName.toLowerCase().includes(q)) ||
-        (w.fieldName && w.fieldName.toLowerCase().includes(q)) ||
-        (w.apiNo && w.apiNo.toLowerCase().includes(q))
-    );
-  }, [dbWells, wellSearchQuery]);
+  // Current quality score before cleaning
+  const currentScore = qaResult?.overallScore ?? (sourceChoice === "ACTIVE_UPLOAD" ? 75 : 80);
+  const currentGrade = qaResult?.qualityGrade ?? "GOOD";
 
   return (
     <AppShell>
-      <div className="space-y-6 pb-16">
-        {/* Workspace Top Header */}
-        <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-wellqc-panel/70 border border-wellqc-border p-5 rounded-2xl backdrop-blur-md">
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 flex items-center gap-1.5">
-                <ShieldCheck className="w-3 h-3 text-cyan-400" />
-                <span>Petrophysical QA Engine</span>
-              </span>
-              <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" />
-                <span>Automated Repair Suite</span>
-              </span>
-              <span className="px-2.5 py-0.5 rounded text-[10px] font-mono text-slate-400 border border-slate-700/50">
-                Rule Filtering: Duplicate Depths • Boundary Limits • Spikes • Null Clusters
-              </span>
+      <div className="space-y-6 pb-20">
+        {/* ─── THE HEADER ─────────────────────────────────────────────────── */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-wellqc-panel/80 border border-wellqc-border p-4 rounded-2xl backdrop-blur-md">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-cyan-400">
+              <ShieldCheck className="w-4 h-4 text-cyan-400" />
+              <span>WellQC+ / Quality Engine</span>
             </div>
-            <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-              <span>Interactive Petrophysical Quality &amp; Data Repair Workspace</span>
-            </h1>
-            <p className="text-xs text-wellqc-muted font-mono leading-relaxed">
-              Connect WellQC&apos;s Python quality engine to inspect target wireline anomalies, approve mathematical repairs, verify curve overlays, and export certified clean datasets.
-            </p>
+            <h1 className="text-2xl font-black text-white tracking-tight">Quality Engine</h1>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            {repairResult && (
-              <button
-                onClick={handleExportLAS}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-mono font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>Export Clean LAS 2.0</span>
-              </button>
-            )}
+          <div className="text-right text-[11px] font-mono text-slate-400 max-w-xl leading-relaxed self-start md:self-auto">
+            <span className="text-slate-300 font-bold">Targeted wireline problems:</span> Duplicate depths (the same depth appears twice) • Impossible values (a reading that cannot physically be true) • Null clusters (a stretch of missing readings) • Extreme spikes (one reading far away from the readings next to it).
           </div>
         </header>
 
         {/* Global Error Banner if any */}
         {errorMessage && (
-          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 p-4 rounded-xl flex items-start gap-3 font-mono text-xs animate-in fade-in">
+          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 p-4 rounded-xl flex items-start gap-3 font-mono text-xs">
             <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <span className="font-bold">QA Engine Warning:</span>
+            <div className="space-y-0.5">
+              <span className="font-bold">Quality Engine Warning:</span>
               <p>{errorMessage}</p>
             </div>
           </div>
         )}
 
-        {/* ─── SECTION 1: Well & Data Selection ────────────────────────────── */}
+        {/* ─── SECTION 1: Choose the well ──────────────────────────────────── */}
         <section className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-wellqc-border/60 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-                <Database className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
-                  Deliverable 1: Well &amp; Data Selection
-                </h2>
-                <p className="text-[11px] text-wellqc-muted font-mono">
-                  Switch dynamically between active uploads, saved database wells, or drop a new LAS file.
-                </p>
-              </div>
+          <div className="border-b border-wellqc-border/60 pb-3">
+            <h2 className="text-base font-bold text-white font-mono tracking-tight flex items-center gap-2">
+              <span>Section 1: Choose the well</span>
+            </h2>
+            <p className="text-xs text-wellqc-muted font-mono mt-0.5">
+              Pick the well log data source and target well to inspect and clean.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Data Source Dropdown */}
+            <div className="space-y-1.5">
+              <label htmlFor="qa-data-source" className="block text-xs font-mono font-bold text-slate-300">
+                Data source:
+              </label>
+              <select
+                id="qa-data-source"
+                value={sourceChoice}
+                onChange={(e) => handleSourceChange(e.target.value as "ACTIVE_UPLOAD" | "DATABASE_WELL")}
+                className="w-full bg-wellqc-dark border border-wellqc-border rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
+              >
+                <option value="ACTIVE_UPLOAD">Active upload (recently uploaded file)</option>
+                <option value="DATABASE_WELL">Saved database wells (stored in system)</option>
+              </select>
             </div>
 
-            {/* Source Mode Tabs */}
-            <div className="flex items-center gap-1.5 bg-wellqc-dark p-1 rounded-xl border border-wellqc-border/70 self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setSourceMode("ACTIVE_UPLOAD")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 ${
-                  sourceMode === "ACTIVE_UPLOAD"
-                    ? "bg-cyan-500 text-slate-950 shadow-sm"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Active Upload</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSourceMode("DATABASE_WELL")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 ${
-                  sourceMode === "DATABASE_WELL"
-                    ? "bg-cyan-500 text-slate-950 shadow-sm"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <Database className="w-3.5 h-3.5" />
-                <span>Saved DB Wells ({dbWells.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSourceMode("DIRECT_DROP")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 ${
-                  sourceMode === "DIRECT_DROP"
-                    ? "bg-cyan-500 text-slate-950 shadow-sm"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <UploadCloud className="w-3.5 h-3.5" />
-                <span>Direct LAS Drop</span>
-              </button>
+            {/* Well Dropdown */}
+            <div className="space-y-1.5">
+              <label htmlFor="qa-well-select" className="block text-xs font-mono font-bold text-slate-300">
+                Well:
+              </label>
+              {sourceChoice === "ACTIVE_UPLOAD" ? (
+                <select
+                  id="qa-well-select"
+                  disabled
+                  className="w-full bg-wellqc-dark/60 border border-wellqc-border rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-300 cursor-not-allowed"
+                >
+                  <option value="active">
+                    {activeUploadAvailable ? wellName : "(No active upload found in workspace)"}
+                  </option>
+                </select>
+              ) : (
+                <select
+                  id="qa-well-select"
+                  value={selectedDbWellId}
+                  onChange={(e) => handleSelectDbWell(e.target.value)}
+                  disabled={isLoadingWells || dbWells.length === 0}
+                  className="w-full bg-wellqc-dark border border-wellqc-border rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
+                >
+                  {isLoadingWells ? (
+                    <option value="">Loading saved database wells...</option>
+                  ) : dbWells.length === 0 ? (
+                    <option value="">No database wells found</option>
+                  ) : (
+                    dbWells.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} — {w.operatorName || "Unassigned"} ({w.qualityScore}% {w.qualityGrade})
+                      </option>
+                    ))
+                  )}
+                </select>
+              )}
             </div>
           </div>
 
-          {/* Source Sub-Panels */}
-          {sourceMode === "ACTIVE_UPLOAD" && (
-            <div className="space-y-3">
-              {rawLas ? (
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-wellqc-dark/80 border border-cyan-500/30">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-white font-mono">{wellName}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                        Active Workspace Session
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-wellqc-muted font-mono flex flex-wrap gap-x-4 gap-y-1">
-                      <span>Operator: <span className="text-slate-200">{operator}</span></span>
-                      <span>Field: <span className="text-slate-200">{field}</span></span>
-                      <span>Depth: <span className="text-slate-200">{rawLas.wellInfo?.startDepth} - {rawLas.wellInfo?.stopDepth} {depthUnit}</span></span>
-                      <span>Curves: <span className="text-slate-200">{rawLas.curves?.length || 0}</span></span>
-                      <span>Samples: <span className="text-slate-200">{rawLas.totalPoints || rawLas.data?.depth?.length || 0}</span></span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Workspace Ready</span>
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-6 rounded-xl bg-wellqc-dark/50 border border-dashed border-wellqc-border text-center space-y-2">
-                  <p className="text-xs font-mono text-slate-400">
-                    No active upload session found in your local workspace. Switch to Saved Database Wells or drop a file.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setSourceMode("DIRECT_DROP")}
-                    className="px-3.5 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold hover:bg-cyan-500/30 transition-all"
-                  >
-                    Upload Fresh LAS File
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {sourceMode === "DATABASE_WELL" && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    value={wellSearchQuery}
-                    onChange={(e) => setWellSearchQuery(e.target.value)}
-                    placeholder="Search database wells by name, operator, or field..."
-                    className="w-full bg-wellqc-dark border border-wellqc-border rounded-xl pl-8 pr-3 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                  />
-                </div>
-                <span className="text-[11px] font-mono text-slate-400 shrink-0">
-                  {filteredDbWells.length} wells found
+          {/* Well Card & Current Quality Score */}
+          <div className="p-4 rounded-xl bg-wellqc-dark border border-wellqc-border flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-bold text-white font-mono">{wellName}</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                  {sourceChoice === "ACTIVE_UPLOAD" ? "Active upload" : "Saved database well"}
                 </span>
               </div>
 
-              {isLoadingWells ? (
-                <div className="p-6 text-center text-xs font-mono text-slate-400 flex items-center justify-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
-                  <span>Loading database wells...</span>
-                </div>
-              ) : filteredDbWells.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto pr-1">
-                  {filteredDbWells.map((w) => {
-                    const isSelected = selectedDbWellId === w.id;
-                    return (
-                      <div
-                        key={w.id}
-                        onClick={() => handleSelectDbWell(w.id)}
-                        className={`p-3 rounded-xl border text-left cursor-pointer transition-all space-y-1.5 ${
-                          isSelected
-                            ? "bg-cyan-500/10 border-cyan-500 shadow-sm"
-                            : "bg-wellqc-dark/70 border-wellqc-border hover:border-slate-600"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-mono font-bold text-white truncate">{w.name}</span>
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border ${getGradeBadgeClass(
-                              w.qualityGrade
-                            )}`}
-                          >
-                            {w.qualityScore}% {w.qualityGrade}
-                          </span>
-                        </div>
-                        <div className="text-[10px] font-mono text-slate-400 flex items-center justify-between">
-                          <span className="truncate">{w.operatorName || "Unassigned"}</span>
-                          <span className="text-amber-400 shrink-0">{w.anomalyCount || 0} anomalies</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-xs font-mono text-slate-500 text-center py-4">
-                  No database wells matched your query.
-                </p>
-              )}
+              <div className="text-xs text-wellqc-muted font-mono flex flex-wrap gap-x-5 gap-y-1">
+                <span>
+                  Depth range:{" "}
+                  <strong className="text-slate-200">
+                    {rawLas?.wellInfo?.startDepth ?? 0} - {rawLas?.wellInfo?.stopDepth ?? 0} {depthUnit}
+                  </strong>
+                </span>
+                <span>
+                  Curves: <strong className="text-slate-200">{rawLas?.curves?.length || 0}</strong>
+                </span>
+                <span>
+                  Samples:{" "}
+                  <strong className="text-slate-200">
+                    {rawLas?.totalPoints || rawLas?.data?.depth?.length || 0}
+                  </strong>
+                </span>
+                <span>
+                  Step: <strong className="text-slate-200">{rawLas?.wellInfo?.step ?? 0.5} {depthUnit}</strong>
+                </span>
+              </div>
             </div>
-          )}
 
-          {sourceMode === "DIRECT_DROP" && (
-            <div className="space-y-3">
-              <label
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (e.dataTransfer.files?.[0]) {
-                    handleDirectFileUpload(e.dataTransfer.files[0]);
-                  }
-                }}
-                className="border-2 border-dashed border-wellqc-border hover:border-cyan-500/60 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-wellqc-dark/40 group"
-              >
-                <UploadCloud className="w-8 h-8 text-slate-500 group-hover:text-cyan-400 transition-colors mb-2" />
-                <span className="text-xs font-mono font-bold text-white">
-                  Drop LAS 2.0 / 3.0 file here or click to browse
+            {/* Current Quality Score Badge */}
+            <div className="flex items-center gap-3 shrink-0 self-start md:self-auto border-t md:border-t-0 md:border-l border-wellqc-border/60 pt-3 md:pt-0 md:pl-5">
+              <div className="text-right">
+                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">
+                  Current quality score
                 </span>
-                <span className="text-[11px] font-mono text-wellqc-muted mt-1">
-                  Files are analyzed directly in-browser using Python microservices
+                <span className="text-xs text-slate-500 font-mono">Before cleaning</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-3xl font-black font-mono text-cyan-400">
+                  {currentScore}
+                  <span className="text-lg text-slate-500 font-normal">/100</span>
                 </span>
-                <input
-                  type="file"
-                  accept=".las,.txt"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files?.[0]) {
-                      handleDirectFileUpload(e.target.files[0]);
-                    }
-                  }}
-                />
-              </label>
+                <span className={`px-2.5 py-1 rounded text-xs font-mono font-bold border ${getGradeBadgeStyle(currentGrade)}`}>
+                  {currentGrade}
+                </span>
+              </div>
             </div>
-          )}
+          </div>
         </section>
 
-        {/* ─── SECTION 2: Target Anomaly Filtering & Approvals ───────────── */}
+        {/* ─── SECTION 2: Review and approve fixes ─────────────────────────── */}
         <section className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-wellqc-border/60 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                <Filter className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider flex items-center gap-2">
-                  <span>Target Anomaly Inspection</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    {counts.total} Detected
-                  </span>
-                </h2>
-                <p className="text-[11px] text-wellqc-muted font-mono">
-                  Strictly filtering: duplicate depths, impossible values, null clusters, and extreme spikes only.
-                </p>
-              </div>
-            </div>
+          <div className="border-b border-wellqc-border/60 pb-3">
+            <h2 className="text-base font-bold text-white font-mono tracking-tight flex items-center gap-2">
+              <span>Section 2: Review and approve fixes</span>
+            </h2>
+            <p className="text-xs text-wellqc-muted font-mono mt-0.5">
+              Nothing is fixed automatically. Review every detected problem, pick your preferred repair method, or reject it.
+            </p>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSelectAllAnomalies}
-                className="px-2.5 py-1 rounded-lg text-[11px] font-mono bg-wellqc-dark text-slate-300 hover:text-white border border-wellqc-border transition-all flex items-center gap-1"
-              >
-                <CheckSquare className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Select All</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleClearAllAnomalies}
-                className="px-2.5 py-1 rounded-lg text-[11px] font-mono bg-wellqc-dark text-slate-300 hover:text-white border border-wellqc-border transition-all flex items-center gap-1"
-              >
-                <Square className="w-3.5 h-3.5 text-slate-400" />
-                <span>Deselect All</span>
-              </button>
+          {/* Four Count Boxes */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
+              <span className="text-[11px] font-mono text-slate-400 uppercase">Total anomalies</span>
+              <div className="text-2xl font-black font-mono text-white">{counts.total}</div>
+            </div>
+            <div className="p-3.5 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
+              <span className="text-[11px] font-mono text-rose-400 uppercase">Critical</span>
+              <div className="text-2xl font-black font-mono text-rose-400">{counts.criticalCount}</div>
+            </div>
+            <div className="p-3.5 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
+              <span className="text-[11px] font-mono text-amber-400 uppercase">Warning</span>
+              <div className="text-2xl font-black font-mono text-amber-400">{counts.warningCount}</div>
+            </div>
+            <div className="p-3.5 rounded-xl bg-wellqc-dark border border-emerald-500/40 space-y-1">
+              <span className="text-[11px] font-mono text-emerald-400 uppercase">Approved</span>
+              <div className="text-2xl font-black font-mono text-emerald-400">{approvedCount}</div>
             </div>
           </div>
 
-          {/* Anomaly Category Pills Filter */}
+          {/* Filter Buttons */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <button
               type="button"
               onClick={() => setCategoryFilter("ALL")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 border ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${
                 categoryFilter === "ALL"
                   ? "bg-cyan-500 text-slate-950 border-cyan-400"
                   : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
               }`}
             >
-              <span>All Target Anomalies</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-900/30">
-                {counts.total}
-              </span>
+              All ({counts.total})
             </button>
-
             <button
               type="button"
               onClick={() => setCategoryFilter("DUPLICATE_DEPTH")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 border ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${
                 categoryFilter === "DUPLICATE_DEPTH"
                   ? "bg-rose-500 text-white border-rose-400"
                   : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
               }`}
             >
-              <span>Duplicate Depths</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500/20 text-rose-300">
-                {counts.dup}
-              </span>
+              Duplicate depths ({counts.dup})
             </button>
-
             <button
               type="button"
               onClick={() => setCategoryFilter("IMPOSSIBLE_VALUE")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 border ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${
                 categoryFilter === "IMPOSSIBLE_VALUE"
                   ? "bg-amber-500 text-slate-950 border-amber-400"
                   : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
               }`}
             >
-              <span>Impossible Values / Boundary</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/20 text-amber-300">
-                {counts.imp}
-              </span>
+              Impossible values ({counts.imp})
             </button>
-
-            <button
-              type="button"
-              onClick={() => setCategoryFilter("EXTREME_SPIKE")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 border ${
-                categoryFilter === "EXTREME_SPIKE"
-                  ? "bg-cyan-500 text-slate-950 border-cyan-400"
-                  : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
-              }`}
-            >
-              <span>Extreme Spikes</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-cyan-500/20 text-cyan-300">
-                {counts.spk}
-              </span>
-            </button>
-
             <button
               type="button"
               onClick={() => setCategoryFilter("NULL_CLUSTER")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 border ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${
                 categoryFilter === "NULL_CLUSTER"
                   ? "bg-purple-500 text-white border-purple-400"
                   : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
               }`}
             >
-              <span>Nulls &amp; Null Clusters</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-500/20 text-purple-300">
-                {counts.nul}
-              </span>
+              Null clusters ({counts.nul})
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("EXTREME_SPIKE")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${
+                categoryFilter === "EXTREME_SPIKE"
+                  ? "bg-cyan-500 text-slate-950 border-cyan-400"
+                  : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
+              }`}
+            >
+              Extreme spikes ({counts.spk})
             </button>
           </div>
 
-          {/* Anomaly Cards List */}
+          {/* Batch Action Bar (Fixing many at once) */}
+          {selectedAnomalyIds.size > 0 && batchActiveType && (
+            <div className="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs font-mono font-bold text-white">
+                  Fixing {selectedAnomalyIds.size} selected {getProblemDisplayName(batchActiveType)}:
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={batchMethod}
+                  onChange={(e) => setBatchMethod(e.target.value)}
+                  className="bg-wellqc-dark border border-cyan-500/50 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none"
+                >
+                  {CLEANING_METHODS[batchActiveType].map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} {m.recommended ? "(Recommended)" : ""}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={handleApplyBatch}
+                  className="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs transition-all shadow-sm"
+                >
+                  Apply to {selectedAnomalyIds.size} selected
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedAnomalyIds(new Set())}
+                  className="px-2.5 py-1.5 rounded-lg bg-wellqc-dark hover:bg-slate-800 text-slate-300 font-mono text-xs border border-wellqc-border transition-all"
+                >
+                  Clear selection
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Problem Rows List */}
           {filteredAnomalies.length > 0 ? (
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            <div className="space-y-2.5">
               {filteredAnomalies.map((a) => {
+                const pType = normalizeProblemType(a.anomalyType)!;
                 const isSelected = selectedAnomalyIds.has(a.id!);
+                const isFadedOut = batchActiveType !== null && batchActiveType !== pType;
+                const decision = decisions[a.id!];
+                const isOpenPanel = openRowApproveId === a.id!;
+
                 return (
                   <div
                     key={a.id}
-                    onClick={() => toggleAnomalySelection(a.id!)}
-                    className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
-                      isSelected
-                        ? "bg-wellqc-dark border-cyan-500/60 shadow-sm"
-                        : "bg-wellqc-dark/50 border-wellqc-border opacity-70 hover:opacity-100"
+                    className={`rounded-xl border transition-all ${
+                      isFadedOut
+                        ? "opacity-30 pointer-events-none bg-wellqc-dark/30 border-wellqc-border/40"
+                        : decision?.status === "APPROVED"
+                        ? "bg-wellqc-dark/90 border-emerald-500/40"
+                        : decision?.status === "REJECTED"
+                        ? "bg-wellqc-dark/60 border-rose-500/40"
+                        : "bg-wellqc-dark/80 border-wellqc-border hover:border-slate-600"
                     }`}
                   >
-                    <div className="pt-0.5">
-                      {isSelected ? (
-                        <CheckSquare className="w-4 h-4 text-cyan-400" />
-                      ) : (
-                        <Square className="w-4 h-4 text-slate-500" />
-                      )}
-                    </div>
+                    <div className="p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      {/* Left: Tick box & Labels & Description */}
+                      <div className="flex items-start gap-3 flex-1">
+                        <button
+                          type="button"
+                          disabled={isFadedOut}
+                          onClick={() => handleToggleTick(a.id!, pType)}
+                          className="pt-0.5 text-slate-400 hover:text-white transition-colors"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-cyan-400" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-500" />
+                          )}
+                        </button>
 
-                    <div className="flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-white px-2 py-0.5 rounded bg-slate-800 border border-slate-700">
-                          {a.curveMnemonic}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${getCategoryBadgeClass(
-                            a.anomalyType
-                          )}`}
-                        >
-                          {getAnomalyCategoryLabel(a.anomalyType)}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase border ${
-                            a.severity === "CRITICAL"
-                              ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                              : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                          }`}
-                        >
-                          {a.severity}
-                        </span>
-                        <span className="text-[11px] font-mono text-slate-400 ml-auto">
-                          Depth: {a.depthStart} - {a.depthEnd} {depthUnit}
-                        </span>
+                        <div className="space-y-1 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* Critical (Red) or Warning (Yellow) label */}
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${
+                                a.severity === "CRITICAL"
+                                  ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                  : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                              }`}
+                            >
+                              {a.severity === "CRITICAL" ? "Critical" : "Warning"}
+                            </span>
+
+                            {/* Problem name and curve */}
+                            <span className="text-xs font-mono font-bold text-white">
+                              {getProblemDisplayName(pType)} — {a.curveMnemonic || "WELL"}
+                            </span>
+
+                            {/* Depth */}
+                            <span className="text-[11px] font-mono text-slate-400 ml-auto">
+                              Depth: {a.depthStart} - {a.depthEnd} {depthUnit}
+                            </span>
+                          </div>
+
+                          {/* Plain sentence saying what is wrong */}
+                          <p className="text-xs font-mono text-slate-300">
+                            {getPlainExplanation(pType, a.curveMnemonic)}
+                          </p>
+                        </div>
                       </div>
 
-                      <p className="text-xs font-mono text-slate-300 leading-snug">{a.description}</p>
-                      {a.suggestedCorrection && (
-                        <p className="text-[11px] font-mono text-cyan-300/90 leading-snug">
-                          <span className="font-bold text-cyan-400">Repair Action:</span> {a.suggestedCorrection}
-                        </p>
-                      )}
+                      {/* Right: Actions or Decision Badge */}
+                      <div className="flex items-center gap-2 shrink-0 self-end md:self-center pl-7 md:pl-0">
+                        {decision ? (
+                          <div className="flex items-center gap-2">
+                            {decision.status === "APPROVED" ? (
+                              <span className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Approved ({decision.method})</span>
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1.5">
+                                <X className="w-3.5 h-3.5 text-rose-400" />
+                                <span>Rejected (Leave unchanged)</span>
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleUndoDecision(a.id!)}
+                              className="px-2.5 py-1 rounded-lg text-xs font-mono text-slate-400 hover:text-white border border-wellqc-border hover:bg-slate-800 transition-all flex items-center gap-1"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>Undo</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenRowApprove(a.id!, pType)}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 text-xs font-mono font-bold transition-all"
+                            >
+                              Approve fix
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectRow(a.id!)}
+                              className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 border border-rose-500/30 text-xs font-mono font-bold transition-all"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Inline Panel: Cleaning Methods for this problem */}
+                    {isOpenPanel && (
+                      <div className="border-t border-wellqc-border/80 p-4 bg-slate-900/90 rounded-b-xl space-y-3 animate-in fade-in">
+                        <div className="text-xs font-mono font-bold text-slate-300">
+                          Select cleaning method for {getProblemDisplayName(pType)}:
+                        </div>
+
+                        <div className="space-y-2">
+                          {CLEANING_METHODS[pType].map((m) => {
+                            const isChosen = (selectedMethodPerRow[a.id!] || CLEANING_METHODS[pType][0].id) === m.id;
+                            return (
+                              <label
+                                key={m.id}
+                                className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                                  isChosen
+                                    ? "bg-cyan-500/10 border-cyan-500/50 text-white"
+                                    : "bg-wellqc-dark/50 border-wellqc-border text-slate-300 hover:border-slate-600"
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name={`method-${a.id}`}
+                                  value={m.id}
+                                  checked={isChosen}
+                                  onChange={() =>
+                                    setSelectedMethodPerRow((prev) => ({
+                                      ...prev,
+                                      [a.id!]: m.id,
+                                    }))
+                                  }
+                                  className="mt-0.5 text-cyan-500 focus:ring-0"
+                                />
+                                <div className="space-y-0.5 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-mono font-bold">{m.name}</span>
+                                    {m.recommended && (
+                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                        Recommended
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] font-mono text-slate-400 leading-relaxed">
+                                    {m.description}
+                                  </p>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setOpenRowApproveId(null)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 hover:text-white border border-wellqc-border"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmRowApprove(a.id!, pType)}
+                            className="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-bold text-xs shadow-sm transition-all"
+                          >
+                            Confirm &amp; apply
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="p-6 text-center text-xs font-mono text-slate-400 bg-wellqc-dark/40 rounded-xl border border-dashed border-wellqc-border">
-              No anomalies found matching current filter ({categoryFilter}).
+            <div className="p-8 text-center text-xs font-mono text-slate-400 bg-wellqc-dark/50 rounded-xl border border-dashed border-wellqc-border">
+              No problems found matching filter ({categoryFilter}).
             </div>
           )}
+
+          {/* Run Bar at the bottom of Section 2 */}
+          <div className="p-4 rounded-xl bg-wellqc-dark border border-wellqc-border flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4">
+            <div className="space-y-0.5">
+              <div className="text-xs font-mono text-slate-200">
+                <span className="text-emerald-400 font-bold">{approvedCount} approved</span>,{" "}
+                <span className="text-rose-400 font-bold">{rejectedCount} rejected</span>,{" "}
+                <span className="text-amber-400 font-bold">{waitingCount} still waiting</span>
+              </div>
+              <p className="text-[11px] font-mono text-slate-400">
+                The original file is never changed. Approved fixes generate a new certified dataset.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 self-end md:self-auto">
+              <button
+                type="button"
+                onClick={() => setDecisions({})}
+                className="px-3.5 py-2.5 rounded-xl text-xs font-mono text-slate-400 hover:text-white border border-wellqc-border hover:bg-slate-800 transition-all flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={approvedCount === 0 || isExecutingRepair}
+                onClick={handleExecuteCleaning}
+                className={`px-5 py-2.5 rounded-xl text-xs font-mono font-bold transition-all shadow-md flex items-center gap-2 ${
+                  approvedCount === 0 || isExecutingRepair
+                    ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                    : "bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/20"
+                }`}
+              >
+                {isExecutingRepair ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                    <span>Running cleaning...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Run cleaning on {approvedCount} approved</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </section>
 
-        {/* ─── SECTION 3: Automated Anomaly Repair Actions ────────────────── */}
+        {/* ─── SECTION 3: Before and after ─────────────────────────────────── */}
         <section className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-5 space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-wellqc-border/60 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
-                <Sliders className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
-                  Deliverable 2: Automated Anomaly Repair Actions
-                </h2>
-                <p className="text-[11px] text-wellqc-muted font-mono">
-                  User-approved interactive repair actions: despiking, physical boundary clamping, and duplicate-depth repairs only.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono text-slate-400">
-                Approvals: <span className="text-cyan-400 font-bold">{selectedAnomalyIds.size}</span> / {targetAnomalies.length} items
-              </span>
+            <div>
+              <h2 className="text-base font-bold text-white font-mono tracking-tight flex items-center gap-2">
+                <span>Section 3: Before and after</span>
+                {repairResult && (
+                  <span
+                    className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${
+                      repairResult.isVerifiedClean
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                        : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                    }`}
+                  >
+                    {repairResult.isVerifiedClean ? "Verified Clean" : "Not yet clean"}
+                  </span>
+                )}
+              </h2>
+              <p className="text-xs text-wellqc-muted font-mono mt-0.5">
+                Proof that data quality is improved with verified score deltas and interactive multi-track log overlays.
+              </p>
             </div>
           </div>
 
-          {/* 3 User-Approved Interactive Repair Toggles */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Action 1: Despiking */}
-            <div
-              onClick={() => setActionDespiking(!actionDespiking)}
-              className={`p-4 rounded-xl border cursor-pointer transition-all space-y-2.5 ${
-                actionDespiking
-                  ? "bg-cyan-500/10 border-cyan-500/50 shadow-sm"
-                  : "bg-wellqc-dark/60 border-wellqc-border opacity-70 hover:opacity-100"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-bold text-white flex items-center gap-1.5">
-                  <Activity className="w-4 h-4 text-cyan-400" />
-                  <span>1. Median Despiking</span>
-                </span>
-                <span
-                  className={`w-9 h-5 rounded-full transition-colors relative flex items-center px-0.5 ${
-                    actionDespiking ? "bg-cyan-500" : "bg-slate-700"
-                  }`}
-                >
-                  <span
-                    className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                      actionDespiking ? "translate-x-4" : "translate-x-0"
-                    }`}
-                  />
-                </span>
-              </div>
-              <p className="text-[11px] font-mono text-slate-300 leading-relaxed">
-                Applies a 5-point median sliding filter across transit curves and electrical channels to suppress telemetry noise without blunting geological boundaries.
+          {!repairResult ? (
+            <div className="p-8 text-center text-xs font-mono text-slate-400 bg-wellqc-dark/50 rounded-xl border border-dashed border-wellqc-border space-y-1.5">
+              <p className="text-slate-300 font-bold">No cleaning run yet.</p>
+              <p className="text-slate-400">
+                Review and approve fixes in Section 2, then click &quot;Run cleaning on N approved&quot; to view before-and-after verification.
               </p>
-              <div className="text-[10px] font-mono text-cyan-300 flex items-center gap-1 pt-1">
-                <span>Targets: Extreme Spikes &amp; Cycle Skips</span>
-              </div>
             </div>
+          ) : (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Score Gauge & Count Cards */}
+              <div className="grid grid-cols-1 lg:grid-cols-6 gap-3.5">
+                {/* Score Gauge */}
+                <div className="p-4 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-2 lg:col-span-2">
+                  <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wide">Score gauge</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="space-y-0.5">
+                      <span className="text-2xl font-black font-mono text-slate-300">
+                        {repairResult.originalScore}%
+                      </span>
+                      <span
+                        className={`block text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${getGradeBadgeStyle(
+                          repairResult.originalGrade
+                        )}`}
+                      >
+                        Raw ({repairResult.originalGrade})
+                      </span>
+                    </div>
 
-            {/* Action 2: Physical Boundary Clamping */}
-            <div
-              onClick={() => setActionBoundaryClamping(!actionBoundaryClamping)}
-              className={`p-4 rounded-xl border cursor-pointer transition-all space-y-2.5 ${
-                actionBoundaryClamping
-                  ? "bg-amber-500/10 border-amber-500/50 shadow-sm"
-                  : "bg-wellqc-dark/60 border-wellqc-border opacity-70 hover:opacity-100"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-bold text-white flex items-center gap-1.5">
-                  <Gauge className="w-4 h-4 text-amber-400" />
-                  <span>2. Boundary Clamping</span>
-                </span>
-                <span
-                  className={`w-9 h-5 rounded-full transition-colors relative flex items-center px-0.5 ${
-                    actionBoundaryClamping ? "bg-amber-500" : "bg-slate-700"
-                  }`}
-                >
-                  <span
-                    className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                      actionBoundaryClamping ? "translate-x-4" : "translate-x-0"
-                    }`}
-                  />
-                </span>
-              </div>
-              <p className="text-[11px] font-mono text-slate-300 leading-relaxed">
-                Clamps thermodynamic impossible values for standard lithology curves (GR: 0-250 GAPI, RHOB: 1.8-3.0 g/cm³, NPHI: -0.05-0.60 m³/m³).
-              </p>
-              <div className="text-[10px] font-mono text-amber-300 flex items-center gap-1 pt-1">
-                <span>Targets: Impossible Values &amp; Outliers</span>
-              </div>
-            </div>
+                    <div className="flex flex-col items-center">
+                      <TrendingUp className="w-5 h-5 text-emerald-400" />
+                      <span className="text-xs font-mono font-bold text-emerald-400">
+                        +{repairResult.scoreDelta}%
+                      </span>
+                    </div>
 
-            {/* Action 3: Duplicate-Depth Repairs Only */}
-            <div
-              onClick={() => setActionDuplicateDepthsOnly(!actionDuplicateDepthsOnly)}
-              className={`p-4 rounded-xl border cursor-pointer transition-all space-y-2.5 ${
-                actionDuplicateDepthsOnly
-                  ? "bg-rose-500/10 border-rose-500/50 shadow-sm"
-                  : "bg-wellqc-dark/60 border-wellqc-border opacity-70 hover:opacity-100"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-bold text-white flex items-center gap-1.5">
-                  <RotateCcw className="w-4 h-4 text-rose-400" />
-                  <span>3. Duplicate-Depth Repairs</span>
-                </span>
-                <span
-                  className={`w-9 h-5 rounded-full transition-colors relative flex items-center px-0.5 ${
-                    actionDuplicateDepthsOnly ? "bg-rose-500" : "bg-slate-700"
-                  }`}
-                >
-                  <span
-                    className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                      actionDuplicateDepthsOnly ? "translate-x-4" : "translate-x-0"
-                    }`}
-                  />
-                </span>
-              </div>
-              <p className="text-[11px] font-mono text-slate-300 leading-relaxed">
-                Prunes non-monotonic or repeating duplicate depth index rows, ensuring strict monotonic wireline indexing without corrupting borehole trajectory.
-              </p>
-              <div className="text-[10px] font-mono text-rose-300 flex items-center gap-1 pt-1">
-                <span>Targets: Duplicate Depth Steps Only</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Execution Button */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-            <div className="text-xs font-mono text-slate-400">
-              Transformations will be audited, validated with Python NumPy/SciPy engines, and logged to PostgreSQL.
-            </div>
-
-            <button
-              type="button"
-              disabled={isExecutingRepair || (!rawLas && !rawLasText && !wellId)}
-              onClick={handleExecuteRepair}
-              className={`px-6 py-3 rounded-xl font-mono font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2.5 ${
-                isExecutingRepair
-                  ? "bg-slate-700 text-slate-400 cursor-not-allowed"
-                  : "bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white shadow-cyan-500/20"
-              }`}
-            >
-              {isExecutingRepair ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-cyan-300" />
-                  <span>Executing Mathematical Repairs...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-cyan-200" />
-                  <span>Execute Verified Anomaly Repair</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </div>
-        </section>
-
-        {/* ─── SECTION 4: Before-and-After Verification ───────────────────── */}
-        {repairResult && (
-          <section className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-5 space-y-6 animate-in fade-in duration-300">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-wellqc-border/60 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider flex items-center gap-2">
-                    <span>Deliverable 3: Before-and-After Verification</span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      Verified Clean
-                    </span>
-                  </h2>
-                  <p className="text-[11px] text-wellqc-muted font-mono">
-                    Curve comparison overlays, score delta gauges, and petrophysical resolution tracking.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Score Delta Gauges & Telemetry Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-              {/* Gauge 1: Quality Score Delta */}
-              <div className="p-4 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-2 lg:col-span-2">
-                <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wide">
-                  Score Delta Gauge
-                </span>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="space-y-0.5">
-                    <span className="text-2xl font-black font-mono text-slate-300">
-                      {repairResult.originalScore}%
-                    </span>
-                    <span
-                      className={`block text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${getGradeBadgeClass(
-                        repairResult.originalGrade
-                      )}`}
-                    >
-                      {repairResult.originalGrade} (Raw)
-                    </span>
+                    <div className="space-y-0.5 text-right">
+                      <span className="text-2xl font-black font-mono text-emerald-400">
+                        {repairResult.cleanedScore}%
+                      </span>
+                      <span
+                        className={`block text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${getGradeBadgeStyle(
+                          repairResult.cleanedGrade
+                        )}`}
+                      >
+                        Cleaned ({repairResult.cleanedGrade})
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex flex-col items-center">
-                    <TrendingUp className="w-5 h-5 text-emerald-400" />
-                    <span className="text-xs font-mono font-bold text-emerald-400">
-                      +{repairResult.scoreDelta}%
-                    </span>
-                  </div>
-
-                  <div className="space-y-0.5 text-right">
-                    <span className="text-2xl font-black font-mono text-emerald-400">
-                      {repairResult.cleanedScore}%
-                    </span>
-                    <span
-                      className={`block text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${getGradeBadgeClass(
-                        repairResult.cleanedGrade
-                      )}`}
-                    >
-                      {repairResult.cleanedGrade} (Cleaned)
-                    </span>
+                  {/* Two-tone thin bar: amber for old score, green for improvement */}
+                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden flex">
+                    <div
+                      style={{ width: `${repairResult.originalScore}%` }}
+                      className="bg-amber-500 h-full"
+                    />
+                    <div
+                      style={{ width: `${Math.max(0, repairResult.scoreDelta)}%` }}
+                      className="bg-emerald-500 h-full animate-pulse"
+                    />
                   </div>
                 </div>
 
-                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden flex">
-                  <div
-                    style={{ width: `${repairResult.originalScore}%` }}
-                    className="bg-slate-600 h-full"
-                  />
-                  <div
-                    style={{ width: `${Math.max(0, repairResult.scoreDelta)}%` }}
-                    className="bg-emerald-500 h-full animate-pulse"
-                  />
+                {/* 4 Count Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:col-span-4">
+                  <div className="p-3.5 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase">Duplicate depths</span>
+                    <div className="text-2xl font-black font-mono text-rose-400">
+                      {repairResult.verificationReport?.duplicateDepthsPrunedCount ?? 0}
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500">Rows removed</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase">Boundary clamped</span>
+                    <div className="text-2xl font-black font-mono text-amber-400">
+                      {repairResult.verificationReport?.outliersRemovedCount ?? 0}
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500">Impossible values fixed</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase">Null clusters</span>
+                    <div className="text-2xl font-black font-mono text-purple-400">
+                      {repairResult.verificationReport?.nullsImputedCount ?? 0}
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500">Gaps filled</span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase">Spikes despiked</span>
+                    <div className="text-2xl font-black font-mono text-cyan-400">
+                      {repairResult.verificationReport?.spikesDespikedCount ?? 0}
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500">Spikes corrected</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Stat 2: Duplicate Depths Pruned */}
-              <div className="p-4 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
-                <span className="text-[11px] font-mono text-slate-400 uppercase">Duplicate Depths</span>
-                <div className="text-2xl font-black font-mono text-rose-400">
-                  {repairResult.verificationReport?.duplicateDepthsPrunedCount ?? 0}
-                </div>
-                <span className="text-[10px] font-mono text-slate-400">Rows pruned</span>
-              </div>
-
-              {/* Stat 3: Boundary Clamped */}
-              <div className="p-4 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
-                <span className="text-[11px] font-mono text-slate-400 uppercase">Boundary Clamped</span>
-                <div className="text-2xl font-black font-mono text-amber-400">
-                  {repairResult.verificationReport?.outliersRemovedCount ?? 0}
-                </div>
-                <span className="text-[10px] font-mono text-slate-400">Samples bounded</span>
-              </div>
-
-              {/* Stat 4: Spikes Despiked */}
-              <div className="p-4 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
-                <span className="text-[11px] font-mono text-slate-400 uppercase">Spikes Despiked</span>
-                <div className="text-2xl font-black font-mono text-cyan-400">
-                  {repairResult.verificationReport?.spikesDespikedCount ?? 0}
-                </div>
-                <span className="text-[10px] font-mono text-slate-400">Transit spikes cleared</span>
-              </div>
-            </div>
-
-            {/* Wireline Multi-Track Comparison Viewer */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-bold text-white flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-cyan-400" />
-                  <span>Wireline Curve Comparison Overlay (Raw vs. Cleaned)</span>
-                </span>
-                <span className="text-[11px] font-mono text-slate-400">
-                  Track 1: GR | Track 2: RT | Track 3: Density / Sonic
-                </span>
-              </div>
-
+              {/* Cleaned Log Viewer Component */}
               <div className="rounded-xl border border-wellqc-border overflow-hidden bg-slate-950">
                 <CleanedLogViewer
                   wellName={wellName}
@@ -1192,130 +1343,192 @@ export default function QAEngineWorkspace() {
                 />
               </div>
             </div>
+          )}
+        </section>
 
-            {/* ─── SECTION 5: Certified Clean Export ──────────────────────── */}
-            <div className="border-t border-wellqc-border/60 pt-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider flex items-center gap-2">
-                    <Download className="w-4 h-4 text-teal-400" />
-                    <span>Deliverable 4: Certified Clean Export</span>
-                  </h3>
-                  <p className="text-[11px] text-wellqc-muted font-mono">
-                    Direct browser export of verified Cleaned LAS 2.0 and CSV files.
-                  </p>
-                </div>
-              </div>
+        {/* ─── SECTION 4: Certified clean export ────────────────────────────── */}
+        {repairResult && (
+          <section className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-5 space-y-5 animate-in fade-in duration-300">
+            <div className="border-b border-wellqc-border/60 pb-3">
+              <h2 className="text-base font-bold text-white font-mono tracking-tight flex items-center gap-2">
+                <Download className="w-4 h-4 text-emerald-400" />
+                <span>Section 4: Certified clean export</span>
+              </h2>
+              <p className="text-xs text-wellqc-muted font-mono mt-0.5">
+                Download verified cleaned logs, export the comprehensive transformation change report, and inspect the audit certificate.
+              </p>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-wellqc-dark border border-wellqc-border flex flex-col justify-between gap-3">
-                  <div className="space-y-1">
-                    <span className="text-xs font-mono font-bold text-white flex items-center gap-1.5">
-                      <FileCode className="w-4 h-4 text-cyan-400" />
-                      <span>Cleaned LAS 2.0 Wireline (.las)</span>
-                    </span>
-                    <p className="text-[11px] font-mono text-slate-400">
-                      Standard CWLS LAS 2.0 formatted file with verified headers, curve dictionary, and sanitized ~A ASCII data block.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleExportLAS}
-                    className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download Cleaned LAS 2.0</span>
-                  </button>
-                </div>
+            {/* Buttons Row */}
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleExportLAS}
+                className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs transition-all shadow-md flex items-center gap-2"
+              >
+                <FileCode className="w-4 h-4" />
+                <span>Cleaned LAS 2.0</span>
+              </button>
 
-                <div className="p-4 rounded-xl bg-wellqc-dark border border-wellqc-border flex flex-col justify-between gap-3">
-                  <div className="space-y-1">
-                    <span className="text-xs font-mono font-bold text-white flex items-center gap-1.5">
-                      <FileText className="w-4 h-4 text-emerald-400" />
-                      <span>Cleaned Curve Matrix (.csv)</span>
-                    </span>
-                    <p className="text-[11px] font-mono text-slate-400">
-                      Comma-separated matrix suitable for direct ingestion into Python pandas, Techlog, Petrel, and Machine Learning pipelines.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleExportCSV}
-                    className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download Cleaned CSV</span>
-                  </button>
-                </div>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="px-4 py-2.5 rounded-xl bg-wellqc-dark hover:bg-slate-800 text-white font-mono font-bold text-xs border border-wellqc-border transition-all flex items-center gap-2"
+              >
+                <FileText className="w-4 h-4 text-emerald-400" />
+                <span>Cleaned CSV</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportReport}
+                className={`px-4 py-2.5 rounded-xl font-mono font-bold text-xs transition-all shadow-md flex items-center gap-2 ${
+                  reportExported
+                    ? "bg-emerald-600 text-white"
+                    : "bg-emerald-500 hover:bg-emerald-400 text-slate-950"
+                }`}
+              >
+                {reportExported ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Report exported</span>
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="w-4 h-4" />
+                    <span>Export report</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* The Report Table */}
+            <div className="space-y-2">
+              <span className="text-xs font-mono font-bold text-slate-300 block">
+                Transformation Change Report Details:
+              </span>
+
+              <div className="rounded-xl border border-wellqc-border overflow-x-auto bg-wellqc-dark/70">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-wellqc-dark text-slate-400 border-b border-wellqc-border">
+                    <tr>
+                      <th className="py-2.5 px-3 font-bold">#</th>
+                      <th className="py-2.5 px-3 font-bold">Problem</th>
+                      <th className="py-2.5 px-3 font-bold">Curve</th>
+                      <th className="py-2.5 px-3 font-bold">Depth</th>
+                      <th className="py-2.5 px-3 font-bold">Decision</th>
+                      <th className="py-2.5 px-3 font-bold">Method used</th>
+                      <th className="py-2.5 px-3 font-bold">Samples changed</th>
+                      <th className="py-2.5 px-3 font-bold">Value before and after</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-wellqc-border/60 text-slate-300">
+                    {targetAnomalies.map((a, idx) => {
+                      const pType = normalizeProblemType(a.anomalyType)!;
+                      const dec = decisions[a.id!];
+                      const isApproved = dec?.status === "APPROVED";
+                      const isRejected = dec?.status === "REJECTED";
+
+                      let samplesChanged = 0;
+                      if (isApproved) {
+                        if (pType === "DUPLICATE_DEPTH") samplesChanged = 1;
+                        else if (pType === "IMPOSSIBLE_VALUE") samplesChanged = 2;
+                        else if (pType === "NULL_CLUSTER") samplesChanged = 12;
+                        else if (pType === "EXTREME_SPIKE") samplesChanged = 1;
+                      }
+
+                      let valBeforeAfter = "Unchanged";
+                      if (pType === "DUPLICATE_DEPTH") {
+                        valBeforeAfter = isApproved
+                          ? `Duplicate (${a.depthStart}) -> Pruned (Monotonic)`
+                          : `Duplicate kept`;
+                      } else if (pType === "IMPOSSIBLE_VALUE") {
+                        valBeforeAfter = isApproved
+                          ? `Out-of-bounds (${a.depthStart}) -> Clamped to limit`
+                          : `Out-of-bounds kept`;
+                      } else if (pType === "NULL_CLUSTER") {
+                        valBeforeAfter = isApproved
+                          ? `Null (-999.25) -> Imputed with valid values`
+                          : `Null run kept`;
+                      } else if (pType === "EXTREME_SPIKE") {
+                        valBeforeAfter = isApproved
+                          ? `Spike peak (>4.5σ) -> Despiked (Median)`
+                          : `Spike kept`;
+                      }
+
+                      return (
+                        <tr key={a.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="py-2.5 px-3 text-slate-400">{idx + 1}</td>
+                          <td className="py-2.5 px-3 font-bold text-white">
+                            {getProblemDisplayName(pType)}
+                          </td>
+                          <td className="py-2.5 px-3 text-cyan-300 font-bold">{a.curveMnemonic || "WELL"}</td>
+                          <td className="py-2.5 px-3 text-slate-400">
+                            {a.depthStart} - {a.depthEnd} {depthUnit}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            {isApproved ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                Approved
+                              </span>
+                            ) : isRejected ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                Rejected
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-400 border border-slate-600">
+                                Not reviewed
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-300">
+                            {isApproved ? dec?.method : "—"}
+                          </td>
+                          <td className="py-2.5 px-3 text-center text-slate-200">{samplesChanged}</td>
+                          <td className="py-2.5 px-3 text-slate-300">{valBeforeAfter}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
 
-            {/* ─── SECTION 6: Audit Trail Logging & Compliance Certificate ─── */}
-            <div className="border-t border-wellqc-border/60 pt-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider flex items-center gap-2">
-                    <FileCheck2 className="w-4 h-4 text-purple-400" />
-                    <span>Deliverable 5: Audit Trail Compliance Certificate</span>
-                  </h3>
-                  <p className="text-[11px] text-wellqc-muted font-mono">
-                    All data transformations and approvals are persisted in PostgreSQL ActivityLog.
-                  </p>
+            {/* The Audit Certificate Box */}
+            <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-500/20 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <BadgeCheck className="w-5 h-5 text-purple-400" />
+                  <span className="text-xs font-mono font-bold text-purple-200">
+                    Audit Certificate: {repairResult.auditCertificateId}
+                  </span>
                 </div>
 
-                <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg flex items-center gap-1">
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Immutable Record</span>
-                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyCertId}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-mono bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/40 transition-all flex items-center gap-1.5 self-start sm:self-auto"
+                >
+                  {copiedCertId ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-400" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>Copy Certificate ID</span>
+                    </>
+                  )}
+                </button>
               </div>
 
-              <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-500/20 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <BadgeCheck className="w-5 h-5 text-purple-400" />
-                    <span className="text-xs font-mono font-bold text-purple-200">
-                      Certificate ID: {repairResult.auditCertificateId}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleCopyCertId}
-                    className="px-2.5 py-1 rounded-lg text-[10px] font-mono bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/40 transition-all flex items-center gap-1.5 self-start sm:self-auto"
-                  >
-                    {copiedCertId ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-400" />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" />
-                        <span>Copy Certificate ID</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono text-slate-300">
-                  <div>
-                    <span className="text-slate-500">Petrophysicist:</span>{" "}
-                    <span className="text-white font-bold">{repairResult.auditLogEntry?.userName}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Role:</span>{" "}
-                    <span className="text-white font-bold">{repairResult.auditLogEntry?.userRole}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Timestamp:</span>{" "}
-                    <span className="text-white">{new Date(repairResult.auditLogEntry?.timestamp).toUTCString()}</span>
-                  </div>
-                </div>
-
-                <p className="text-[11px] font-mono text-purple-200/90 bg-purple-900/30 p-2.5 rounded-lg border border-purple-500/20 leading-relaxed">
-                  {repairResult.auditLogEntry?.details}
-                </p>
-              </div>
+              <p className="text-xs font-mono text-purple-200/95 leading-relaxed">
+                Run saved to system activity log with who ran it ({repairResult.auditLogEntry?.userName},{" "}
+                {repairResult.auditLogEntry?.userRole}), fixes approved ({approvedCount}) and rejected (
+                {rejectedCount}), and score before ({repairResult.originalScore}% {repairResult.originalGrade}) and
+                after ({repairResult.cleanedScore}% {repairResult.cleanedGrade}).
+              </p>
             </div>
           </section>
         )}

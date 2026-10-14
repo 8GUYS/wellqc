@@ -252,7 +252,7 @@ def repair_anomalies(
         flatlineHandling=False,
         depthGapInterpolation=False,
         unitStandardization=False,
-        imputationStrategy="NONE",
+        imputationStrategy=req.imputationStrategy if req.imputationStrategy in ("KNN", "LINEAR", "MEDIAN") else "NONE",
     )
 
     initial_qa = analyze_well_log_quality(target_las, custom_aliases=server_aliases)
@@ -323,6 +323,7 @@ def repair_anomalies(
                 "despiking": req.despiking,
                 "outlierClipping": req.outlierClipping,
                 "duplicateDepthPruning": req.duplicateDepthPruning,
+                "imputationStrategy": req.imputationStrategy,
             },
         },
     }

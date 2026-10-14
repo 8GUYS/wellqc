@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     EMAIL_VERIFICATION_TOKEN_EXPIRE_SECONDS: int = int(
         os.getenv("EMAIL_VERIFICATION_TOKEN_EXPIRE_SECONDS", str(24 * 3600))  # 24 hours
     )
-    REQUIRE_EMAIL_VERIFICATION: bool = os.getenv("REQUIRE_EMAIL_VERIFICATION", "false").lower() in ("true", "1", "t")
+    REQUIRE_EMAIL_VERIFICATION: bool = os.getenv("REQUIRE_EMAIL_VERIFICATION", "true").lower() in ("true", "1", "t")
     EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "EMAILJS")  # "EMAILJS", "RESEND", "DEV_LOGGER"
     EMAILJS_SERVICE_ID: str = os.getenv("EMAILJS_SERVICE_ID", "")
     EMAILJS_TEMPLATE_ID: str = os.getenv("EMAILJS_TEMPLATE_ID", "")

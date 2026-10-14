@@ -4,7 +4,9 @@ from backend.app.main import app
 
 client = TestClient(app)
 
-def test_auth_flow():
+def test_auth_flow(monkeypatch):
+    from backend.app.core.config import settings
+    monkeypatch.setattr(settings, "REQUIRE_EMAIL_VERIFICATION", True)
     # 1. Register test user with unique email
     test_email = f"py_tester_{int(pytest.importorskip('time').time())}@example.com"
     reg_res = client.post(

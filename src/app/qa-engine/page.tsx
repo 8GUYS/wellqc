@@ -484,10 +484,11 @@ export default function QAEngineWorkspace() {
   }, [selectedAnomalyIds, targetAnomalies]);
 
   // Update default batch method when batchActiveType changes
-  useEffect(() => {
+    useEffect(() => {
     if (batchActiveType) {
       const methods = CLEANING_METHODS[batchActiveType];
       const rec = methods.find((m) => m.recommended) || methods[0];
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBatchMethod(rec?.id || "");
     }
   }, [batchActiveType]);

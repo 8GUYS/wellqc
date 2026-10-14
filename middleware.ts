@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const authFormPaths = ["/login", "/register"];
+const authFormPaths = ["/login", "/register", "/forgot-password", "/reset-password"];
 const publicVerificationPaths = ["/verify-email", "/verify-email-pending"];
 const publicGeneralPaths = ["/", "/pricing"];
 

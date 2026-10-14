@@ -73,7 +73,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
           </div>
           <div>
             <span className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
-              WellQC<span className="text-cyan-400 font-black">+</span>
+              WellQC
             </span>
             <span className="block text-[10px] uppercase font-mono tracking-widest text-wellqc-muted">
               Petrophysical QA

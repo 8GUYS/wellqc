@@ -1,4 +1,4 @@
-# WellQC+ — Enterprise User Stories & Acceptance Criteria
+# WellQC — Enterprise User Stories & Acceptance Criteria
 
 > **Document Version:** 1.0.0  
 > **Target Audience:** Product Managers, Petrophysicists, Data Analysts, Software & Cloud Engineers, QA Teams  
@@ -9,7 +9,7 @@
 
 ## 🧭 1. Executive Summary & Agile Framework
 
-WellQC+ is an enterprise cloud and AI-powered well log quality assurance, standardisation, and subsurface analytics platform. This document defines the formal **User Stories**, **User Personas**, and **Acceptance Criteria (Gherkin syntax)** that govern product development across all 6 two-week sprint cycles.
+WellQC is an enterprise cloud and AI-powered well log quality assurance, standardisation, and subsurface analytics platform. This document defines the formal **User Stories**, **User Personas**, and **Acceptance Criteria (Gherkin syntax)** that govern product development across all 6 two-week sprint cycles.
 
 ### 📐 Definition of Ready (DoR)
 A story is considered ready for sprint planning when:
@@ -45,7 +45,7 @@ A story is accepted as done when:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                            WellQC+ Epic Hierarchy                            │
+│                            WellQC Epic Hierarchy                            │
 ├───────────────────────┬──────────────────────────────┬───────────────────────┤
 │ Epic 1: LAS Ingestion │ Epic 2: Standardisation      │ Epic 3: AI QA Engine  │
 ├───────────────────────┼──────────────────────────────┼───────────────────────┤
@@ -552,4 +552,4 @@ A story is accepted as done when:
 
 ---
 
-*Document approved by WellQC+ Core Engineering & Petrophysical Analytics Working Group.*
+*Document approved by WellQC Core Engineering & Petrophysical Analytics Working Group.*

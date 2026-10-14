@@ -12,7 +12,7 @@ export function LandingFooter() {
                 <Activity className="w-4 h-4 text-emerald-400" />
               </div>
             </div>
-            <span className="font-bold text-lg text-white">WellQC+</span>
+            <span className="font-bold text-lg text-white">WellQC</span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
@@ -25,7 +25,7 @@ export function LandingFooter() {
         </div>
 
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500">
-          <p>&copy; {new Date().getFullYear()} WellQC+ Subsurface Analytics Inc. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} WellQC Subsurface Analytics Inc. All rights reserved.</p>
           <p className="flex items-center gap-4">
             <span>Privacy Policy</span>
             <span>&bull;</span>

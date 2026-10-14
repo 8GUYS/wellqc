@@ -2,7 +2,7 @@
 
 > **Enterprise-Grade AI-Powered Well Log Quality Assurance Platform**
 
-WellQC+ is a full-stack cloud platform that automatically validates, cleans, standardises, and analyses **LAS (Log ASCII Standard)** well log files before consumption by petrophysicists and geoscientists. Styled after industry software from SLB, Palantir Foundry, and Microsoft Fabric, it provides complete automated QA/QC workflows, interactive log track rendering, AI anomaly detection, standardisation management, enterprise reporting, and a Paystack-powered Nigerian and global payment portal.
+WellQC is a full-stack cloud platform that automatically validates, cleans, standardises, and analyses **LAS (Log ASCII Standard)** well log files before consumption by petrophysicists and geoscientists. Styled after industry software from SLB, Palantir Foundry, and Microsoft Fabric, it provides complete automated QA/QC workflows, interactive log track rendering, AI anomaly detection, standardisation management, enterprise reporting, and a Paystack-powered Nigerian and global payment portal.
 
 ---
 
@@ -148,7 +148,7 @@ WellQC+ is a full-stack cloud platform that automatically validates, cleans, sta
 ## 📁 Project Structure
 
 ```
-WellQC+/
+WellQC/
 ├── .env                           # Environment variables (Paystack keys, DB URL, session secret)
 ├── Documentations/                # Project documentation suite
 │   ├── README.md                  # System overview and architecture guide

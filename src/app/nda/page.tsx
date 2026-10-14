@@ -129,7 +129,7 @@ export default function NDAPage() {
                 <span>1. Proprietary Subsurface Data Ownership & Workspace Isolation</span>
               </h3>
               <p className="text-slate-400 text-[11px] pl-5">
-                All Log ASCII Standard (LAS) files, headers (`~V`, `~W`, `~C`, `~P`), wireline curve data matrices (GR, RHOB, NPHI, DT, RT, etc.), geographic coordinates, and calculated petrophysical anomalies submitted to WellQC+ remain the exclusive, non-transferable property of the subscribing organization (`ownerId`). WellQC+ enforces multi-tenant database row-level query isolation across all API endpoints.
+                All Log ASCII Standard (LAS) files, headers (`~V`, `~W`, `~C`, `~P`), wireline curve data matrices (GR, RHOB, NPHI, DT, RT, etc.), geographic coordinates, and calculated petrophysical anomalies submitted to WellQC remain the exclusive, non-transferable property of the subscribing organization (`ownerId`). WellQC enforces multi-tenant database row-level query isolation across all API endpoints.
               </p>
             </div>
 
@@ -140,7 +140,7 @@ export default function NDAPage() {
                 <span>2. Zero-Retention In-Memory Processing & No Model Training</span>
               </h3>
               <p className="text-slate-400 text-[11px] pl-5">
-                Uploaded LAS well log curves are parsed and evaluated in transient server memory for quality scoring, physical limit checks, and KNN imputation. WellQC+ explicitly covenants that private client well log curves, synthetic rock property models, and reservoir interpretations will never be used to train public machine learning or third-party AI foundation models.
+                Uploaded LAS well log curves are parsed and evaluated in transient server memory for quality scoring, physical limit checks, and KNN imputation. WellQC explicitly covenants that private client well log curves, synthetic rock property models, and reservoir interpretations will never be used to train public machine learning or third-party AI foundation models.
               </p>
             </div>
 
@@ -178,7 +178,7 @@ export default function NDAPage() {
             className="mt-0.5 w-4 h-4 rounded border-wellqc-border bg-wellqc-card text-cyan-500 focus:ring-cyan-500/40 focus:ring-offset-0 cursor-pointer"
           />
           <label htmlFor="ndaCheck" className="text-xs text-slate-200 cursor-pointer select-none font-medium">
-            I confirm that I am authorized to bind my organization, and I accept the terms of the <span className="text-cyan-300 font-bold">WellQC+ Subsurface Data Processing & Non-Disclosure Agreement</span>.
+            I confirm that I am authorized to bind my organization, and I accept the terms of the <span className="text-cyan-300 font-bold">WellQC Subsurface Data Processing & Non-Disclosure Agreement</span>.
           </label>
         </div>
 

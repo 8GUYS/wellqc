@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "WellQC+ | AI-Powered Well Log Quality Assurance Platform",
+  title: "WellQC | AI-Powered Well Log Quality Assurance Platform",
   description: "Enterprise petrophysical well log validation, standardisation, and quality assurance cloud platform.",
 };
 

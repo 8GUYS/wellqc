@@ -124,7 +124,7 @@ def build_las_file_string(las: ParsedLAS, qa: QualityAnalysisResult, report: Ver
         "VERS.                 2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0",
         "WRAP.                  NO : ONE LINE PER DEPTH STEP",
         "~WELL INFORMATION",
-        f"# Cleaned & Repaired by WellQC+ Enterprise Engine on {now_iso}",
+        f"# Cleaned & Repaired by WellQC Enterprise Engine on {now_iso}",
         f"# Verification Audit: Initial Score {report.originalQualityScore}% ({report.originalGrade}) -> Cleaned Score {report.cleanedQualityScore}% ({report.cleanedGrade})",
         f"# Outliers Nulled: {report.outliersRemovedCount} | Spikes Despiked: {report.spikesDespikedCount} | Units Standardized: {report.unitsConvertedCount} | Imputed Values: {report.nullsImputedCount}",
     ]

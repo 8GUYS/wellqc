@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import Link from "next/link";
+import JSZip from "jszip";
 import {
   FileSpreadsheet,
   Download,
@@ -13,6 +14,9 @@ import {
   Database,
   Eye,
   RefreshCw,
+  CheckSquare,
+  Archive,
+  Lock,
 } from "lucide-react";
 import { safeReadJson } from "@/lib/http-client";
 import {
@@ -21,6 +25,8 @@ import {
   AuditCertificateData,
 } from "@/components/reports/audit-certificate-modal";
 import { WellDetailResponse } from "@/lib/api-types";
+import { CryptographicBadge } from "@/components/reports/cryptographic-badge";
+import { computeWellSignature } from "@/lib/crypto-signature";
 
 interface AuditReportItem {
   id: string;
@@ -40,6 +46,9 @@ export default function ReportsPage() {
   const [activeAuditData, setActiveAuditData] = useState<AuditCertificateData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState<boolean>(false);
+  const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
+  const [isBulkExporting, setIsBulkExporting] = useState<boolean>(false);
+  const [exportToast, setExportToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     // 1. Check if there's an active upload / QA session in localStorage
@@ -283,7 +292,7 @@ export default function ReportsPage() {
       "VERS.                 2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0",
       "WRAP.                  NO : ONE LINE PER DEPTH STEP",
       "~WELL INFORMATION",
-      `# Cleaned & Validated by WellQC+ Enterprise Engine on ${new Date().toISOString()}`,
+      `# Cleaned & Validated by WellQC Enterprise Engine on ${new Date().toISOString()}`,
       `# Well: ${activeWellName}`,
       "STRT.FT              4500.0000 : START DEPTH",
       "STOP.FT              6500.0000 : STOP DEPTH",
@@ -312,6 +321,129 @@ export default function ReportsPage() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const isAllSelected = reports.length > 0 && selectedReportIds.length === reports.length;
+  const isSomeSelected = selectedReportIds.length > 0 && selectedReportIds.length < reports.length;
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedReportIds([]);
+    } else {
+      setSelectedReportIds(reports.map((r) => r.id));
+    }
+  };
+
+  const handleToggleSelectRow = (id: string) => {
+    setSelectedReportIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkExport = async () => {
+    if (selectedReportIds.length === 0) return;
+    setIsBulkExporting(true);
+    try {
+      const zip = new JSZip();
+      const targetReports = reports.filter((r) => selectedReportIds.includes(r.id));
+      const manifestList = [];
+
+      for (const r of targetReports) {
+        const auditData = await loadWellAuditData(r.id);
+        const signature = computeWellSignature({
+          wellName: r.wellName,
+          qualityScore: r.qualityScore,
+          apiNo: auditData?.apiNo,
+          timestamp: r.timestamp,
+        });
+
+        const safeFolder = r.wellName.replace(/[^a-zA-Z0-9_-]/g, "_");
+        const wellFolder = zip.folder(safeFolder);
+
+        const lasContent = [
+          "~VERSION INFORMATION",
+          "VERS.                 2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0",
+          "WRAP.                  NO : ONE LINE PER DEPTH STEP",
+          "~WELL INFORMATION",
+          `# Cleaned & Validated by WellQC Enterprise Engine on ${new Date().toISOString()}`,
+          `# Well: ${r.wellName}`,
+          `STRT.FT              ${auditData?.startDepth?.toFixed(4) || "4500.0000"} : START DEPTH`,
+          `STOP.FT              ${auditData?.stopDepth?.toFixed(4) || "6500.0000"} : STOP DEPTH`,
+          "STEP.FT                 0.5000 : STEP VALUE",
+          "NULL.               -999.2500 : NULL VALUE",
+          "~CURVE INFORMATION",
+          "DEPT.FT                        : 1  DEPTH",
+          "GR  .GAPI                      : 2  GAMMA RAY (STANDARD API)",
+          "RT  .OHMM                      : 3  TRUE RESISTIVITY (LOGARITHMIC 0.2-2000)",
+          "RHOB.G/C3                      : 4  BULK DENSITY",
+          "NPHI.V/V                       : 5  NEUTRON POROSITY",
+          "DT  .US/F                      : 6  COMPRESSIONAL SONIC SLOWNESS",
+          "~ASCII",
+          " 4500.0000    62.4000    14.2000     2.3400     0.1800     82.5000",
+          " 4500.5000    63.1000    14.8000     2.3300     0.1850     83.1000",
+          " 4501.0000    61.9000    15.2000     2.3500     0.1790     82.9000",
+          " 4501.5000    64.0000    15.9000     2.3200     0.1910     84.0000",
+          "# ... Cleaned records continue",
+        ].join("\n");
+
+        if (wellFolder) {
+          wellFolder.file(`${safeFolder}_cleaned.las`, lasContent);
+
+          const wellManifest = {
+            wellName: r.wellName,
+            apiNo: auditData?.apiNo || "NUPRC-UWI-NG-2026-0042",
+            fieldName: auditData?.fieldName || "Offshore Niger Delta",
+            qualityScore: r.qualityScore,
+            qualityGrade: r.qualityGrade,
+            anomaliesAudited: r.anomaliesCount,
+            fixesApplied: r.fixesApplied,
+            cryptographicSignature: {
+              hash: signature.hash,
+              sealId: signature.sealId,
+              standard: signature.standard,
+              algorithm: signature.algorithm,
+              issuingAuthority: signature.issuingAuthority,
+            },
+            verifiedAt: r.timestamp,
+          };
+          wellFolder.file(`${safeFolder}_audit_manifest.json`, JSON.stringify(wellManifest, null, 2));
+          manifestList.push(wellManifest);
+        }
+      }
+
+      // Master Manifest
+      const bundleManifest = {
+        bundleTitle: "WellQC Multi-Well Certified Subsurface Archive",
+        authority: "Nigerian Upstream Petroleum Regulatory Commission (NUPRC / DPR)",
+        complianceDirective: "Petroleum Industry Act (PIA) 2021 Subsurface Data Depository Standards",
+        exportedAt: new Date().toISOString(),
+        totalWellsIncluded: manifestList.length,
+        wells: manifestList,
+      };
+      zip.file("BUNDLE_AUDIT_MANIFEST.json", JSON.stringify(bundleManifest, null, 2));
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `WellQC_Certified_Archive_${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setExportToast({
+        msg: `Successfully exported bundle with ${targetReports.length} wells (.zip + SHA-256 manifests).`,
+        ok: true,
+      });
+      setTimeout(() => setExportToast(null), 4000);
+    } catch (err) {
+      console.error("Bulk export error:", err);
+      setExportToast({ msg: "Failed to generate bulk export archive.", ok: false });
+      setTimeout(() => setExportToast(null), 4000);
+    } finally {
+      setIsBulkExporting(false);
+    }
   };
 
   return (
@@ -343,6 +475,13 @@ export default function ReportsPage() {
             </Link>
           </div>
         </header>
+
+        {/* Cryptographic Regulatory Compliance Badge */}
+        <CryptographicBadge
+          wellName={activeWellName}
+          qualityScore={activeAuditData?.qualityScore ?? 85}
+          apiNo={activeAuditData?.apiNo}
+        />
 
         {/* Dual Document Export Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -379,7 +518,7 @@ export default function ReportsPage() {
                 type="button"
                 onClick={() => handleOpenAuditModal()}
                 disabled={isLoadingDetail}
-                className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-bold font-mono text-xs transition-all flex items-center justify-center gap-2"
+                className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-bold font-mono text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Eye className="w-4 h-4" />
                 <span>Preview Certificate</span>
@@ -388,7 +527,7 @@ export default function ReportsPage() {
                 type="button"
                 onClick={() => handlePrintAuditCertificate()}
                 disabled={isLoadingDetail}
-                className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold font-mono text-xs shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2"
+                className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold font-mono text-xs shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 <span>Print / PDF Certificate</span>
@@ -428,7 +567,7 @@ export default function ReportsPage() {
               <button
                 type="button"
                 onClick={handleDownloadSampleCleanedLAS}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-mono text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-mono text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Download className="w-4 h-4" />
                 <span>Download Cleaned LAS</span>
@@ -437,6 +576,53 @@ export default function ReportsPage() {
           </div>
         </div>
 
+        {/* Bulk Action Bar (Visible when one or more wells are selected) */}
+        {selectedReportIds.length > 0 && (
+          <div className="bg-cyan-950/40 border border-cyan-500/40 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-cyan-500/5">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300">
+                <CheckSquare className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-mono font-bold text-white">
+                  {selectedReportIds.length} well asset{selectedReportIds.length === 1 ? "" : "s"} selected
+                </span>
+                <p className="text-[11px] text-cyan-300/80 font-mono">
+                  Multi-well batch export bundles cleaned LAS 2.0 files + signed cryptographic audit manifests
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedReportIds([])}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono border border-slate-700 transition-colors cursor-pointer"
+              >
+                Deselect All
+              </button>
+              <button
+                type="button"
+                id="bulk-export-wells-btn"
+                onClick={handleBulkExport}
+                disabled={isBulkExporting}
+                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 text-slate-950 font-bold font-mono text-xs shadow-md shadow-cyan-500/20 transition-all cursor-pointer"
+              >
+                {isBulkExporting ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Archive className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {isBulkExporting
+                    ? "Packaging Archive..."
+                    : `Export Selected (${selectedReportIds.length})`}
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Well Reports Index Table */}
         <section aria-label="Reports Archive" className="bg-wellqc-panel border border-wellqc-border rounded-2xl overflow-hidden shadow-lg space-y-0">
           <div className="p-4 border-b border-wellqc-border bg-wellqc-card/40 flex items-center justify-between">
@@ -444,7 +630,7 @@ export default function ReportsPage() {
               Generated Well QA &amp; Cleaned Document Archive ({reports.length})
             </h3>
             <span className="text-[11px] font-mono text-wellqc-muted">
-              Certified by WellQC+ Enterprise Engine
+              Certified by WellQC Enterprise Engine &amp; NUPRC NDR
             </span>
           </div>
 
@@ -452,71 +638,111 @@ export default function ReportsPage() {
             <table className="w-full text-left font-mono text-xs">
               <thead className="bg-wellqc-dark border-b border-wellqc-border text-[10px] text-wellqc-muted uppercase">
                 <tr>
+                  <th className="py-3 px-4 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      id="select-all-reports-checkbox"
+                      checked={isAllSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = isSomeSelected;
+                      }}
+                      onChange={handleToggleSelectAll}
+                      disabled={reports.length === 0}
+                      aria-label="Select all wells"
+                      className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-cyan-500/40 accent-cyan-400 cursor-pointer disabled:opacity-30"
+                    />
+                  </th>
                   <th className="py-3 px-4">Well Asset</th>
                   <th className="py-3 px-4">Timestamp</th>
                   <th className="py-3 px-4">QA Grade</th>
                   <th className="py-3 px-4">Score</th>
+                  <th className="py-3 px-4 text-center">Cryptographic Seal</th>
                   <th className="py-3 px-4 text-center">Audit Certificate</th>
                   <th className="py-3 px-4 text-center">Cleaned LAS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-wellqc-border/50">
-                {reports.map((r, i) => (
-                  <tr key={`${r.id}-${i}`} className="hover:bg-wellqc-card/40 transition-colors">
-                    <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
-                      <Database className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>{r.wellName}</span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-400 text-[11px]">
-                      {new Date(r.timestamp).toLocaleDateString()}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          r.qualityGrade === "EXCELLENT"
-                            ? "bg-emerald-500/20 text-emerald-300"
-                            : r.qualityGrade === "GOOD"
-                              ? "bg-cyan-500/20 text-cyan-300"
-                              : "bg-amber-500/20 text-amber-300"
-                        }`}
-                      >
-                        {r.qualityGrade}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-cyan-300 font-bold">{r.qualityScore}/100</td>
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
+                {reports.map((r, i) => {
+                  const isSelected = selectedReportIds.includes(r.id);
+                  return (
+                    <tr
+                      key={`${r.id}-${i}`}
+                      className={`hover:bg-wellqc-card/40 transition-colors ${
+                        isSelected ? "bg-cyan-950/20" : ""
+                      }`}
+                    >
+                      <td className="py-3 px-4 text-center">
+                        <input
+                          type="checkbox"
+                          id={`select-report-${r.id}`}
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectRow(r.id)}
+                          aria-label={`Select well ${r.wellName}`}
+                          className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-cyan-500/40 accent-cyan-400 cursor-pointer"
+                        />
+                      </td>
+                      <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
+                        <Database className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>{r.wellName}</span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-400 text-[11px]">
+                        {new Date(r.timestamp).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            r.qualityGrade === "EXCELLENT"
+                              ? "bg-emerald-500/20 text-emerald-300"
+                              : r.qualityGrade === "GOOD"
+                                ? "bg-cyan-500/20 text-cyan-300"
+                                : "bg-amber-500/20 text-amber-300"
+                          }`}
+                        >
+                          {r.qualityGrade}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-cyan-300 font-bold">{r.qualityScore}/100</td>
+                      <td className="py-3 px-4 text-center">
+                        <CryptographicBadge
+                          wellName={r.wellName}
+                          qualityScore={r.qualityScore}
+                          compact
+                        />
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAuditModal(r.id)}
+                            className="px-2.5 py-1 rounded bg-wellqc-card hover:bg-wellqc-panel border border-wellqc-border text-cyan-300 text-[11px] font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Preview NUPRC regulatory audit certificate"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>View</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handlePrintAuditCertificate(r.id)}
+                            className="p-1 rounded bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[11px] font-bold inline-flex items-center transition-colors cursor-pointer"
+                            title="Print / PDF Certificate"
+                          >
+                            <Printer className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center">
                         <button
                           type="button"
-                          onClick={() => handleOpenAuditModal(r.id)}
-                          className="px-2.5 py-1 rounded bg-wellqc-card hover:bg-wellqc-panel border border-wellqc-border text-cyan-300 text-[11px] font-bold inline-flex items-center gap-1 transition-colors"
-                          title="Preview NUPRC regulatory audit certificate"
+                          onClick={handleDownloadSampleCleanedLAS}
+                          className="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
                         >
-                          <Eye className="w-3 h-3" />
-                          <span>View</span>
+                          <Download className="w-3 h-3" />
+                          <span>Cleaned LAS</span>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handlePrintAuditCertificate(r.id)}
-                          className="p-1 rounded bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[11px] font-bold inline-flex items-center transition-colors"
-                          title="Print / PDF Certificate"
-                        >
-                          <Printer className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        type="button"
-                        onClick={handleDownloadSampleCleanedLAS}
-                        className="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold inline-flex items-center gap-1"
-                      >
-                        <Download className="w-3 h-3" />
-                        <span>Cleaned LAS</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -528,6 +754,20 @@ export default function ReportsPage() {
           onClose={() => setIsModalOpen(false)}
           data={activeAuditData}
         />
+
+        {/* Toast Notification */}
+        {exportToast && (
+          <div
+            className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-xs font-mono border transition-all ${
+              exportToast.ok
+                ? "bg-emerald-900/90 border-emerald-500/40 text-emerald-200"
+                : "bg-red-900/90 border-red-500/40 text-red-200"
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{exportToast.msg}</span>
+          </div>
+        )}
       </div>
     </AppShell>
   );

@@ -1,5 +1,5 @@
 /**
- * WellQC+ Enterprise API Client for Python Backend Services
+ * WellQC Enterprise API Client for Python Backend Services
  * Connects frontend Next.js pages directly to FastAPI endpoints.
  */
 

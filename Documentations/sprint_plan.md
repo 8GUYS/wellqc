@@ -1,9 +1,9 @@
-# WellQC+ — Master 3-Month Development Sprint Plan & Ownership Matrix
+# WellQC — Master 3-Month Development Sprint Plan & Ownership Matrix
 
-> **Project:** WellQC+ — AI-Powered Well Log Quality Assurance & Subsurface Analytics Platform  
+> **Project:** WellQC — AI-Powered Well Log Quality Assurance & Subsurface Analytics Platform  
 > **Team Structure (8 Members):** 2 Software Engineers · 4 Data Analysts · 2 Cloud Engineers  
-> **Timeline:** 3 Months (12 Weeks) · 6 × 2-Week Sprints  
-> **Active Sprint:** Sprint 6 — Hardened Production Release, Security Audit & Platform Integration  
+> **Timeline:** 3.5 Months (14 Weeks) · 7 × 2-Week Sprints  
+> **Active Sprint:** Sprint 7 — Multi-Well Comparison, NUPRC Compliance Reports & Batch Processing (Sprint 6 Completed)  
 > **Methodology:** Agile Scrum with 2-Week Sprint Cycles  
 > **User Stories Specification:** See [**user_stories.md**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/user_stories.md) for full acceptance criteria & personas  
 
@@ -11,7 +11,7 @@
 
 ## 🏗️ 1. Current Codebase Implementation Audit
 
-The WellQC+ platform is structured as an enterprise-grade AI well log quality assurance platform with a high-performance Python FastAPI backend and a Next.js 15 App Router frontend:
+The WellQC platform is structured as an enterprise-grade AI well log quality assurance platform with a high-performance Python FastAPI backend and a Next.js 15 App Router frontend:
 
 ### 1. Unified Python FastAPI Backend Architecture (`backend/app/`)
 * **FastAPI Service Core ([`backend/app/main.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/backend/app/main.py))**: Unified asynchronous backend serving all API endpoints (`/api/*`), interactive Swagger UI documentation (`/docs`), OpenAPI schemas (`/openapi.json`), and global structured JSON error handling.
@@ -96,7 +96,7 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
 
 ### 🟢 SPRINT 2 (Weeks 3–4): Foundation, Auth & Multi-Tenant Database
 * **Theme:** Database schema push, authentication stack, route protection middleware, and responsive app shell.
-* **SE1:** Build [`src/lib/auth.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC+/src/lib/auth.ts) password hashing with scrypt + random salt; implement `verifyPassword` with `timingSafeEqual` and HMAC session token helpers.
+* **SE1:** Build [`src/lib/auth.ts`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/WellQC/src/lib/auth.ts) password hashing with scrypt + random salt; implement `verifyPassword` with `timingSafeEqual` and HMAC session token helpers.
 * **SE2:** Build public Landing Page (`src/app/page.tsx`); build Auth API routes (`/api/auth/login`, `/register`, `/logout`, `/me`); build `app-shell.tsx`, `sidebar.tsx`, `header.tsx`, and `middleware.ts`.
 * **DA1:** Build initial raw mnemonic alias dictionary for standardisation (mapping `GAMMA`, `DEN`, `CNL`, `AC` to API standards).
 * **DA2:** Benchmark baseline imputation algorithms (Mean, Median, Linear Interpolation, Row Dropping).
@@ -171,60 +171,87 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
 
 ---
 
-### 🔴 SPRINT 6 (Weeks 11–12): Hardened Production Release, Cross-Platform Launchers & Demo Sign-Off
+### 🔴 SPRINT 6 (Weeks 11–12): Hardened Production Release, Security Audit & Quality Engine Overhaul [COMPLETED]
 
-* **Theme:** Dual-server orchestration, cross-platform developer tooling, performance verification, and final production sign-off.
-* **SE1 & CE1:** Created `scripts/start-servers.ps1` and `start_engine.py` for single-command orchestration of FastAPI (:8000) and Next.js (:3000) with automatic port cleanup and health monitoring.
-* **SE2:** Final responsive layout verification, dark mode aesthetics audit, and interactive Swagger UI (`/docs`) with Bearer token authorization modal.
-* **CE2:** Production Docker containerization verification with `docker-compose.yml`, health probes, and SSL/TLS proxy alignment.
-* **Full Team:** End-to-end regression audit, verification of 11 anomaly detection categories, and zero-technical-debt sign-off.
+* **Theme:** Security hardening, rate limiting, cryptographic password reset, interactive Quality Engine overhaul, multi-variate imputation, and certified export.
+* **SE1 (Core Engine & Imputation Logic):**
+  - Overhauled backend anomaly repair endpoints (`/api/qa-engine/repair`) to route user-selected `imputationStrategy` (`KNN`, `LINEAR`, `MEDIAN`) into `repair_las_file_advanced`.
+  - Added full action tracking to `auditLogEntry["actionsApplied"]` for historical verification and compliance records.
+  - Implemented sliding-window in-memory IP rate limiter returning RFC-compliant `429 Too Many Requests`.
+* **SE2 (Quality Engine UI Redesign & Export Suite):**
+  - Built complete 4-section Quality Engine page (`src/app/qa-engine/page.tsx`):
+    - *Section 1: Choose the well* with data source switcher, well metadata card, and raw quality score.
+    - *Section 2: Review and approve fixes* with inline algorithm selection (KNN, Linear, Zonal Median), batch selection with auto-dimming, and non-destructive run bar.
+    - *Section 3: Before and after verification* with compliance badge, score delta gauge, 4 repair metric counters, and embedded CleanedLogViewer with raw comparison overlay.
+    - *Section 4: Certified clean export* with Cleaned LAS 2.0 / CSV downloads, full change report export, and copyable audit certificate ID (`WQC-CERT-XXXXXXXX`).
+  - Implemented password reset UI with password strength validation and automatic redirect.
+* **CE2 & DA3 (Database Performance & API Stabilization):**
+  - Resolved `HTTP 500: Internal Server Error` on well listing endpoints by optimizing eager loading on curves and anomalies.
+  - Integrated dynamic `SystemSetting` key-value model for runtime credentials and templates.
+* **CE1 & DA4 (Quality Assurance & Test Automation):**
+  - Expanded test suites to 7 Jest test suites (37 unit tests) and 52 Pytest backend tests with 100% pass rate.
+  - Verified 0 TypeScript compilation errors (`npx tsc --noEmit`).
+
+---
+
+### 🟣 SPRINT 7 (Weeks 13–14): Multi-Well Comparison, NUPRC Compliance Reports & Batch Processing [ACTIVE SPRINT]
+
+* **Theme:** Advanced subsurface correlation, regulatory reporting compliance, background batch ingestion queue, and unsupervised lithology classification.
+* **SE1 (Core Engine & Correlation Mathematics):**
+  - **P1 — Well Comparison Engine:** Build multi-well depth alignment, curve normalization (Z-score and min-max), and correlation matrix calculations for up to 4 offset wells.
+  - **P4 — ML Lithology Classification:** Implement unsupervised clustering (K-Means / Gaussian Mixture) on GR-RHOB-NPHI crossplots to detect shale, sand, and carbonate intervals.
+* **SE2 (Frontend Navigation & Comparison Visualizer):**
+  - **P1 — Well Comparison UI (`src/app/comparison/page.tsx`):** Unhide navigation route and build interactive cross-well canvas displaying synchronized depth-scrolling tracks, lithology column overlays, and well tops.
+  - **P2 — NUPRC Regulatory Audit Reports UI (`src/app/reports/page.tsx`):** Unhide navigation route and build formal Nigerian Upstream Petroleum Regulatory Commission submission templates with digital signatures and print layout.
+* **DA1 & DA2 (Petrophysical Rules & ML Calibration):**
+  - Calibrate lithological electrofacies cutoff boundaries across Niger Delta formations (Akata, Agbada, Benin).
+  - Define standard well tops classification dictionary for multi-well marker correlation.
+* **DA3 & DA4 (Compliance Documentation & Field Datasets):**
+  - Benchmark NUPRC regulatory validation rules (casing shoe markers, TD verification, calibration records).
+  - Prepare multi-well demonstration package with 4 offset Niger Delta wells for cross-correlation validation.
+* **CE1 (Batch Ingestion & Background Task Queue):**
+  - **P3 — Automated Batch Ingestion Queue:** Implement asynchronous background task workers (FastAPI `BackgroundTasks` / Celery) for multi-file LAS directory uploads with live progress bar and bulk ZIP download.
+* **CE2 (Webhook Dispatcher & Cloud Storage):**
+  - **P5 — Webhook Event Dispatcher:** Implement outbound HTTP webhook dispatch notifying external cloud storage (S3/Blob) and subsurface databases upon well certification.
 
 ---
 
 ## 📊 4. Quick Reference Responsibility Matrix
 
 ```
-WellQC+ Development Team (8 Members)
+WellQC Development Team (8 Members)
 │
 ├── 🧑‍💻 SE1 (Core Engine & AI Lead)
-│    ├─ S1: Architecture & Data Pipeline Contract  ├─ S2: Scrypt & HMAC Auth Engine
-│    ├─ S3: LAS Parser & Quality Engine Scoring   ├─ S4: Multi-Track Viewer & Exporter
-│    ├─ S5: Server RBAC Default-to-Deny & Audits  └─ S6: Cross-Platform Launcher & Sign-Off
+│    ├─ S1–S3: LAS Parser, Scoring & Core Engines  ├─ S4–S5: Python Backend & Default-to-Deny RBAC
+│    ├─ S6: Rate Limiting & Imputation Pipeline    └─ S7: Multi-Well Correlation & ML Lithology
 │
 ├── 🧑‍💻 SE2 (Full-Stack UI & API Lead)
-│    ├─ S1: Next.js Setup & Directory Scaffold    ├─ S2: Landing Page, Auth Pages & Shell
-│    ├─ S3: Upload UI & Well CRUD Pages           ├─ S4: Dashboard, QA Engine & Benchmark UI
-│    ├─ S5: Show/Hide Password & Modular Upload   └─ S6: Swagger UI Auth & UI Polish
+│    ├─ S1–S3: App Shell, Auth & Ingestion UI      ├─ S4–S5: Dashboard, Viewer & Modular Upload
+│    ├─ S6: Quality Engine 4-Section Redesign      └─ S7: Comparison Canvas & NUPRC Reports UI
 │
 ├── 📊 DA1 (Petrophysical Rules & Standardisation Lead)
-│    ├─ S1: 8 Core Curve Physical Limit Bounds    ├─ S2: Raw Mnemonic Alias Dictionary
-│    ├─ S3: Standardiser Confidence Weighting     ├─ S4: Persistent Custom Alias Feature
-│    ├─ S5: Custom Alias User Isolation Logic     └─ S6: Petrophysical Dictionary Sign-Off
+│    ├─ S1–S3: Curve Physical Limits & Aliases     ├─ S4–S5: Custom Aliases & User Isolation
+│    ├─ S6: Anomaly Verification & Rule Audits     └─ S7: Niger Delta Lithology & Well Tops Rules
 │
 ├── 📊 DA2 (Missing Value & Imputation Lead)
-│    ├─ S1: Root Cause Diagnostics Definition     ├─ S2: Baseline Imputation Benchmarks
-│    ├─ S3: Spike & Flatline Threshold Tuning     ├─ S4: Multi-Method KNN Benchmark Engine
-│    ├─ S5: Imputation Quality Verification       └─ S6: Imputation Presentation & Slides
+│    ├─ S1–S3: Root Cause Rules & Thresholds       ├─ S4–S5: Imputation Benchmarking Engine
+│    ├─ S6: KNN, Linear & Median Imputation Calib  └─ S7: Multi-Well Lithology Cluster Validation
 │
 ├── 📊 DA3 (Basin Intelligence & Field Analytics Lead)
-│    ├─ S1: Dashboard KPI & Telemetry Specs       ├─ S2: Niger Delta Basin Field Directory
-│    ├─ S3: Header Metadata Auto-Extraction       ├─ S4: Analytics & Field Ranking Logic
-│    ├─ S5: Clean DB Seeder & Zero-Mock Baseline  └─ S6: Field Performance Demo Dataset
+│    ├─ S1–S3: Dashboard KPIs & Field Directory    ├─ S4–S5: Analytics Logic & Zero-Mock Seeder
+│    ├─ S6: Database Eager Loading Optimization    └─ S7: Offset Wells Dataset Curation
 │
 ├── 📊 DA4 (Reporting & Quality Audit Lead)
-│    ├─ S1: PDF Audit Certificate Layout Specs    ├─ S2: 10 Niger Delta Test LAS Dataset
-│    ├─ S3: Quality Grade Range Verification      ├─ S4: PDF / Excel / CSV Exporters
-│    ├─ S5: Pytest 52-Suite Verification          └─ S6: Final Demonstration & Sign-Off
+│    ├─ S1–S3: PDF Audit Specs & Test Datasets     ├─ S4–S5: Export Validation & Test Coverage
+│    ├─ S6: Change Report & Certificate Formatting └─ S7: NUPRC Compliance Report Validation
 │
 ├── ☁️ CE1 (DevOps, CI/CD & Performance Lead)
-│    ├─ S1: Vercel Project & Environment Setup    ├─ S2: SSL HTTPS & GitHub Actions CI/CD
-│    ├─ S3: Next.js Chunk Splitting Optimization  ├─ S4: SVG Rendering Performance Tuning
-│    ├─ S5: Automated Jest & Pytest Pipelines     └─ S6: Production Release & Custom Domain
+│    ├─ S1–S3: Vercel, CI/CD & Chunk Splitting     ├─ S4–S5: Performance & Test Pipelines
+│    ├─ S6: Dual Server Orchestration & Scripts    └─ S7: Async Batch Processing Worker Queue
 │
 └── ☁️ CE2 (Database, Security & Microservice Lead)
-     ├─ S1: Neon PostgreSQL DB Provisioning       ├─ S2: Full Prisma Schema & Owner Indexes
-     ├─ S3: Atomic Multi-Tenant DB Transaction    ├─ S4: Python FastAPI Imputation Service
-     ├─ S5: Admin CLI & Privilege Escalation Fix  └─ S6: Production DB Migration & Deploy
+     ├─ S1–S3: PostgreSQL, Prisma & Transactions   ├─ S4–S5: FastAPI Migration & Admin CLI
+     ├─ S6: Password Reset & SystemSetting Table   └─ S7: Webhook Dispatcher & Cloud Storage Sync
 ```
 
 

@@ -15,6 +15,9 @@ import {
   Sparkles,
   User,
   X,
+  GitCompare,
+  FileSpreadsheet,
+  History,
 } from "lucide-react";
 
 /**
@@ -48,7 +51,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
     // Modules scheduled for upcoming release cycles:
     // { label: "Well Comparison", href: "/comparison", icon: GitCompare },
     // { label: "Audit Reports", href: "/reports", icon: FileSpreadsheet },
-    // { label: "Activity Logs", href: "/activity", icon: History },
+    { label: "Activity Logs", href: "/activity", icon: History },
     { label: "User Profile", href: "/profile", icon: User },
   ];
 
@@ -70,7 +73,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
           </div>
           <div>
             <span className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
-              WellQC<span className="text-cyan-400 font-black">+</span>
+              WellQC
             </span>
             <span className="block text-[10px] uppercase font-mono tracking-widest text-wellqc-muted">
               Petrophysical QA

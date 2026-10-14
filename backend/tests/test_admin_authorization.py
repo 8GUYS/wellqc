@@ -340,3 +340,136 @@ def test_admin_cannot_set_invalid_role():
     )
     assert res.status_code == 400
     assert "invalid role" in res.json()["detail"].lower()
+
+
+def test_admin_can_get_and_update_email_settings():
+    """Admins can retrieve and save EmailJS settings, persisting to SystemSetting."""
+    db = TestingSessionLocal()
+    try:
+        admin = create_test_user(db, "adm-email-1", "adm-email@corp.com", "Admin Email", role="ADMIN")
+    finally:
+        db.close()
+
+    client = TestClient(app)
+    # 1. Get settings
+    get_res = client.get("/api/admin/email-settings", cookies=admin["cookies"])
+    assert get_res.status_code == 200
+    data = get_res.json()
+    assert "provider" in data
+
+    # 2. Update settings to EmailJS
+    post_res = client.post(
+        "/api/admin/email-settings",
+        cookies=admin["cookies"],
+        json={
+            "provider": "EMAILJS",
+            "emailjs_service_id": "service_test123",
+            "emailjs_template_id": "template_test456",
+            "emailjs_public_key": "pub_key_test789",
+            "emailjs_private_key": "priv_key_secret",
+            "resend_from_email": "WellQC <test@wellqc.com>",
+        },
+    )
+    assert post_res.status_code == 200
+    assert post_res.json()["success"] is True
+
+    # 3. Retrieve and verify masked key and service id
+    verify_res = client.get("/api/admin/email-settings", cookies=admin["cookies"])
+    assert verify_res.status_code == 200
+    v_data = verify_res.json()
+    assert v_data["provider"] == "EMAILJS"
+    assert v_data["emailjs_service_id"] == "service_test123"
+    assert v_data["emailjs_private_key_configured"] is True
+
+
+def test_non_admin_cannot_access_email_settings():
+    """Non-admin users receive 403 Forbidden when attempting to view or modify email settings."""
+    db = TestingSessionLocal()
+    try:
+        user = create_test_user(db, "reg-no-email", "viewer-no-email@corp.com", "Regular Viewer", role="VIEWER")
+    finally:
+        db.close()
+
+    client = TestClient(app)
+    get_res = client.get("/api/admin/email-settings", cookies=user["cookies"])
+    assert get_res.status_code == 403
+
+    post_res = client.post(
+        "/api/admin/email-settings",
+        cookies=user["cookies"],
+        json={"provider": "EMAILJS"},
+    )
+    assert post_res.status_code == 403
+
+
+def test_admin_can_bulk_delete_users():
+    """Administrator can bulk select and delete multiple user accounts in one action."""
+    db = TestingSessionLocal()
+    try:
+        admin = create_test_user(db, "admin-bulk-1", "admin-bulk@corp.com", "Chief Admin", role="ADMIN")
+        user1 = create_test_user(db, "u-bulk-1", "u1@corp.com", "Analyst 1", role="PETROPHYSICIST")
+        user2 = create_test_user(db, "u-bulk-2", "u2@corp.com", "Analyst 2", role="GEOSCIENTIST")
+        user3 = create_test_user(db, "u-bulk-3", "u3@corp.com", "Analyst 3", role="VIEWER")
+    finally:
+        db.close()
+
+    client = TestClient(app)
+
+    # 1. Bulk delete 3 users
+    del_res = client.post(
+        "/api/admin/users/bulk-delete",
+        cookies=admin["cookies"],
+        json={"userIds": ["u-bulk-1", "u-bulk-2", "u-bulk-3"]},
+    )
+    assert del_res.status_code == 200
+    del_data = del_res.json()
+    assert del_data["success"] is True
+    assert del_data["deletedCount"] == 3
+    assert set(del_data["deletedIds"]) == {"u-bulk-1", "u-bulk-2", "u-bulk-3"}
+
+    # 2. Verify users no longer exist in db
+    db2 = TestingSessionLocal()
+    try:
+        remaining = db2.query(User).all()
+        assert len(remaining) == 1
+        assert remaining[0].id == "admin-bulk-1"
+    finally:
+        db2.close()
+
+
+def test_bulk_delete_validations():
+    """Verify authorization, self-delete prevention, and admin account protections."""
+    db = TestingSessionLocal()
+    try:
+        admin = create_test_user(db, "admin-guard-1", "guard@corp.com", "Solo Admin", role="ADMIN")
+        reg_user = create_test_user(db, "reg-guard-1", "reg@corp.com", "Regular User", role="VIEWER")
+    finally:
+        db.close()
+
+    client = TestClient(app)
+
+    # 1. Non-admin receives 403 Forbidden
+    unauth_res = client.post(
+        "/api/admin/users/bulk-delete",
+        cookies=reg_user["cookies"],
+        json={"userIds": ["admin-guard-1"]},
+    )
+    assert unauth_res.status_code == 403
+
+    # 2. Admin cannot delete only their own account (prevents accidental lockout)
+    self_del = client.post(
+        "/api/admin/users/bulk-delete",
+        cookies=admin["cookies"],
+        json={"userIds": ["admin-guard-1"]},
+    )
+    assert self_del.status_code == 400
+    assert "cannot delete your own" in self_del.json()["detail"].lower()
+
+    # 3. Empty list is rejected
+    empty_res = client.post(
+        "/api/admin/users/bulk-delete",
+        cookies=admin["cookies"],
+        json={"userIds": []},
+    )
+    assert empty_res.status_code == 400
+

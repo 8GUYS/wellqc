@@ -13,14 +13,35 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [acceptedNda, setAcceptedNda] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState("");
   const isRegister = mode === "register";
+
+  async function handleResendVerification() {
+    if (!email) return;
+    setResending(true);
+    setResendStatus("");
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      setResendStatus(data.message || "Fresh verification link sent! Please check your inbox.");
+    } catch {
+      setResendStatus("Failed to send verification link. Please try again.");
+    } finally {
+      setResending(false);
+    }
+  }
 
   async function submit(event: SyntheticEvent) {
     event.preventDefault();
 
-
     setSaving(true);
     setError("");
+    setResendStatus("");
     try {
       const response = await fetch(`/api/auth/${mode}`, {
         method: "POST",
@@ -28,14 +49,22 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         body: JSON.stringify({ name, email, password, role, acceptedNda }),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Unable to continue.");
+      if (!response.ok) {
+        throw new Error(result.detail || result.error || "Unable to continue.");
+      }
+
+      // If registered account requires email verification, redirect to instructions screen
+      if (isRegister && result.requiresVerification) {
+        router.push(`/verify-email-pending?email=${encodeURIComponent(email)}`);
+        return;
+      }
 
       // Clear any previous user's workspace session from this device
       try {
         localStorage.removeItem("wellqc_upload_workspace");
         localStorage.removeItem("wellqc_latest_committed_well");
         localStorage.removeItem("wellqc_active_user_id");
-      } catch {}
+      } catch { }
 
       router.replace("/dashboard");
       router.refresh();
@@ -46,6 +75,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     }
   }
 
+  const isUnverifiedError = error.toLowerCase().includes("not been verified") || error.toLowerCase().includes("verify your email");
+
   return (
     <main className="min-h-screen bg-wellqc-dark flex items-center justify-center p-5">
       <div className="w-full max-w-md border border-wellqc-border bg-wellqc-panel p-7 rounded-xl shadow-2xl">
@@ -55,7 +86,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               <Database className="w-5 h-5 text-cyan-300" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-white">WellQC+</h1>
+              <h1 className="text-xl font-black text-white">WellQC</h1>
               <p className="text-xs text-wellqc-muted font-mono">Well log quality workspace</p>
             </div>
           </div>
@@ -70,7 +101,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         </div>
         <h2 className="text-lg font-bold text-white">{isRegister ? "Create your account" : "Sign in"}</h2>
         <p className="mt-1 text-xs text-wellqc-muted">
-          {isRegister ? "Start validating and managing your well logs." : "Use your WellQC+ account to continue."}
+          {isRegister ? "Start validating and managing your well logs." : "Use your WellQC account to continue."}
         </p>
         <form onSubmit={submit} className="mt-6 space-y-4">
           {isRegister && (
@@ -79,6 +110,16 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           <Field icon={<Mail className="w-4 h-4" />} label="Email address" value={email} onChange={setEmail} type="email" autoComplete="email" />
           <Field icon={<KeyRound className="w-4 h-4" />} label="Password" value={password} onChange={setPassword} type="password" autoComplete={isRegister ? "new-password" : "current-password"} hint={isRegister ? "At least 8 characters" : undefined} />
 
+          {!isRegister && (
+            <div className="flex justify-end -mt-1">
+              <Link
+                href="/forgot-password"
+                className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors font-medium"
+              >
+                Forgot password?
+              </Link>
+            </div>
+          )}
 
           {isRegister && (
             <label className="flex items-start gap-2 text-xs text-slate-300">
@@ -86,14 +127,38 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
               <span>I agree to keep uploaded well data confidential and use it only within my authorised workspace.</span>
             </label>
           )}
-          {error && <div className="text-xs text-red-200 bg-red-500/10 border border-red-500/30 rounded-lg p-3">{error}</div>}
+
+          {error && (
+            <div className="text-xs text-red-200 bg-red-500/10 border border-red-500/30 rounded-lg p-3 space-y-2">
+              <p>{error}</p>
+              {isUnverifiedError && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resending}
+                    className="text-cyan-300 hover:text-cyan-200 font-bold underline cursor-pointer disabled:opacity-50"
+                  >
+                    {resending ? "Sending verification email..." : "Resend verification link"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {resendStatus && (
+            <div className="text-xs text-emerald-200 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+              {resendStatus}
+            </div>
+          )}
+
           <button disabled={saving} className="w-full h-10 flex items-center justify-center gap-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 disabled:opacity-60 text-slate-950 font-bold text-sm">
             {saving && <LoaderCircle className="w-4 h-4 animate-spin" />}
             {isRegister ? "Create account" : "Sign in"}
           </button>
         </form>
         <p className="mt-5 text-center text-xs text-wellqc-muted">
-          {isRegister ? "Already have an account?" : "New to WellQC+?"}{" "}
+          {isRegister ? "Already have an account?" : "New to WellQC?"}{" "}
           <Link href={isRegister ? "/login" : "/register"} className="text-cyan-300 hover:text-cyan-200 font-semibold">
             {isRegister ? "Sign in" : "Create an account"}
           </Link>
@@ -139,9 +204,8 @@ function Field({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           autoComplete={autoComplete}
-          className={`w-full bg-wellqc-card border border-wellqc-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-400 ${
-            isPasswordField ? "pr-10" : ""
-          }`}
+          className={`w-full bg-wellqc-card border border-wellqc-border rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-400 ${isPasswordField ? "pr-10" : ""
+            }`}
         />
         {isPasswordField && (
           <button

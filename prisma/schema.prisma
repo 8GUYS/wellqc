@@ -16,6 +16,8 @@ model User {
   department            String?       @default("Subsurface Analytics")
   avatarUrl             String?
   ndaAcceptedAt         DateTime?
+  isEmailVerified       Boolean       @default(false)
+  emailVerifiedAt       DateTime?
 
   // Billing and Usage Tracking
   tier                  String        @default("FREE") // "FREE", "PRO", "ENTERPRISE"
@@ -242,4 +244,11 @@ model CustomAlias {
   @@unique([standardMnemonic, alias, userId])
   @@index([userId])
   @@index([userEmail])
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
 }

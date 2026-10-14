@@ -1,5 +1,5 @@
 """
-WellQC+ Database Schema Initializer.
+WellQC Database Schema Initializer.
 
 Initializes database schema and ensures all tables exist while keeping tables empty.
 No demo, synthetic, or mock records are inserted.
@@ -20,10 +20,18 @@ from backend.app.core.database import engine, Base
 import backend.app.models.models  # Ensure all models are registered on Base
 
 def init_db():
-    print("[INIT] Verifying and initializing WellQC+ database schema...")
+    print("[INIT] Verifying and initializing WellQC database schema...")
     try:
         # Create all tables if they do not already exist, without inserting data
         Base.metadata.create_all(bind=engine)
+        
+        # Ensure non-destructive column additions on existing tables
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isEmailVerified" BOOLEAN NOT NULL DEFAULT FALSE;'))
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "emailVerifiedAt" TIMESTAMP WITH TIME ZONE;'))
+            conn.commit()
+
         print("[SUCCESS] All database tables initialized and verified. Tables remain clean and empty.")
     except Exception as e:
         print(f"[ERROR] Database schema initialization failed: {e}")

@@ -36,7 +36,7 @@ export function HeroSection() {
 
           {/* Subtitle */}
           <p className="text-lg sm:text-xl text-slate-300 font-normal leading-relaxed max-w-3xl mx-auto">
-            WellQC+ automatically validates LAS 2.0 files, detects anomalous spikes & flatlines, standardises raw mnemonics, and imputes missing curves with KNN ML models.
+            WellQC automatically validates LAS 2.0 files, detects anomalous spikes & flatlines, standardises raw mnemonics, and imputes missing curves with KNN ML models.
           </p>
 
           {/* CTA Buttons */}

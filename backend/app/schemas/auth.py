@@ -10,6 +10,8 @@ class UserOut(BaseModel):
     tier: Optional[str] = "FREE"
     freeChecksUsed: Optional[int] = 0
     ndaAcceptedAt: Optional[str] = None
+    isEmailVerified: bool = False
+    emailVerifiedAt: Optional[str] = None
 
 class LoginRequest(BaseModel):
     email: str
@@ -21,3 +23,21 @@ class RegisterRequest(BaseModel):
     password: str
     role: Optional[str] = "PETROPHYSICIST"
     acceptedNda: Optional[bool] = False
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+class ResendVerificationRequest(BaseModel):
+    email: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: Optional[str] = None
+    newPassword: Optional[str] = None
+
+    def get_password(self) -> str:
+        return (self.password or self.newPassword or "").strip()
+

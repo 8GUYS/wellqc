@@ -201,8 +201,8 @@ export default function QAEngineWorkspace() {
   const [openRowApproveId, setOpenRowApproveId] = useState<string | null>(null);
   const [selectedMethodPerRow, setSelectedMethodPerRow] = useState<Record<string, string>>({});
 
-  // Batch action selection method
-  const [batchMethod, setBatchMethod] = useState<string>("");
+  // Batch action selection method override
+  const [batchMethodOverride, setBatchMethodOverride] = useState<string | null>(null);
 
   // ─── Section 3 & 4 Execution & Export State ────────────────────────────────
   const [isExecutingRepair, setIsExecutingRepair] = useState<boolean>(false);
@@ -483,15 +483,15 @@ export default function QAEngineWorkspace() {
     return found ? normalizeProblemType(found.anomalyType) : null;
   }, [selectedAnomalyIds, targetAnomalies]);
 
-  // Update default batch method when batchActiveType changes
-    useEffect(() => {
-    if (batchActiveType) {
-      const methods = CLEANING_METHODS[batchActiveType];
-      const rec = methods.find((m) => m.recommended) || methods[0];
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setBatchMethod(rec?.id || "");
-    }
+  // Derive default batch method from active batch type
+  const defaultBatchMethod = useMemo(() => {
+    if (!batchActiveType) return "";
+    const methods = CLEANING_METHODS[batchActiveType];
+    const rec = methods.find((m) => m.recommended) || methods[0];
+    return rec?.id || "";
   }, [batchActiveType]);
+
+  const batchMethod = batchMethodOverride ?? defaultBatchMethod;
 
   // Toggle tick box on a row
   const handleToggleTick = (id: string, itemType: TargetProblemType) => {
@@ -528,6 +528,7 @@ export default function QAEngineWorkspace() {
       return next;
     });
     setSelectedAnomalyIds(new Set());
+    setBatchMethodOverride(null);
   };
 
   // Single Row Approve flow
@@ -890,8 +891,8 @@ export default function QAEngineWorkspace() {
               type="button"
               onClick={() => setCategoryFilter("ALL")}
               className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${categoryFilter === "ALL"
-                  ? "bg-cyan-500 text-slate-950 border-cyan-400"
-                  : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
+                ? "bg-cyan-500 text-slate-950 border-cyan-400"
+                : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
                 }`}
             >
               All ({counts.total})
@@ -900,8 +901,8 @@ export default function QAEngineWorkspace() {
               type="button"
               onClick={() => setCategoryFilter("DUPLICATE_DEPTH")}
               className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${categoryFilter === "DUPLICATE_DEPTH"
-                  ? "bg-rose-500 text-white border-rose-400"
-                  : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
+                ? "bg-rose-500 text-white border-rose-400"
+                : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
                 }`}
             >
               Duplicate depths ({counts.dup})
@@ -910,8 +911,8 @@ export default function QAEngineWorkspace() {
               type="button"
               onClick={() => setCategoryFilter("IMPOSSIBLE_VALUE")}
               className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${categoryFilter === "IMPOSSIBLE_VALUE"
-                  ? "bg-amber-500 text-slate-950 border-amber-400"
-                  : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
+                ? "bg-amber-500 text-slate-950 border-amber-400"
+                : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
                 }`}
             >
               Impossible values ({counts.imp})
@@ -920,8 +921,8 @@ export default function QAEngineWorkspace() {
               type="button"
               onClick={() => setCategoryFilter("NULL_CLUSTER")}
               className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${categoryFilter === "NULL_CLUSTER"
-                  ? "bg-purple-500 text-white border-purple-400"
-                  : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
+                ? "bg-purple-500 text-white border-purple-400"
+                : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
                 }`}
             >
               Null clusters ({counts.nul})
@@ -930,8 +931,8 @@ export default function QAEngineWorkspace() {
               type="button"
               onClick={() => setCategoryFilter("EXTREME_SPIKE")}
               className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${categoryFilter === "EXTREME_SPIKE"
-                  ? "bg-cyan-500 text-slate-950 border-cyan-400"
-                  : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
+                ? "bg-cyan-500 text-slate-950 border-cyan-400"
+                : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
                 }`}
             >
               Extreme spikes ({counts.spk})
@@ -951,7 +952,7 @@ export default function QAEngineWorkspace() {
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={batchMethod}
-                  onChange={(e) => setBatchMethod(e.target.value)}
+                  onChange={(e) => setBatchMethodOverride(e.target.value)}
                   className="bg-wellqc-dark border border-cyan-500/50 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none"
                 >
                   {CLEANING_METHODS[batchActiveType].map((m) => (
@@ -971,7 +972,10 @@ export default function QAEngineWorkspace() {
 
                 <button
                   type="button"
-                  onClick={() => setSelectedAnomalyIds(new Set())}
+                  onClick={() => {
+                    setSelectedAnomalyIds(new Set());
+                    setBatchMethodOverride(null);
+                  }}
                   className="px-2.5 py-1.5 rounded-lg bg-wellqc-dark hover:bg-slate-800 text-slate-300 font-mono text-xs border border-wellqc-border transition-all"
                 >
                   Clear selection
@@ -994,12 +998,12 @@ export default function QAEngineWorkspace() {
                   <div
                     key={a.id}
                     className={`rounded-xl border transition-all ${isFadedOut
-                        ? "opacity-30 pointer-events-none bg-wellqc-dark/30 border-wellqc-border/40"
-                        : decision?.status === "APPROVED"
-                          ? "bg-wellqc-dark/90 border-emerald-500/40"
-                          : decision?.status === "REJECTED"
-                            ? "bg-wellqc-dark/60 border-rose-500/40"
-                            : "bg-wellqc-dark/80 border-wellqc-border hover:border-slate-600"
+                      ? "opacity-30 pointer-events-none bg-wellqc-dark/30 border-wellqc-border/40"
+                      : decision?.status === "APPROVED"
+                        ? "bg-wellqc-dark/90 border-emerald-500/40"
+                        : decision?.status === "REJECTED"
+                          ? "bg-wellqc-dark/60 border-rose-500/40"
+                          : "bg-wellqc-dark/80 border-wellqc-border hover:border-slate-600"
                       }`}
                   >
                     <div className="p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -1023,8 +1027,8 @@ export default function QAEngineWorkspace() {
                             {/* Critical (Red) or Warning (Yellow) label */}
                             <span
                               className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${a.severity === "CRITICAL"
-                                  ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
-                                  : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                : "bg-amber-500/20 text-amber-300 border-amber-500/40"
                                 }`}
                             >
                               {a.severity === "CRITICAL" ? "Critical" : "Warning"}
@@ -1107,8 +1111,8 @@ export default function QAEngineWorkspace() {
                               <label
                                 key={m.id}
                                 className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${isChosen
-                                    ? "bg-cyan-500/10 border-cyan-500/50 text-white"
-                                    : "bg-wellqc-dark/50 border-wellqc-border text-slate-300 hover:border-slate-600"
+                                  ? "bg-cyan-500/10 border-cyan-500/50 text-white"
+                                  : "bg-wellqc-dark/50 border-wellqc-border text-slate-300 hover:border-slate-600"
                                   }`}
                               >
                                 <input
@@ -1198,8 +1202,8 @@ export default function QAEngineWorkspace() {
                 disabled={approvedCount === 0 || isExecutingRepair}
                 onClick={handleExecuteCleaning}
                 className={`px-5 py-2.5 rounded-xl text-xs font-mono font-bold transition-all shadow-md flex items-center gap-2 ${approvedCount === 0 || isExecutingRepair
-                    ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                    : "bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/20"
+                  ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                  : "bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/20"
                   }`}
               >
                 {isExecutingRepair ? (
@@ -1227,8 +1231,8 @@ export default function QAEngineWorkspace() {
                 {repairResult && (
                   <span
                     className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${repairResult.isVerifiedClean
-                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                        : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                      : "bg-amber-500/20 text-amber-300 border-amber-500/40"
                       }`}
                   >
                     {repairResult.isVerifiedClean ? "Verified Clean" : "Not yet clean"}
@@ -1391,8 +1395,8 @@ export default function QAEngineWorkspace() {
                 type="button"
                 onClick={handleExportReport}
                 className={`px-4 py-2.5 rounded-xl font-mono font-bold text-xs transition-all shadow-md flex items-center gap-2 ${reportExported
-                    ? "bg-emerald-600 text-white"
-                    : "bg-emerald-500 hover:bg-emerald-400 text-slate-950"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-emerald-500 hover:bg-emerald-400 text-slate-950"
                   }`}
               >
                 {reportExported ? (

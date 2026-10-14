@@ -483,14 +483,12 @@ export default function QAEngineWorkspace() {
     return found ? normalizeProblemType(found.anomalyType) : null;
   }, [selectedAnomalyIds, targetAnomalies]);
 
-  // Update default batch method when batchActiveType changes
-  useEffect(() => {
-    if (batchActiveType) {
-      const methods = CLEANING_METHODS[batchActiveType];
-      const rec = methods.find((m) => m.recommended) || methods[0];
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setBatchMethod(rec?.id || "");
-    }
+  // Derive default batch method from active batch type
+  const defaultBatchMethod = useMemo(() => {
+    if (!batchActiveType) return "";
+    const methods = CLEANING_METHODS[batchActiveType];
+    const rec = methods.find((m) => m.recommended) || methods[0];
+    return rec?.id || "";
   }, [batchActiveType]);
 
   const batchMethod = batchMethodOverride ?? defaultBatchMethod;

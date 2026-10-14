@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {
   AlertTriangle,
   Award,
@@ -221,10 +222,13 @@ export function AboutSection() {
                     <div className="flex items-center gap-3.5 mb-4">
                       <div className="relative w-14 h-14 rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 border border-slate-700/80 overflow-hidden flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
                         {member.image ? (
-                          <img
+                          <Image
                             src={member.image}
                             alt={member.name}
+                            width={56}
+                            height={56}
                             className="w-full h-full object-cover"
+                            unoptimized
                           />
                         ) : (
                           <div className="flex flex-col items-center justify-center text-slate-400 group-hover:text-slate-200">

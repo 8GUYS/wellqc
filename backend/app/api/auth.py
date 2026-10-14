@@ -293,7 +293,11 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == safe_email).first()
     if user:
         reset_token = create_password_reset_token(user.id, user.email)
-        send_password_reset_email(user.email, user.name, reset_token, db=db)
+        try:
+            send_password_reset_email(user.email, user.name, reset_token, db=db)
+        except Exception as email_err:
+            import logging
+            logging.getLogger("wellqc.auth").warning(f"Password reset email dispatch warning: {email_err}")
 
         # Log activity
         log = ActivityLog(

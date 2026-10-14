@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - "backend/**"
-      - "data/**"
       - "pyproject.toml"
       - ".github/workflows/python-tests.yml"
 

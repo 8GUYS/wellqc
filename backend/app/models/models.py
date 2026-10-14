@@ -67,8 +67,8 @@ class User(Base):
 
     wells = relationship("Well", back_populates="owner", foreign_keys="[Well.ownerId]")
     lasFiles = relationship("LASFile", back_populates="uploadedBy", foreign_keys="[LASFile.uploadedById]")
-    activityLogs = relationship("ActivityLog", back_populates="user")
-    apiTokens = relationship("APIToken", back_populates="user")
+    activityLogs = relationship("ActivityLog", back_populates="user", passive_deletes=True)
+    apiTokens = relationship("APIToken", back_populates="user", passive_deletes=True)
 
 
 class Field(Base):

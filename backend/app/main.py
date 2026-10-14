@@ -48,6 +48,22 @@ async def lifespan(app: FastAPI):
                 );
             '''))
             conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "SystemSetting_key_key" ON "SystemSetting"("key");'))
+            
+            # Ensure wellqc_api role has table permissions if connecting in an environment with role separation
+            try:
+                conn.execute(text('''
+                    DO $$
+                    BEGIN
+                        IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'wellqc_api') THEN
+                            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO wellqc_api;
+                            GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO wellqc_api;
+                        END IF;
+                    END
+                    $$;
+                '''))
+            except Exception as grant_err:
+                logger.debug(f"Role permission grant check skipped: {grant_err}")
+
         logger.info("Database schema compatibility check completed successfully.")
     except Exception as e:
         logger.warning(f"Database schema check warning on startup: {e}")

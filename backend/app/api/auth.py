@@ -102,7 +102,7 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED, dependencies=[Depends(RateLimitDependency(max_requests=10, window_seconds=60, action="register"))])
-def register(req: RegisterRequest, response: Response, db: Session = Depends(get_db)):
+def register(req: RegisterRequest, response: Response, request: Request, db: Session = Depends(get_db)):
     safe_name = req.name.strip() if req.name else ""
     safe_email = req.email.strip().lower() if req.email else ""
     role_cand = (req.role or "").strip().upper()
@@ -161,6 +161,7 @@ def register(req: RegisterRequest, response: Response, db: Session = Depends(get
             name=new_user.name,
             token=verification_token,
             db=db,
+            request=request,
         )
     except Exception as email_err:
         import logging
@@ -252,7 +253,7 @@ def verify_email(token: str, response: Response, db: Session = Depends(get_db)):
 
 
 @router.post("/resend-verification", dependencies=[Depends(RateLimitDependency(max_requests=10, window_seconds=60, action="resend_verification"))])
-def resend_verification(req: ResendVerificationRequest, db: Session = Depends(get_db)):
+def resend_verification(req: ResendVerificationRequest, request: Request, db: Session = Depends(get_db)):
     """
     Resend a verification email to the user if their account is not yet verified.
     Returns generic response to prevent user enumeration attacks.
@@ -267,7 +268,7 @@ def resend_verification(req: ResendVerificationRequest, db: Session = Depends(ge
     user = db.query(User).filter(User.email == safe_email).first()
     if user and not getattr(user, "isEmailVerified", False):
         new_token = create_email_verification_token(user.id, user.email)
-        send_verification_email(user.email, user.name, new_token, db=db)
+        send_verification_email(user.email, user.name, new_token, db=db, request=request)
 
     return {
         "success": True,
@@ -276,7 +277,7 @@ def resend_verification(req: ResendVerificationRequest, db: Session = Depends(ge
 
 
 @router.post("/forgot-password", dependencies=[Depends(RateLimitDependency(max_requests=10, window_seconds=60, action="forgot_password"))])
-def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
     """
     Initiate self-service password reset.
     Returns generic response to prevent user enumeration attacks.
@@ -294,7 +295,7 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     if user:
         reset_token = create_password_reset_token(user.id, user.email)
         try:
-            send_password_reset_email(user.email, user.name, reset_token, db=db)
+            send_password_reset_email(user.email, user.name, reset_token, db=db, request=request)
         except Exception as email_err:
             import logging
             logging.getLogger("wellqc.auth").warning(f"Password reset email dispatch warning: {email_err}")

@@ -25,6 +25,7 @@ import {
   X,
   Copy,
   Plus,
+  Globe,
 } from "lucide-react";
 
 interface UserRecord {
@@ -90,6 +91,7 @@ export default function AdminPanelPage() {
   // Email & Notifications Settings State
   const [emailConfig, setEmailConfig] = useState<{
     provider: "EMAILJS" | "RESEND" | "DEV_LOGGER";
+    frontend_url: string;
     emailjs_service_id: string;
     emailjs_template_id: string;
     emailjs_reset_template_id: string;
@@ -103,6 +105,7 @@ export default function AdminPanelPage() {
     resend_from_email: string;
   }>({
     provider: "EMAILJS",
+    frontend_url: "https://wellqc.vercel.app",
     emailjs_service_id: "",
     emailjs_template_id: "",
     emailjs_reset_template_id: "",
@@ -301,6 +304,7 @@ export default function AdminPanelPage() {
       if (res.ok) {
         setEmailConfig({
           provider: data.provider || "EMAILJS",
+          frontend_url: data.frontend_url || "https://wellqc.vercel.app",
           emailjs_service_id: data.emailjs_service_id || "",
           emailjs_template_id: data.emailjs_template_id || "",
           emailjs_reset_template_id: data.emailjs_reset_template_id || "",
@@ -883,6 +887,34 @@ export default function AdminPanelPage() {
                           Simulates email dispatch by outputting prominent highlighted verification links directly to the local backend terminal console.
                         </p>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Canonical Frontend URL Setting */}
+                  <div className="bg-wellqc-card/30 border border-wellqc-border p-5 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between border-b border-wellqc-border pb-3">
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-cyan-400" />
+                        <h3 className="text-sm font-bold text-white">Frontend Application Base URL</h3>
+                      </div>
+                      <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 rounded">
+                        Link Target
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 text-xs font-mono">
+                      <label className="block text-slate-300 font-bold">
+                        Canonical Base URL for Email Verification &amp; Password Resets
+                      </label>
+                      <input
+                        type="url"
+                        value={emailConfig.frontend_url}
+                        onChange={(e) => setEmailConfig((prev) => ({ ...prev, frontend_url: e.target.value }))}
+                        placeholder="https://wellqc.vercel.app"
+                        className="w-full bg-slate-900 border border-wellqc-border focus:border-cyan-500 rounded-xl px-3.5 py-2.5 text-slate-200 placeholder-slate-500 outline-none transition-all"
+                      />
+                      <p className="text-[11px] text-slate-400 leading-relaxed pt-1">
+                        All verification links and password reset emails will point to this base domain (e.g. <code className="text-cyan-300">{emailConfig.frontend_url || "https://wellqc.vercel.app"}/verify-email?token=...</code>). Defaults to your production Vercel deployment.
+                      </p>
                     </div>
                   </div>
 

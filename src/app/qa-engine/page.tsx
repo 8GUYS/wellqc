@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useSyncExternalStore } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CleanedLogViewer } from "@/components/well-log/cleaned-log-viewer";
 import {
@@ -155,16 +155,22 @@ function getGradeBadgeStyle(grade: string): string {
   }
 }
 
-interface FixDecision {
-  status: "APPROVED" | "REJECTED";
-  method?: string;
-  methodId?: string;
+// Saved upload workspace helpers (used by "2. Load the active upload" inside the component).
+function readSavedWorkspace(): string | null {
+  try {
+    const stored = localStorage.getItem("wellqc_upload_workspace");
+    if (!stored) return null;
+    return JSON.stringify({ userId: localStorage.getItem("wellqc_active_user_id"), stored });
+  } catch {
+    return null;
+  }
 }
+const subscribeToNothing = () => () => { };
+const getServerWorkspace = (): string | null => null;
 
-export default function QualityEnginePage() {
-  // ─── Data Source & Well Selection ──────────────────────────────────────────
-  const [sourceChoice, setSourceChoice] = useState<"ACTIVE_UPLOAD" | "DATABASE_WELL">("ACTIVE_UPLOAD");
-  const [activeUploadAvailable, setActiveUploadAvailable] = useState<boolean>(false);
+export default function QAEngineWorkspace() {
+  // Data source mode: active upload workspace vs saved database wells
+  const [sourceMode, setSourceMode] = useState<"ACTIVE_UPLOAD" | "DATABASE_WELL" | "DIRECT_DROP">("ACTIVE_UPLOAD");
 
   // Well Data State
   const [wellName, setWellName] = useState<string>("Select a well...");
@@ -219,44 +225,47 @@ export default function QualityEnginePage() {
       }
     }
 
-    loadDbWells();
+    loadInitialData();
+    return () => {
+      active = false;
+    };
+  }, []);
 
-    // Check Local Storage for active upload
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("wellqc_upload_workspace");
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed && parsed.parsedLAS) {
-            setActiveUploadAvailable(true);
-            setRawLas(parsed.parsedLAS);
-            setRawLasText(parsed.rawText || "");
-            const rawWn = parsed.parsedLAS.wellInfo?.wellName || "";
-            const validName =
-              rawWn && rawWn !== "2" && !/^\d+$/.test(rawWn)
-                ? rawWn
-                : parsed.fileName
-                ? parsed.fileName.replace(/\.(las|txt)$/i, "")
+  // 2. Load the active upload saved by the upload page. useSyncExternalStore gives the server
+  // render and the first client render the same (empty) value, then supplies the saved value
+  // right after hydration. The subscription is a no-op on purpose: the saved workspace is
+  // applied once, and changes made in other tabs later are ignored.
+  const savedWorkspace = useSyncExternalStore(subscribeToNothing, readSavedWorkspace, getServerWorkspace);
+  const [appliedWorkspace, setAppliedWorkspace] = useState<string | null>(null);
+  if (savedWorkspace !== appliedWorkspace) {
+    setAppliedWorkspace(savedWorkspace);
+    try {
+      const { userId: activeUserId, stored } = JSON.parse(savedWorkspace ?? "{}");
+      if (stored) {
+        const parsedData = JSON.parse(stored);
+        if (parsedData?.parsedLAS && (!parsedData.userId || !activeUserId || parsedData.userId === activeUserId)) {
+          setRawLas(parsedData.parsedLAS);
+          setRawLasText(parsedData.rawText || "");
+          const rawWn = parsedData.parsedLAS.wellInfo?.wellName || "";
+          const validName =
+            rawWn && rawWn !== "2" && !/^\d+$/.test(rawWn)
+              ? rawWn
+              : parsedData.fileName
+                ? parsedData.fileName.replace(/\.(las|txt)$/i, "")
                 : "Active Upload Well";
-            setWellName(validName);
-            setWellId("active-upload");
-            setOperator(parsed.parsedLAS.wellInfo?.company || "WellQC Petrophysics");
-            setField(parsed.parsedLAS.wellInfo?.field || "Deepwater Basin");
-            setDepthUnit(parsed.parsedLAS.wellInfo?.depthUnit || "FT");
-            setQaResult(parsed.qaResult || null);
-            setSourceChoice("ACTIVE_UPLOAD");
-            return;
-          }
+          setWellName(validName);
+          setWellId("active-upload");
+          setOperator(parsedData.parsedLAS.wellInfo?.company || "WellQC Petrophysics");
+          setField(parsedData.parsedLAS.wellInfo?.field || "Deepwater Basin");
+          setDepthUnit(parsedData.parsedLAS.wellInfo?.depthUnit || "FT");
+          setQaResult(parsedData.qaResult || null);
+          setSourceMode("ACTIVE_UPLOAD");
         }
       } catch (err) {
         console.warn("Could not read active upload workspace:", err);
       }
     }
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  }
 
   // Helper to reset all review decisions & results from scratch
   const resetWorkspaceState = useCallback(() => {
@@ -373,8 +382,8 @@ export default function QualityEnginePage() {
                 rawWn && rawWn !== "2" && !/^\d+$/.test(rawWn)
                   ? rawWn
                   : parsed.fileName
-                  ? parsed.fileName.replace(/\.(las|txt)$/i, "")
-                  : "Active Upload Well";
+                    ? parsed.fileName.replace(/\.(las|txt)$/i, "")
+                    : "Active Upload Well";
               setWellName(validName);
               setWellId("active-upload");
               setOperator(parsed.parsedLAS.wellInfo?.company || "WellQC Petrophysics");
@@ -871,55 +880,50 @@ export default function QualityEnginePage() {
             <button
               type="button"
               onClick={() => setCategoryFilter("ALL")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${
-                categoryFilter === "ALL"
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${categoryFilter === "ALL"
                   ? "bg-cyan-500 text-slate-950 border-cyan-400"
                   : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
-              }`}
+                }`}
             >
               All ({counts.total})
             </button>
             <button
               type="button"
               onClick={() => setCategoryFilter("DUPLICATE_DEPTH")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${
-                categoryFilter === "DUPLICATE_DEPTH"
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${categoryFilter === "DUPLICATE_DEPTH"
                   ? "bg-rose-500 text-white border-rose-400"
                   : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
-              }`}
+                }`}
             >
               Duplicate depths ({counts.dup})
             </button>
             <button
               type="button"
               onClick={() => setCategoryFilter("IMPOSSIBLE_VALUE")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${
-                categoryFilter === "IMPOSSIBLE_VALUE"
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${categoryFilter === "IMPOSSIBLE_VALUE"
                   ? "bg-amber-500 text-slate-950 border-amber-400"
                   : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
-              }`}
+                }`}
             >
               Impossible values ({counts.imp})
             </button>
             <button
               type="button"
               onClick={() => setCategoryFilter("NULL_CLUSTER")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${
-                categoryFilter === "NULL_CLUSTER"
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${categoryFilter === "NULL_CLUSTER"
                   ? "bg-purple-500 text-white border-purple-400"
                   : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
-              }`}
+                }`}
             >
               Null clusters ({counts.nul})
             </button>
             <button
               type="button"
               onClick={() => setCategoryFilter("EXTREME_SPIKE")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${
-                categoryFilter === "EXTREME_SPIKE"
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border ${categoryFilter === "EXTREME_SPIKE"
                   ? "bg-cyan-500 text-slate-950 border-cyan-400"
                   : "bg-wellqc-dark text-slate-300 border-wellqc-border hover:border-slate-600"
-              }`}
+                }`}
             >
               Extreme spikes ({counts.spk})
             </button>
@@ -980,15 +984,14 @@ export default function QualityEnginePage() {
                 return (
                   <div
                     key={a.id}
-                    className={`rounded-xl border transition-all ${
-                      isFadedOut
+                    className={`rounded-xl border transition-all ${isFadedOut
                         ? "opacity-30 pointer-events-none bg-wellqc-dark/30 border-wellqc-border/40"
                         : decision?.status === "APPROVED"
-                        ? "bg-wellqc-dark/90 border-emerald-500/40"
-                        : decision?.status === "REJECTED"
-                        ? "bg-wellqc-dark/60 border-rose-500/40"
-                        : "bg-wellqc-dark/80 border-wellqc-border hover:border-slate-600"
-                    }`}
+                          ? "bg-wellqc-dark/90 border-emerald-500/40"
+                          : decision?.status === "REJECTED"
+                            ? "bg-wellqc-dark/60 border-rose-500/40"
+                            : "bg-wellqc-dark/80 border-wellqc-border hover:border-slate-600"
+                      }`}
                   >
                     <div className="p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
                       {/* Left: Tick box & Labels & Description */}
@@ -1010,11 +1013,10 @@ export default function QualityEnginePage() {
                           <div className="flex flex-wrap items-center gap-2">
                             {/* Critical (Red) or Warning (Yellow) label */}
                             <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${
-                                a.severity === "CRITICAL"
+                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${a.severity === "CRITICAL"
                                   ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
                                   : "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                              }`}
+                                }`}
                             >
                               {a.severity === "CRITICAL" ? "Critical" : "Warning"}
                             </span>
@@ -1095,11 +1097,10 @@ export default function QualityEnginePage() {
                             return (
                               <label
                                 key={m.id}
-                                className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${
-                                  isChosen
+                                className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${isChosen
                                     ? "bg-cyan-500/10 border-cyan-500/50 text-white"
                                     : "bg-wellqc-dark/50 border-wellqc-border text-slate-300 hover:border-slate-600"
-                                }`}
+                                  }`}
                               >
                                 <input
                                   type="radio"
@@ -1187,11 +1188,10 @@ export default function QualityEnginePage() {
                 type="button"
                 disabled={approvedCount === 0 || isExecutingRepair}
                 onClick={handleExecuteCleaning}
-                className={`px-5 py-2.5 rounded-xl text-xs font-mono font-bold transition-all shadow-md flex items-center gap-2 ${
-                  approvedCount === 0 || isExecutingRepair
+                className={`px-5 py-2.5 rounded-xl text-xs font-mono font-bold transition-all shadow-md flex items-center gap-2 ${approvedCount === 0 || isExecutingRepair
                     ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
                     : "bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/20"
-                }`}
+                  }`}
               >
                 {isExecutingRepair ? (
                   <>
@@ -1217,11 +1217,10 @@ export default function QualityEnginePage() {
                 <span>Section 3: Before and after</span>
                 {repairResult && (
                   <span
-                    className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${
-                      repairResult.isVerifiedClean
+                    className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${repairResult.isVerifiedClean
                         ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
                         : "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                    }`}
+                      }`}
                   >
                     {repairResult.isVerifiedClean ? "Verified Clean" : "Not yet clean"}
                   </span>
@@ -1382,11 +1381,10 @@ export default function QualityEnginePage() {
               <button
                 type="button"
                 onClick={handleExportReport}
-                className={`px-4 py-2.5 rounded-xl font-mono font-bold text-xs transition-all shadow-md flex items-center gap-2 ${
-                  reportExported
+                className={`px-4 py-2.5 rounded-xl font-mono font-bold text-xs transition-all shadow-md flex items-center gap-2 ${reportExported
                     ? "bg-emerald-600 text-white"
                     : "bg-emerald-500 hover:bg-emerald-400 text-slate-950"
-                }`}
+                  }`}
               >
                 {reportExported ? (
                   <>

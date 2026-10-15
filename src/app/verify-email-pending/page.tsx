@@ -164,12 +164,12 @@ function VerifyEmailPendingContent() {
         </div>
 
         {/* Local Development Logger Tip */}
-        <div className="pt-3 border-t border-wellqc-border/40 text-[11px] font-mono text-slate-400 bg-wellqc-card/30 p-3 rounded-lg flex items-start gap-2">
+        {/* <div className="pt-3 border-t border-wellqc-border/40 text-[11px] font-mono text-slate-400 bg-wellqc-card/30 p-3 rounded-lg flex items-start gap-2">
           <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <p>
             <strong>Local Dev Tip:</strong> The verification link has been printed directly to your Python backend terminal logger. Check your server console to click or copy the URL.
           </p>
-        </div>
+        </div> */}
       </div>
     </main>
   );

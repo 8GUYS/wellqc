@@ -37,26 +37,33 @@ async def lifespan(app: FastAPI):
     from sqlalchemy import text
     try:
         with engine.begin() as conn:
-            cols = {r[0] for r in conn.execute(text(
-                "select column_name from information_schema.columns "
-                "where table_schema='public' and table_name='User'"))}
-            has_setting = conn.execute(text(
-                """select to_regclass('public."SystemSetting"') is not null""")).scalar()
-
-            if "isEmailVerified" not in cols:
-                conn.execute(text('ALTER TABLE "User" ADD COLUMN "isEmailVerified" BOOLEAN NOT NULL DEFAULT false;'))
-            if "emailVerifiedAt" not in cols:
-                conn.execute(text('ALTER TABLE "User" ADD COLUMN "emailVerifiedAt" TIMESTAMP(3);'))
-            if not has_setting:
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isEmailVerified" BOOLEAN NOT NULL DEFAULT false;'))
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "emailVerifiedAt" TIMESTAMP(3);'))
+            conn.execute(text('''
+                CREATE TABLE IF NOT EXISTS "SystemSetting" (
+                    "id" TEXT NOT NULL PRIMARY KEY,
+                    "key" TEXT NOT NULL UNIQUE,
+                    "value" TEXT NOT NULL,
+                    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+            '''))
+            conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "SystemSetting_key_key" ON "SystemSetting"("key");'))
+            
+            # Ensure wellqc_api role has table permissions if connecting in an environment with role separation
+            try:
                 conn.execute(text('''
-                    CREATE TABLE "SystemSetting" (
-                        "id" TEXT NOT NULL PRIMARY KEY,
-                        "key" TEXT NOT NULL UNIQUE,
-                        "value" TEXT NOT NULL,
-                        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-                    );
+                    DO $$
+                    BEGIN
+                        IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'wellqc_api') THEN
+                            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO wellqc_api;
+                            GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO wellqc_api;
+                        END IF;
+                    END
+                    $$;
                 '''))
-                conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "SystemSetting_key_key" ON "SystemSetting"("key");'))
+            except Exception as grant_err:
+                logger.debug(f"Role permission grant check skipped: {grant_err}")
+
         logger.info("Database schema compatibility check completed successfully.")
     except Exception as e:
         logger.warning(f"Database schema check warning on startup: {e}")

@@ -12,21 +12,121 @@ Settings can be managed dynamically via the Admin Control Center or loaded from 
 
 import json
 import logging
+import os
 import urllib.request
 import urllib.error
 from typing import Dict, Any, Optional
+from urllib.parse import urlparse
 from backend.app.core.config import settings
 
 logger = logging.getLogger("wellqc.email")
 
 
-def generate_verification_link(token: str) -> str:
+def get_effective_frontend_url(
+    db: Optional[Any] = None,
+    request: Optional[Any] = None,
+    base_url_override: Optional[str] = None,
+) -> str:
+    """
+    Resolve the canonical frontend base URL for verification and reset links.
+    
+    Priority:
+    1. Explicit base_url_override if provided.
+    2. Dynamic Request inspection: inspect standard reverse proxy headers
+       (Origin, X-Forwarded-Host + X-Forwarded-Proto, Referer) so links dynamically match
+       the exact caller origin (e.g. https://wellqc.vercel.app or branch preview).
+    3. Database SystemSetting (e.g. email_settings["frontend_url"] or key "frontend_url").
+    4. settings.FRONTEND_URL from environment / configuration.
+    5. Fallback to https://wellqc.vercel.app if running in production / cloud.
+    """
+    if base_url_override and str(base_url_override).strip():
+        return str(base_url_override).strip().rstrip("/")
+
+    # 1. Dynamic Request header inspection
+    if request is not None:
+        try:
+            # 1a. Check Origin header (e.g. "https://wellqc.vercel.app")
+            origin = request.headers.get("origin")
+            if origin and not origin.startswith("chrome-extension://"):
+                origin_clean = origin.strip().rstrip("/")
+                if any(x in origin_clean for x in ["vercel.app", "localhost", "127.0.0.1"]) or origin_clean in settings.CORS_ORIGINS:
+                    return origin_clean
+
+            # 1b. Check X-Forwarded-Host / X-Forwarded-Proto (standard from Vercel / Cloudflare reverse proxy)
+            forwarded_host = request.headers.get("x-forwarded-host")
+            if forwarded_host:
+                primary_host = forwarded_host.split(",")[0].strip()
+                proto = request.headers.get("x-forwarded-proto", "https").split(",")[0].strip()
+                if any(x in primary_host for x in ["vercel.app", "localhost", "127.0.0.1"]) or primary_host in settings.CORS_ORIGINS:
+                    return f"{proto}://{primary_host}".rstrip("/")
+
+            # 1c. Check Referer header (e.g. "https://wellqc.vercel.app/register")
+            referer = request.headers.get("referer")
+            if referer:
+                parsed = urlparse(referer)
+                if parsed.scheme and parsed.netloc:
+                    if any(x in parsed.netloc for x in ["vercel.app", "localhost", "127.0.0.1"]):
+                        return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+        except Exception as e:
+            logger.debug(f"Could not inspect frontend URL from request: {e}")
+
+    # 2. Database SystemSetting
+    try:
+        from backend.app.core.database import SessionLocal
+        from backend.app.models.models import SystemSetting
+        local_db = db or SessionLocal()
+        try:
+            records = local_db.query(SystemSetting).filter(
+                SystemSetting.key.in_(["frontend_url", "email_settings"])
+            ).all()
+            for r in records:
+                if r.key == "frontend_url" and r.value and str(r.value).strip():
+                    return str(r.value).strip().rstrip("/")
+                if r.key == "email_settings" and r.value:
+                    try:
+                        cfg_dict = json.loads(r.value)
+                        if isinstance(cfg_dict, dict) and cfg_dict.get("frontend_url"):
+                            val = str(cfg_dict["frontend_url"]).strip().rstrip("/")
+                            if val:
+                                return val
+                    except Exception:
+                        pass
+        finally:
+            if not db:
+                local_db.close()
+    except Exception as e:
+        logger.debug(f"Could not load frontend_url from database: {e}")
+
+    # 3. Environment variable from settings
+    configured = (settings.FRONTEND_URL or "").strip().rstrip("/")
+    if configured and not any(loc in configured for loc in ["localhost", "127.0.0.1"]):
+        return configured
+
+    # 4. If environment indicates cloud / production (Render or neon.tech DB)
+    if (
+        bool(os.getenv("RENDER"))
+        or os.getenv("NODE_ENV") == "production"
+        or os.getenv("ENVIRONMENT") == "production"
+        or "neon.tech" in getattr(settings, "DATABASE_URL", "")
+        or "neon.tech" in getattr(settings, "POSTGRES_PRISMA_URL", "")
+    ):
+        return "https://wellqc.vercel.app"
+
+    return configured or "http://localhost:3000"
+
+
+def generate_verification_link(
+    token: str,
+    base_url: Optional[str] = None,
+    db: Optional[Any] = None,
+    request: Optional[Any] = None,
+) -> str:
     """Build the full frontend verification URL with token parameter."""
-    base_url = settings.FRONTEND_URL.rstrip("/")
-    return f"{base_url}/verify-email?token={token}"
+    effective_base = get_effective_frontend_url(db=db, request=request, base_url_override=base_url)
+    return f"{effective_base}/verify-email?token={token}"
 
 
-def get_effective_email_config(db: Optional[Any] = None) -> Dict[str, Any]:
+def get_effective_email_config(db: Optional[Any] = None, request: Optional[Any] = None) -> Dict[str, Any]:
     """
     Retrieve current email dispatch configuration.
     Priority:
@@ -35,6 +135,7 @@ def get_effective_email_config(db: Optional[Any] = None) -> Dict[str, Any]:
     """
     config = {
         "provider": settings.EMAIL_PROVIDER or "EMAILJS",
+        "frontend_url": get_effective_frontend_url(db=db, request=request),
         "emailjs_service_id": settings.EMAILJS_SERVICE_ID or "",
         "emailjs_template_id": settings.EMAILJS_TEMPLATE_ID or "",
         "emailjs_reset_template_id": settings.EMAILJS_RESET_TEMPLATE_ID or "",
@@ -226,6 +327,8 @@ def send_verification_email(
     token: str,
     expires_in_hours: int = 24,
     db: Optional[Any] = None,
+    request: Optional[Any] = None,
+    base_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Dispatch an account verification email containing a secure verification token.
@@ -233,7 +336,7 @@ def send_verification_email(
     Attempts dispatch using the configured provider (EmailJS, Resend).
     If no remote keys are configured or delivery fails, falls back cleanly to the local terminal logger banner.
     """
-    verification_url = generate_verification_link(token)
+    verification_url = generate_verification_link(token, base_url=base_url, db=db, request=request)
     recipient_display = f"{name} <{email}>" if name else email
     subject = "Verify Your WellQC Account"
 
@@ -356,13 +459,19 @@ def send_verification_email(
     }
 
 
-def send_test_email(to_email: str, config: Dict[str, Any]) -> Dict[str, Any]:
+def send_test_email(
+    to_email: str,
+    config: Dict[str, Any],
+    db: Optional[Any] = None,
+    request: Optional[Any] = None,
+) -> Dict[str, Any]:
     """
     Send a test email using the provided configuration to verify credentials.
     """
     provider = (config.get("provider") or "EMAILJS").upper()
     test_subject = "WellQC Email Configuration Test"
-    test_url = f"{settings.FRONTEND_URL.rstrip('/')}/workspace"
+    effective_base = get_effective_frontend_url(db=db, request=request, base_url_override=config.get("frontend_url"))
+    test_url = f"{effective_base}/workspace"
 
     test_html = f"""
     <!DOCTYPE html>
@@ -445,12 +554,15 @@ def send_password_reset_email(
     token: str,
     expires_in_hours: int = 1,
     db: Optional[Any] = None,
+    request: Optional[Any] = None,
+    base_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Dispatch a password reset email using the active email provider
     (EmailJS, Resend, or local terminal logger fallback).
     """
-    reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={token}"
+    effective_base = get_effective_frontend_url(db=db, request=request, base_url_override=base_url)
+    reset_url = f"{effective_base}/reset-password?token={token}"
     recipient_display = f"{name} <{email}>" if name else email
     subject = "Reset Your WellQC Password"
 

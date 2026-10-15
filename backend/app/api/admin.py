@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
@@ -16,6 +17,8 @@ from backend.app.models.models import (
     Anomaly,
     Webhook,
 )
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -103,10 +106,15 @@ def _clean_user_dependencies(db: Session, user_ids: List[str]):
     if not user_ids:
         return
 
-    # 1. Nullify ActivityLog.userId so historical audit logs remain preserved without FK conflicts
-    db.query(ActivityLog).filter(ActivityLog.userId.in_(user_ids)).update(
-        {ActivityLog.userId: None}, synchronize_session=False
-    )
+    # 1. Nullify ActivityLog.userId so historical audit logs remain preserved without FK conflicts.
+    # Wrapped in a nested savepoint so any table privilege restrictions do not abort user deletion.
+    try:
+        with db.begin_nested():
+            db.query(ActivityLog).filter(ActivityLog.userId.in_(user_ids)).update(
+                {ActivityLog.userId: None}, synchronize_session=False
+            )
+    except Exception as exc:
+        logger.warning(f"Could not nullify ActivityLog.userId for deleted users {user_ids}: {exc}")
 
     # 2. Delete APITokens belonging to deleted users
     db.query(APIToken).filter(APIToken.userId.in_(user_ids)).delete(
@@ -273,6 +281,7 @@ def _mask_secret(val: Optional[str]) -> str:
 
 class EmailSettingsPayload(BaseModel):
     provider: str
+    frontend_url: Optional[str] = "https://wellqc.vercel.app"
     emailjs_service_id: Optional[str] = ""
     emailjs_template_id: Optional[str] = ""
     emailjs_reset_template_id: Optional[str] = ""
@@ -285,6 +294,7 @@ class EmailSettingsPayload(BaseModel):
 class TestEmailPayload(BaseModel):
     targetEmail: str
     provider: str
+    frontend_url: Optional[str] = None
     emailjs_service_id: Optional[str] = ""
     emailjs_template_id: Optional[str] = ""
     emailjs_reset_template_id: Optional[str] = ""
@@ -303,11 +313,12 @@ def get_email_settings(
     db: Session = Depends(get_db),
 ):
     import json
-    from backend.app.services.email import get_effective_email_config
+    from backend.app.services.email import get_effective_email_config, get_effective_frontend_url
 
     config = get_effective_email_config(db)
     return {
         "provider": (config.get("provider") or "EMAILJS").upper(),
+        "frontend_url": config.get("frontend_url") or get_effective_frontend_url(db),
         "emailjs_service_id": config.get("emailjs_service_id") or "",
         "emailjs_template_id": config.get("emailjs_template_id") or "",
         "emailjs_reset_template_id": config.get("emailjs_reset_template_id") or "",
@@ -351,8 +362,11 @@ def update_email_settings(
     else:
         resend_key = resend_key.strip()
 
+    frontend_url_clean = (payload.frontend_url or existing.get("frontend_url") or "https://wellqc.vercel.app").strip().rstrip("/")
+
     data_to_store = {
         "provider": provider_clean,
+        "frontend_url": frontend_url_clean,
         "emailjs_service_id": (payload.emailjs_service_id or "").strip(),
         "emailjs_template_id": (payload.emailjs_template_id or "").strip(),
         "emailjs_reset_template_id": (payload.emailjs_reset_template_id or "").strip(),
@@ -377,7 +391,7 @@ def update_email_settings(
         action="UPDATE_EMAIL_SETTINGS",
         targetType="SYSTEM",
         targetId="email_settings",
-        details=f"Admin updated transactional email configuration. Active provider: {provider_clean}.",
+        details=f"Admin updated transactional email configuration. Active provider: {provider_clean}, Frontend URL: {frontend_url_clean}.",
     )
     db.add(audit)
     db.commit()
@@ -386,12 +400,14 @@ def update_email_settings(
         "success": True,
         "message": f"Email settings successfully saved with active provider '{provider_clean}'.",
         "provider": provider_clean,
+        "frontend_url": frontend_url_clean,
     }
 
 
 @router.post("/email-settings/test")
 def test_email_settings(
     payload: TestEmailPayload,
+    request: Request,
     admin: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
@@ -418,6 +434,7 @@ def test_email_settings(
 
     test_config = {
         "provider": provider_clean,
+        "frontend_url": (payload.frontend_url or existing.get("frontend_url", "")).strip(),
         "emailjs_service_id": (payload.emailjs_service_id or existing.get("emailjs_service_id", "")).strip(),
         "emailjs_template_id": (payload.emailjs_template_id or existing.get("emailjs_template_id", "")).strip(),
         "emailjs_reset_template_id": (payload.emailjs_reset_template_id or existing.get("emailjs_reset_template_id", "")).strip(),
@@ -428,7 +445,7 @@ def test_email_settings(
     }
 
     try:
-        result = send_test_email(target, test_config)
+        result = send_test_email(target, test_config, db=db, request=request)
         return result
     except Exception as e:
         raise HTTPException(

@@ -58,6 +58,8 @@ class ImputationStrategy(str, Enum):
     MEAN = "MEAN"
     MEDIAN = "MEDIAN"
     SPLINE = "SPLINE"
+    RANDOM_FOREST = "RANDOM_FOREST"
+    GRADIENT_BOOSTING = "GRADIENT_BOOSTING"
     ROW_DROPPING = "ROW_DROPPING"
 
 

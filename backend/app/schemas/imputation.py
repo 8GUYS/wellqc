@@ -66,6 +66,15 @@ class ImputationBenchmarkMetric(BaseModel):
     rank: int
     isRecommended: bool
     notes: str
+    nrmse: float = 0.0
+
+class GapLengthResult(BaseModel):
+    gapLength: int
+    hiddenSampleCount: int
+    gapCount: int
+    metrics: List[ImputationBenchmarkMetric]
+    bestStrategy: ImputationStrategy
+    recommendationReason: str
 
 class ImputationBenchmarkResult(BaseModel):
     curveMnemonic: str
@@ -75,6 +84,7 @@ class ImputationBenchmarkResult(BaseModel):
     metrics: List[ImputationBenchmarkMetric]
     bestStrategy: ImputationStrategy
     recommendationReason: str
+    byGapLength: List[GapLengthResult] = Field(default_factory=list)
 
 class DropRowsResponse(BaseModel):
     depth: List[float]

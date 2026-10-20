@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 import json
 import secrets
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+import numpy as np
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -10,12 +11,15 @@ from sqlalchemy import desc
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user_optional, get_current_user
 from backend.app.models.models import ActivityLog, User, Well, QualityReport, Anomaly
-from backend.app.services.cleaner import clean_las_log_data, CleaningOptions
+from backend.app.services.cleaner import clean_las_log_data, CleaningOptions, ApprovedFix
+from backend.app.services.imputation import recommend_for_gaps
 from backend.app.services.parser import parse_las_content, ParsedLAS, LASParseError
 from backend.app.services.quality_engine import analyze_well_log_quality
 from backend.app.api.standardisation import _get_user_aliases
 
 router = APIRouter(prefix="/api/qa-engine", tags=["qa-engine"])
+
+VALID_FILL_METHODS = {"NONE", "KNN", "LINEAR", "SPLINE", "RANDOM_FOREST", "GRADIENT_BOOSTING", "AUTO"}
 
 
 class QARepairRequest(BaseModel):
@@ -26,7 +30,24 @@ class QARepairRequest(BaseModel):
     despiking: bool = True
     outlierClipping: bool = True
     duplicateDepthPruning: bool = True
+    duplicateAction: Optional[str] = "REMOVE_SECOND"
+    impossibleAction: Optional[str] = "REMOVE"
     imputationStrategy: str = "NONE"
+    approvedFixes: Optional[List[ApprovedFix]] = None
+
+
+class GapQueryItem(BaseModel):
+    curve: str
+    depthStart: float
+    depthEnd: float
+
+
+class GapRecommendationRequest(BaseModel):
+    wellId: Optional[str] = None
+    wellName: Optional[str] = "Well Log"
+    rawLasText: Optional[str] = None
+    rawLas: Optional[Dict[str, Any]] = None
+    gaps: List[GapQueryItem]
 
 
 @router.get("")
@@ -59,11 +80,11 @@ def get_qa_engine_overview(
         },
         {
             "ruleId": "RULE_EXTREME_SPIKE",
-            "ruleName": "Extreme Sensor Spikes (Z-Score > 4.5σ)",
-            "description": "Detects high-frequency electrical telemetry noise and transit spikes.",
+            "ruleName": "Sonic Sensor Spikes (IQR Step Fence)",
+            "description": "Flags readings whose jump to both neighbours exceeds 3.0×IQR in the same direction on sonic (DT) curves.",
             "enabled": True,
-            "threshold": 4.5,
-            "unit": "sigma",
+            "threshold": 3.0,
+            "unit": "IQR",
             "severity": "WARNING",
         },
         {
@@ -151,28 +172,21 @@ def get_qa_engine_overview(
     }
 
 
-@router.post("/repair")
-def repair_anomalies(
-    req: QARepairRequest,
-    current_user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db),
-):
-    """
-    Executes user-approved automated anomaly repair actions:
-    - Despiking (median despiking)
-    - Physical boundary clamping (GR, RHOB, NPHI, etc.)
-    - Duplicate-depth repairs (pruning duplicate depth indices)
-    Persists an immutable audit log entry for transparency and returns verified cleaned data.
-    """
-    server_aliases = _get_user_aliases(db, current_user)
+def _resolve_target_las(
+    well_id: Optional[str],
+    well_name_req: Optional[str],
+    raw_las_text: Optional[str],
+    raw_las: Optional[Dict[str, Any]],
+    server_aliases: Any,
+    db: Session,
+) -> Tuple[ParsedLAS, str, str]:
+    well_name = well_name_req or "Well Log"
+    resolved_id = well_id or "upload-session"
     target_las: Optional[ParsedLAS] = None
-    well_name = req.wellName or "Well Log"
-    well_id = req.wellId or "upload-session"
 
-    # 1. Resolve raw LAS from request payload or database
-    if req.rawLasText:
+    if raw_las_text:
         try:
-            target_las = parse_las_content(req.rawLasText, custom_aliases=server_aliases)
+            target_las = parse_las_content(raw_las_text, custom_aliases=server_aliases)
             if target_las.wellInfo.wellName:
                 well_name = target_las.wellInfo.wellName
         except LASParseError as exc:
@@ -180,9 +194,9 @@ def repair_anomalies(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"LAS parsing failed: {str(exc)}",
             )
-    elif req.rawLas:
+    elif raw_las:
         try:
-            target_las = ParsedLAS.model_validate(req.rawLas)
+            target_las = ParsedLAS.model_validate(raw_las)
             if target_las.wellInfo.wellName:
                 well_name = target_las.wellInfo.wellName
         except Exception as exc:
@@ -190,8 +204,8 @@ def repair_anomalies(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid ParsedLAS data: {str(exc)}",
             )
-    elif req.wellId and req.wellId not in ("upload-session", "active-upload"):
-        db_well = db.query(Well).filter(Well.id == req.wellId).first()
+    elif well_id and well_id not in ("upload-session", "active-upload", "direct-upload"):
+        db_well = db.query(Well).filter(Well.id == well_id).first()
         if db_well:
             well_name = db_well.name
             if db_well.lasFiles:
@@ -244,15 +258,46 @@ def repair_anomalies(
             detail="Target well log data is required. Provide rawLasText, rawLas, or a valid wellId.",
         )
 
-    # 2. Configure approved repair options
+    return target_las, well_name, resolved_id
+
+
+@router.post("/repair")
+def repair_anomalies(
+    req: QARepairRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
+    """
+    Executes user-approved automated anomaly repair actions:
+    - Despiking (two-point neighbour mean replacement on sonic DT)
+    - Physical boundary handling (REMOVE to null, CLIP to limit, or DELETE_ROW)
+    - Duplicate-depth repairs (REMOVE_SECOND or COMPARE_ROWS)
+    - Null cluster imputation (LINEAR, SPLINE, RANDOM_FOREST, GRADIENT_BOOSTING, KNN, AUTO)
+    Persists an immutable audit log entry for transparency and returns verified cleaned data.
+    """
+    if req.imputationStrategy not in VALID_FILL_METHODS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown fill method '{req.imputationStrategy}'. Allowed methods are: {', '.join(sorted(VALID_FILL_METHODS))}.",
+        )
+
+    server_aliases = _get_user_aliases(db, current_user)
+    target_las, well_name, well_id = _resolve_target_las(
+        req.wellId, req.wellName, req.rawLasText, req.rawLas, server_aliases, db
+    )
+
+    # Configure approved repair options
     options = CleaningOptions(
         despiking=bool(req.despiking),
         outlierClipping=bool(req.outlierClipping),
         duplicateDepthPruning=bool(req.duplicateDepthPruning),
+        duplicateAction=req.duplicateAction if req.duplicateAction in ("REMOVE_SECOND", "COMPARE_ROWS") else "REMOVE_SECOND",
+        impossibleAction=req.impossibleAction if req.impossibleAction in ("REMOVE", "CLIP", "DELETE_ROW") else "REMOVE",
+        approvedFixes=req.approvedFixes,
         flatlineHandling=False,
         depthGapInterpolation=False,
         unitStandardization=False,
-        imputationStrategy=req.imputationStrategy if req.imputationStrategy in ("KNN", "LINEAR", "MEDIAN") else "NONE",
+        imputationStrategy=req.imputationStrategy,
     )
 
     initial_qa = analyze_well_log_quality(target_las, custom_aliases=server_aliases)
@@ -269,13 +314,25 @@ def repair_anomalies(
     user_role = current_user.role if current_user else "PETROPHYSICIST"
     user_id = current_user.id if current_user else None
 
-    # 3. Create Audit Trail Entry in PostgreSQL
+    # Construct precise audit description with real counts
     audit_cert_id = f"WQC-CERT-{secrets.token_hex(4).upper()}"
+    parts = []
+    if report.outliersRemovedCount:
+        parts.append(f"{report.outliersRemovedCount} impossible values nulled")
+    if getattr(report, "outliersClippedCount", 0):
+        parts.append(f"{report.outliersClippedCount} impossible values clipped")
+    if getattr(report, "outlierRowsDeletedCount", 0):
+        parts.append(f"{report.outlierRowsDeletedCount} rows deleted ({report.goodReadingsLostInDeletedRows} readings lost)")
+    if report.spikesDespikedCount:
+        parts.append(f"{report.spikesDespikedCount} spikes despiked")
+    if report.duplicateDepthsPrunedCount:
+        parts.append(f"{report.duplicateDepthsPrunedCount} duplicate depths pruned")
+    if report.nullsImputedCount:
+        parts.append(f"{report.nullsImputedCount} null values filled")
+
+    actions_summary = ", ".join(parts) if parts else "No anomalies modified"
     log_details = (
-        f"Verified petrophysical repair executed for {well_name}: "
-        f"{report.outliersRemovedCount} boundary limits clamped, "
-        f"{report.spikesDespikedCount} spikes despiked, "
-        f"{report.duplicateDepthsPrunedCount} duplicate depths pruned. "
+        f"Verified petrophysical repair executed for {well_name}: {actions_summary}. "
         f"Quality score improved from {report.originalQualityScore}% ({report.originalGrade}) "
         f"to {report.cleanedQualityScore}% ({report.cleanedGrade}). [Cert: {audit_cert_id}]"
     )
@@ -323,7 +380,69 @@ def repair_anomalies(
                 "despiking": req.despiking,
                 "outlierClipping": req.outlierClipping,
                 "duplicateDepthPruning": req.duplicateDepthPruning,
+                "duplicateAction": req.duplicateAction or "REMOVE_SECOND",
+                "impossibleAction": req.impossibleAction or "REMOVE",
                 "imputationStrategy": req.imputationStrategy,
+                "approvedCount": len(req.approvedFixes) if req.approvedFixes is not None else "ALL",
             },
         },
     }
+
+
+@router.post("/rank-gaps")
+def rank_gaps_for_clusters(
+    req: GapRecommendationRequest,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
+    """
+    Evaluates requested null clusters across benchmark gap buckets (5, 10, 20, 50, 100 samples)
+    and returns per-gap winning methods with NRMSE ranking and justifications.
+    """
+    server_aliases = _get_user_aliases(db, current_user)
+    target_las, _, _ = _resolve_target_las(
+        req.wellId, req.wellName, req.rawLasText, req.rawLas, server_aliases, db
+    )
+
+    depth_arr = np.array(target_las.data.depth, dtype=float)
+    if depth_arr.size == 0 or not req.gaps:
+        return {"recommendations": []}
+
+    step = abs(target_las.wellInfo.step) if target_las.wellInfo.step else 0.5
+    tol = step * 0.5 if step > 0 else 1e-4
+    null_val = target_las.wellInfo.nullValue if target_las.wellInfo.nullValue is not None else -999.25
+
+    gaps_to_run: List[Tuple[str, int, int, float, float]] = []
+    for g in req.gaps:
+        lo, hi = sorted((g.depthStart, g.depthEnd))
+        idx = np.flatnonzero((depth_arr >= lo - tol) & (depth_arr <= hi + tol))
+        if idx.size:
+            s, e = int(idx[0]), int(idx[-1]) + 1
+            gaps_to_run.append((g.curve, s, e, g.depthStart, g.depthEnd))
+
+    query_gaps = [(c, s, e) for c, s, e, _, _ in gaps_to_run]
+    try:
+        picks = recommend_for_gaps(depth_arr.tolist(), target_las.data.curves, null_val, query_gaps)
+    except Exception:
+        picks = {}
+
+    recommendations = []
+    for c, s, e, d_start, d_end in gaps_to_run:
+        info = picks.get((c, s, e), {})
+        best_method = info.get("method", "LINEAR")
+        bucket = info.get("bucket", 10)
+        reason = info.get("reason", "Linear interpolation selected as baseline.")
+        ranking_raw = info.get("ranking", [])
+        ranking = [{"method": m, "nrmse": float(score)} for m, score in ranking_raw]
+        recommendations.append({
+            "curve": c,
+            "depthStart": d_start,
+            "depthEnd": d_end,
+            "bestMethod": best_method,
+            "bucket": bucket,
+            "reason": reason,
+            "ranking": ranking,
+        })
+
+    return {"recommendations": recommendations}
+

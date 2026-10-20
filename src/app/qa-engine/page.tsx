@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { CleanedLogViewer } from "@/components/well-log/cleaned-log-viewer";
 import {
   repairQAEngine,
+  rankGapsQAEngine,
   analyzeLAS,
   QARepairResponse,
 } from "@/lib/las/api";
@@ -15,6 +16,8 @@ import {
   AnomalyReportItem,
   WellListItem,
   WellDetailResponse,
+  ApprovedFix,
+  GapRecommendationResult,
 } from "@/lib/api-types";
 import {
   ShieldCheck,
@@ -59,46 +62,82 @@ interface CleaningMethod {
 const CLEANING_METHODS: Record<TargetProblemType, CleaningMethod[]> = {
   NULL_CLUSTER: [
     {
-      id: "KNN",
-      name: "K-Nearest Neighbours",
-      description: "Predicts missing samples based on multi-variate curve correlation",
-      recommended: true,
-    },
-    {
       id: "LINEAR",
-      name: "Linear interpolation",
+      name: "Linear",
       description: "Interpolates linearly across continuous null gaps",
       recommended: false,
     },
     {
-      id: "MEDIAN",
-      name: "Zonal median replacement",
-      description: "Imputes missing interval with geological formation median",
+      id: "SPLINE",
+      name: "Spline",
+      description: "Cubic spline interpolation preserving log curvature",
+      recommended: false,
+    },
+    {
+      id: "RANDOM_FOREST",
+      name: "Random Forest",
+      description: "Predicts missing samples using multi-variate Random Forest ensemble",
+      recommended: false,
+    },
+    {
+      id: "GRADIENT_BOOSTING",
+      name: "Gradient Boosting",
+      description: "Predicts missing samples using Gradient Boosted decision trees",
+      recommended: false,
+    },
+    {
+      id: "KNN",
+      name: "K-Nearest Neighbours",
+      description: "Predicts missing samples based on multi-variate curve correlation",
+      recommended: false,
+    },
+    {
+      id: "AUTO",
+      name: "AUTO",
+      description: "Benchmarks candidate algorithms and selects the best method for this gap",
       recommended: false,
     },
   ],
   DUPLICATE_DEPTH: [
     {
-      id: "PRUNE",
-      name: "Monotonic Depth Pruning",
-      description: "Removes redundant repeating depth step records preserving first arrival",
-      recommended: true,
+      id: "REMOVE_SECOND",
+      name: "Remove second",
+      description: "Removes the second duplicate depth record, preserving first arrival",
+      recommended: false,
+    },
+    {
+      id: "COMPARE_ROWS",
+      name: "Compare rows",
+      description: "Compares records and keeps the row with more valid readings (keeps first if equal)",
+      recommended: false,
     },
   ],
   IMPOSSIBLE_VALUE: [
     {
-      id: "CLAMP",
-      name: "Physical Boundary Clamping",
-      description: "Clamps values outside physical thermodynamics to valid lithological limits",
-      recommended: true,
+      id: "REMOVE",
+      name: "Remove",
+      description: "Sets the impossible reading to null (-999.25)",
+      recommended: false,
+    },
+    {
+      id: "CLIP",
+      name: "Clip",
+      description: "Moves reading to the nearest valid physical boundary limit",
+      recommended: false,
+    },
+    {
+      id: "DELETE_ROW",
+      name: "Delete row",
+      description: "Removes the whole row at this depth across all curves (warning: loses good readings on other curves)",
+      recommended: false,
     },
   ],
   EXTREME_SPIKE: [
     {
       id: "DESPIKE",
-      name: "Median Sliding Despiking",
-      description: "Filters transient telemetry spikes using local moving median window",
-      recommended: true,
+      name: "Two-point neighbour average",
+      description: "Replaces the spike with the average of its two neighbouring readings",
+      recommended: false,
     },
   ],
 };
@@ -136,8 +175,118 @@ function getPlainExplanation(type: TargetProblemType, curveName: string): string
     case "NULL_CLUSTER":
       return `A contiguous stretch of missing readings was found on ${curveName || "this curve"}.`;
     case "EXTREME_SPIKE":
-      return `An extreme telemetry spike on ${curveName || "this curve"} deviates sharply from adjacent samples.`;
+      return `On the sonic (${curveName || "DT"}) curve, a reading whose jump to both neighbours is much bigger than the curve's usual step, in the same direction.`;
   }
+}
+
+function isFlagCurve(curveMnemonic: string): boolean {
+  const norm = (curveMnemonic || "").toUpperCase().trim();
+  return ["FLUID", "FLUID_CODE", "FLAG", "FACIES", "ZONE", "LITH", "LITHO", "LITHOLOGY", "LITHO_CODE"].includes(norm);
+}
+
+function getUnfillableReason(a: AnomalyReportItem, step: number): string | null {
+  const pType = normalizeProblemType(a.anomalyType);
+  if (pType !== "NULL_CLUSTER") return null;
+
+  if (isFlagCurve(a.curveMnemonic)) {
+    return "Flag curves (e.g. FLUID) hold whole-number codes and cannot be numerically filled.";
+  }
+
+  const stepVal = Math.abs(step) || 0.5;
+  const gapSamples = Math.round(Math.abs(a.depthEnd - a.depthStart) / stepVal) + 1;
+  if (gapSamples > 100) {
+    return `Cluster length is ${gapSamples} samples, which exceeds the 100-sample limit and cannot be filled.`;
+  }
+
+  return null;
+}
+
+function getAnomalyChangeDetails(
+  a: AnomalyReportItem,
+  dec: FixDecision | undefined,
+  depthUnit: string,
+  rawLas: ParsedLAS | null
+) {
+  const pType = normalizeProblemType(a.anomalyType)!;
+  const isApproved = dec?.status === "APPROVED";
+  const step = Math.abs(rawLas?.wellInfo?.step || 0.5) || 0.5;
+
+  let samplesChanged = 0;
+  if (isApproved) {
+    if (pType === "DUPLICATE_DEPTH") {
+      samplesChanged = 1;
+    } else if (pType === "IMPOSSIBLE_VALUE") {
+      if (a.depthStart === a.depthEnd) {
+        samplesChanged = 1;
+      } else {
+        samplesChanged = Math.max(1, Math.round(Math.abs(a.depthEnd - a.depthStart) / step) + 1);
+      }
+    } else if (pType === "NULL_CLUSTER") {
+      samplesChanged = Math.max(1, Math.round(Math.abs(a.depthEnd - a.depthStart) / step) + 1);
+    } else if (pType === "EXTREME_SPIKE") {
+      samplesChanged = 1;
+    }
+  }
+
+  // Get raw reading at depthStart if available
+  let rawValStr: string | null = null;
+  if (rawLas && rawLas.data && rawLas.data.depth && rawLas.data.curves) {
+    const curveArr = rawLas.data.curves[a.curveMnemonic];
+    if (curveArr) {
+      const idx = rawLas.data.depth.findIndex((d) => Math.abs(d - a.depthStart) < step * 0.5);
+      if (idx !== -1 && curveArr[idx] !== undefined) {
+        const v = curveArr[idx];
+        const nullVal = rawLas.wellInfo?.nullValue ?? -999.25;
+        if (v !== nullVal && Number.isFinite(v)) {
+          rawValStr = Number(v).toFixed(4);
+        }
+      }
+    }
+  }
+
+  let valBefore = "Measured reading";
+  let valAfter = "Unchanged";
+
+  if (pType === "DUPLICATE_DEPTH") {
+    valBefore = `Duplicate depth (${a.depthStart} ${depthUnit})`;
+    if (isApproved) {
+      valAfter = dec.methodId === "COMPARE_ROWS"
+        ? "Kept row with more valid readings"
+        : "Second row removed (kept first)";
+    } else {
+      valAfter = "Duplicate kept";
+    }
+  } else if (pType === "IMPOSSIBLE_VALUE") {
+    valBefore = rawValStr ? `${rawValStr} (out of bounds)` : `Out-of-bounds (${a.depthStart} ${depthUnit})`;
+    if (isApproved) {
+      if (dec.methodId === "CLIP") {
+        valAfter = "Clipped to physical limit";
+      } else if (dec.methodId === "DELETE_ROW") {
+        valAfter = "Row deleted across all curves";
+      } else {
+        valAfter = "Set to null (-999.25)";
+      }
+    } else {
+      valAfter = "Out-of-bounds kept";
+    }
+  } else if (pType === "NULL_CLUSTER") {
+    const gapLen = Math.max(1, Math.round(Math.abs(a.depthEnd - a.depthStart) / step) + 1);
+    valBefore = `Null gap (-999.25, ${gapLen} samples)`;
+    if (isApproved) {
+      valAfter = `Filled with ${dec.method || dec.methodId || "Linear"}`;
+    } else {
+      valAfter = "Null gap left unfilled";
+    }
+  } else if (pType === "EXTREME_SPIKE") {
+    valBefore = rawValStr ? `${rawValStr} (spike)` : `Spike reading (${a.depthStart} ${depthUnit})`;
+    if (isApproved) {
+      valAfter = "Replaced by two-point neighbour average";
+    } else {
+      valAfter = "Spike kept";
+    }
+  }
+
+  return { samplesChanged, valBefore, valAfter };
 }
 
 function getGradeBadgeStyle(grade: string): string {
@@ -203,6 +352,10 @@ export default function QAEngineWorkspace() {
 
   // Batch action selection method override
   const [batchMethodOverride, setBatchMethodOverride] = useState<string | null>(null);
+
+  // AUTO benchmark ranking state for null clusters (Item 4)
+  const [isRankingGaps, setIsRankingGaps] = useState<boolean>(false);
+  const [gapRecommendations, setGapRecommendations] = useState<Record<string, GapRecommendationResult>>({});
 
   // ─── Section 3 & 4 Execution & Export State ────────────────────────────────
   const [isExecutingRepair, setIsExecutingRepair] = useState<boolean>(false);
@@ -284,6 +437,7 @@ export default function QAEngineWorkspace() {
     setCategoryFilter("ALL");
     setErrorMessage("");
     setReportExported(false);
+    setGapRecommendations({});
   }, []);
 
   // Handle selecting a database well
@@ -493,8 +647,14 @@ export default function QAEngineWorkspace() {
 
   const batchMethod = batchMethodOverride ?? defaultBatchMethod;
 
-  // Toggle tick box on a row
+  // Toggle tick box on a row (Item 5: do not allow selecting unfillable clusters)
   const handleToggleTick = (id: string, itemType: TargetProblemType) => {
+    const anom = targetAnomalies.find((a) => a.id === id);
+    if (anom && itemType === "NULL_CLUSTER") {
+      const unfillable = getUnfillableReason(anom, rawLas?.wellInfo?.step || 0.5);
+      if (unfillable) return;
+    }
+
     setSelectedAnomalyIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -510,15 +670,103 @@ export default function QAEngineWorkspace() {
     });
   };
 
+  // Run AUTO Benchmark for selected null clusters (Item 4)
+  const handleRunAutoBenchmark = async (anomalyIds: Set<string>) => {
+    setIsRankingGaps(true);
+    setErrorMessage("");
+
+    try {
+      const gapsToRank: Array<{ id: string; curve: string; depthStart: number; depthEnd: number }> = [];
+      anomalyIds.forEach((id) => {
+        const anom = targetAnomalies.find((a) => a.id === id);
+        if (anom && normalizeProblemType(anom.anomalyType) === "NULL_CLUSTER") {
+          const unfillable = getUnfillableReason(anom, rawLas?.wellInfo?.step || 0.5);
+          if (!unfillable) {
+            gapsToRank.push({
+              id: anom.id!,
+              curve: anom.curveMnemonic || "UNKNOWN",
+              depthStart: anom.depthStart,
+              depthEnd: anom.depthEnd,
+            });
+          }
+        }
+      });
+
+      if (gapsToRank.length === 0) {
+        setErrorMessage("No fillable null clusters selected for AUTO benchmark.");
+        return;
+      }
+
+      const res = await rankGapsQAEngine({
+        wellId: wellId !== "direct-upload" && wellId !== "active-upload" ? wellId : undefined,
+        wellName: wellName || "Well Log",
+        rawLasText: rawLasText || undefined,
+        rawLas: rawLas || undefined,
+        gaps: gapsToRank.map((g) => ({
+          curve: g.curve,
+          depthStart: g.depthStart,
+          depthEnd: g.depthEnd,
+        })),
+      });
+
+      const newRecommendations: Record<string, GapRecommendationResult> = {};
+      const newDecisions: Record<string, FixDecision> = {};
+      const newSelectedMethods: Record<string, string> = {};
+
+      gapsToRank.forEach((g) => {
+        const match = res.recommendations.find(
+          (r) =>
+            r.curve.toUpperCase() === g.curve.toUpperCase() &&
+            Math.abs(r.depthStart - g.depthStart) < 1e-2
+        );
+        if (match) {
+          newRecommendations[g.id] = match;
+          const methodName =
+            CLEANING_METHODS.NULL_CLUSTER.find((m) => m.id === match.bestMethod)?.name ||
+            match.bestMethod;
+          newSelectedMethods[g.id] = match.bestMethod;
+          newDecisions[g.id] = {
+            status: "APPROVED",
+            method: `${methodName} (AUTO recommended)`,
+            methodId: match.bestMethod,
+          };
+        }
+      });
+
+      setGapRecommendations((prev) => ({ ...prev, ...newRecommendations }));
+      setSelectedMethodPerRow((prev) => ({ ...prev, ...newSelectedMethods }));
+      setDecisions((prev) => ({ ...prev, ...newDecisions }));
+      setSelectedAnomalyIds(new Set());
+      setBatchMethodOverride(null);
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to run AUTO benchmark for null clusters."
+      );
+    } finally {
+      setIsRankingGaps(false);
+    }
+  };
+
   // Batch Apply to selected
-  const handleApplyBatch = () => {
+  const handleApplyBatch = async () => {
     if (!batchActiveType || selectedAnomalyIds.size === 0) return;
+
+    if (batchActiveType === "NULL_CLUSTER" && batchMethod === "AUTO") {
+      await handleRunAutoBenchmark(selectedAnomalyIds);
+      return;
+    }
+
     const methods = CLEANING_METHODS[batchActiveType];
     const chosenMethod = methods.find((m) => m.id === batchMethod) || methods[0];
 
     setDecisions((prev) => {
       const next = { ...prev };
       selectedAnomalyIds.forEach((id) => {
+        const anom = targetAnomalies.find((a) => a.id === id);
+        if (anom && batchActiveType === "NULL_CLUSTER") {
+          const unfillable = getUnfillableReason(anom, rawLas?.wellInfo?.step || 0.5);
+          if (unfillable) return;
+        }
         next[id] = {
           status: "APPROVED",
           method: chosenMethod.name,
@@ -534,24 +782,33 @@ export default function QAEngineWorkspace() {
   // Single Row Approve flow
   const handleOpenRowApprove = (id: string, pType: TargetProblemType) => {
     setOpenRowApproveId(id);
+    const recFromAuto = gapRecommendations[id]?.bestMethod;
     const methods = CLEANING_METHODS[pType];
-    const rec = methods.find((m) => m.recommended) || methods[0];
+    const defaultMethodId = recFromAuto || methods[0].id;
     setSelectedMethodPerRow((prev) => ({
       ...prev,
-      [id]: prev[id] || rec.id,
+      [id]: prev[id] || defaultMethodId,
     }));
   };
 
-  const handleConfirmRowApprove = (id: string, pType: TargetProblemType) => {
+  const handleConfirmRowApprove = async (id: string, pType: TargetProblemType) => {
     const methods = CLEANING_METHODS[pType];
     const methodId = selectedMethodPerRow[id] || methods[0].id;
+
+    if (pType === "NULL_CLUSTER" && methodId === "AUTO") {
+      await handleRunAutoBenchmark(new Set([id]));
+      setOpenRowApproveId(null);
+      return;
+    }
+
     const chosen = methods.find((m) => m.id === methodId) || methods[0];
+    const isAutoWinner = gapRecommendations[id]?.bestMethod === chosen.id;
 
     setDecisions((prev) => ({
       ...prev,
       [id]: {
         status: "APPROVED",
-        method: chosen.name,
+        method: isAutoWinner ? `${chosen.name} (AUTO recommended)` : chosen.name,
         methodId: chosen.id,
       },
     }));
@@ -581,7 +838,7 @@ export default function QAEngineWorkspace() {
   const rejectedCount = Object.values(decisions).filter((d) => d.status === "REJECTED").length;
   const waitingCount = Math.max(0, targetAnomalies.length - approvedCount - rejectedCount);
 
-  // ─── Execute Cleaning on Approved Fixes ────────────────────────────────────
+  // ─── Execute Cleaning on Approved Fixes (Item 1: Per-Row Approval) ─────────
   const handleExecuteCleaning = async () => {
     if (approvedCount === 0) return;
 
@@ -589,37 +846,34 @@ export default function QAEngineWorkspace() {
     setErrorMessage("");
 
     try {
-      // Check which categories are approved
-      const approvedEntries = Object.entries(decisions)
-        .filter(([_, d]) => d.status === "APPROVED")
-        .map(([id, d]) => {
-          const anom = targetAnomalies.find((a) => a.id === id);
-          return {
-            id,
-            type: anom ? normalizeProblemType(anom.anomalyType) : null,
-            methodId: d.methodId,
-          };
+      // Build per-row approved fixes list
+      const approvedFixes: ApprovedFix[] = [];
+      Object.entries(decisions).forEach(([id, dec]) => {
+        if (dec.status !== "APPROVED") return;
+        const anom = targetAnomalies.find((a) => a.id === id);
+        if (!anom) return;
+        const pType = normalizeProblemType(anom.anomalyType);
+        if (!pType) return;
+
+        approvedFixes.push({
+          problem: pType,
+          curve: pType === "DUPLICATE_DEPTH" ? (anom.curveMnemonic || "DEPT") : (anom.curveMnemonic || "UNKNOWN"),
+          depthStart: anom.depthStart,
+          depthEnd: anom.depthEnd,
+          method: dec.methodId || (pType === "EXTREME_SPIKE" ? "DESPIKE" : undefined),
         });
-
-      const hasDup = approvedEntries.some((e) => e.type === "DUPLICATE_DEPTH");
-      const hasImp = approvedEntries.some((e) => e.type === "IMPOSSIBLE_VALUE");
-      const hasSpk = approvedEntries.some((e) => e.type === "EXTREME_SPIKE");
-      const nullEntry = approvedEntries.find((e) => e.type === "NULL_CLUSTER");
-
-      let imputationStrategy = "NONE";
-      if (nullEntry) {
-        imputationStrategy = nullEntry.methodId || "KNN";
-      }
+      });
 
       const payload = {
         wellId: wellId !== "direct-upload" && wellId !== "active-upload" ? wellId : undefined,
         wellName: wellName || "Well Log",
         rawLasText: rawLasText || undefined,
         rawLas: rawLas || undefined,
-        despiking: hasSpk,
-        outlierClipping: hasImp,
-        duplicateDepthPruning: hasDup,
-        imputationStrategy: imputationStrategy,
+        approvedFixes,
+        despiking: approvedFixes.some((f) => f.problem === "EXTREME_SPIKE"),
+        outlierClipping: approvedFixes.some((f) => f.problem === "IMPOSSIBLE_VALUE"),
+        duplicateDepthPruning: approvedFixes.some((f) => f.problem === "DUPLICATE_DEPTH"),
+        imputationStrategy: "NONE",
       };
 
       const result = await repairQAEngine(payload);
@@ -644,6 +898,7 @@ export default function QAEngineWorkspace() {
     downloadTextFile(cleanFileName, repairResult.cleanedCsvText, "text/csv");
   };
 
+  // Change report (CSV) - Item 10: Real sample counts and real values before and after
   const handleExportReport = () => {
     if (!targetAnomalies.length) return;
 
@@ -657,32 +912,10 @@ export default function QAEngineWorkspace() {
       const decisionStr = dec ? dec.status : "NOT_REVIEWED";
       const methodStr = dec?.status === "APPROVED" ? dec.method || "Standard" : "None";
 
-      let samplesChanged = 0;
-      if (dec?.status === "APPROVED") {
-        if (pType === "DUPLICATE_DEPTH") samplesChanged = 1;
-        else if (pType === "IMPOSSIBLE_VALUE") samplesChanged = 2;
-        else if (pType === "NULL_CLUSTER") samplesChanged = 12;
-        else if (pType === "EXTREME_SPIKE") samplesChanged = 1;
-      }
-
-      let valBefore = "Anomaly Reading";
-      let valAfter = "Unchanged";
-      if (pType === "DUPLICATE_DEPTH") {
-        valBefore = `Duplicate (${a.depthStart} ${depthUnit})`;
-        valAfter = dec?.status === "APPROVED" ? "Pruned (Monotonic)" : "Duplicate kept";
-      } else if (pType === "IMPOSSIBLE_VALUE") {
-        valBefore = `Out-of-bounds (${a.depthStart})`;
-        valAfter = dec?.status === "APPROVED" ? "Clamped to limit" : "Out-of-bounds kept";
-      } else if (pType === "NULL_CLUSTER") {
-        valBefore = "Null run (-999.25)";
-        valAfter = dec?.status === "APPROVED" ? "Imputed with valid values" : "Null kept";
-      } else if (pType === "EXTREME_SPIKE") {
-        valBefore = "Spike peak (>4.5σ)";
-        valAfter = dec?.status === "APPROVED" ? "Despiked (Median)" : "Spike kept";
-      }
+      const { samplesChanged, valBefore, valAfter } = getAnomalyChangeDetails(a, dec, depthUnit, rawLas);
 
       rows.push(
-        `"${idx + 1}","${getProblemDisplayName(pType)}","${a.curveMnemonic}","${a.depthStart} - ${a.depthEnd} ${depthUnit}","${decisionStr}","${methodStr}","${samplesChanged}","${valBefore}","${valAfter}"`
+        `"${idx + 1}","${getProblemDisplayName(pType)}","${a.curveMnemonic || "WELL"}","${a.depthStart} - ${a.depthEnd} ${depthUnit}","${decisionStr}","${methodStr}","${samplesChanged}","${valBefore}","${valAfter}"`
       );
     });
 
@@ -942,36 +1175,59 @@ export default function QAEngineWorkspace() {
           {/* Batch Action Bar (Fixing many at once) */}
           {selectedAnomalyIds.size > 0 && batchActiveType && (
             <div className="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
-              <div className="flex items-center gap-2">
-                <CheckSquare className="w-4 h-4 text-cyan-400" />
-                <span className="text-xs font-mono font-bold text-white">
-                  Fixing {selectedAnomalyIds.size} selected {getProblemDisplayName(batchActiveType)}:
-                </span>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <CheckSquare className="w-4 h-4 text-cyan-400" />
+                  <span className="text-xs font-mono font-bold text-white">
+                    Fixing {selectedAnomalyIds.size} selected {getProblemDisplayName(batchActiveType)}:
+                  </span>
+                </div>
+                {batchActiveType === "IMPOSSIBLE_VALUE" && batchMethod === "DELETE_ROW" && (
+                  <p className="text-[11px] font-mono text-rose-300 flex items-center gap-1.5 ml-6">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    <span>Warning: Deleting rows also removes good readings on other curves at those depths.</span>
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={batchMethod}
                   onChange={(e) => setBatchMethodOverride(e.target.value)}
+                  disabled={isRankingGaps}
                   className="bg-wellqc-dark border border-cyan-500/50 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none"
                 >
                   {CLEANING_METHODS[batchActiveType].map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} {m.recommended ? "(Recommended)" : ""}
+                      {m.name}
                     </option>
                   ))}
                 </select>
 
                 <button
                   type="button"
+                  disabled={isRankingGaps}
                   onClick={handleApplyBatch}
-                  className="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs transition-all shadow-sm"
+                  className="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-400 text-slate-950 font-mono font-bold text-xs transition-all shadow-sm flex items-center gap-1.5"
                 >
-                  Apply to {selectedAnomalyIds.size} selected
+                  {isRankingGaps ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Benchmarking AUTO (20–40s)...</span>
+                    </>
+                  ) : batchActiveType === "NULL_CLUSTER" && batchMethod === "AUTO" ? (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Benchmark &amp; Pick AUTO ({selectedAnomalyIds.size})</span>
+                    </>
+                  ) : (
+                    <span>Apply to {selectedAnomalyIds.size} selected</span>
+                  )}
                 </button>
 
                 <button
                   type="button"
+                  disabled={isRankingGaps}
                   onClick={() => {
                     setSelectedAnomalyIds(new Set());
                     setBatchMethodOverride(null);
@@ -993,6 +1249,9 @@ export default function QAEngineWorkspace() {
                 const isFadedOut = batchActiveType !== null && batchActiveType !== pType;
                 const decision = decisions[a.id!];
                 const isOpenPanel = openRowApproveId === a.id!;
+                const unfillableReason = getUnfillableReason(a, rawLas?.wellInfo?.step || 0.5);
+                const isUnfillable = Boolean(unfillableReason);
+                const autoRec = gapRecommendations[a.id!];
 
                 return (
                   <div
@@ -1003,7 +1262,9 @@ export default function QAEngineWorkspace() {
                         ? "bg-wellqc-dark/90 border-emerald-500/40"
                         : decision?.status === "REJECTED"
                           ? "bg-wellqc-dark/60 border-rose-500/40"
-                          : "bg-wellqc-dark/80 border-wellqc-border hover:border-slate-600"
+                          : isUnfillable
+                            ? "bg-wellqc-dark/60 border-amber-500/30"
+                            : "bg-wellqc-dark/80 border-wellqc-border hover:border-slate-600"
                       }`}
                   >
                     <div className="p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -1011,9 +1272,10 @@ export default function QAEngineWorkspace() {
                       <div className="flex items-start gap-3 flex-1">
                         <button
                           type="button"
-                          disabled={isFadedOut}
+                          disabled={isFadedOut || isUnfillable}
                           onClick={() => handleToggleTick(a.id!, pType)}
-                          className="pt-0.5 text-slate-400 hover:text-white transition-colors"
+                          className={`pt-0.5 ${isUnfillable ? "text-slate-600 cursor-not-allowed" : "text-slate-400 hover:text-white"} transition-colors`}
+                          title={isUnfillable ? (unfillableReason || "Cannot fill") : undefined}
                         >
                           {isSelected ? (
                             <CheckSquare className="w-4 h-4 text-cyan-400" />
@@ -1039,6 +1301,20 @@ export default function QAEngineWorkspace() {
                               {getProblemDisplayName(pType)} — {a.curveMnemonic || "WELL"}
                             </span>
 
+                            {/* Unfillable badge if cannot fill (Item 5) */}
+                            {isUnfillable && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                Cannot fill
+                              </span>
+                            )}
+
+                            {/* AUTO recommended badge if ranked (Item 4) */}
+                            {autoRec && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                                AUTO: {autoRec.bestMethod}
+                              </span>
+                            )}
+
                             {/* Depth */}
                             <span className="text-[11px] font-mono text-slate-400 ml-auto">
                               Depth: {a.depthStart} - {a.depthEnd} {depthUnit}
@@ -1049,6 +1325,14 @@ export default function QAEngineWorkspace() {
                           <p className="text-xs font-mono text-slate-300">
                             {getPlainExplanation(pType, a.curveMnemonic)}
                           </p>
+
+                          {/* If unfillable, show plain reason (Item 5) */}
+                          {isUnfillable && (
+                            <p className="text-[11px] font-mono text-amber-300/90 flex items-center gap-1.5 pt-0.5">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              <span>{unfillableReason}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -1074,6 +1358,19 @@ export default function QAEngineWorkspace() {
                             >
                               <RotateCcw className="w-3 h-3" />
                               <span>Undo</span>
+                            </button>
+                          </div>
+                        ) : isUnfillable ? (
+                          <div className="flex items-center gap-2">
+                            <span className="px-3 py-1.5 rounded-lg bg-slate-800/80 text-slate-500 border border-slate-700/60 text-xs font-mono italic">
+                              Cannot fill
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectRow(a.id!)}
+                              className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 border border-rose-500/30 text-xs font-mono font-bold transition-all"
+                            >
+                              Reject
                             </button>
                           </div>
                         ) : (
@@ -1104,44 +1401,77 @@ export default function QAEngineWorkspace() {
                           Select cleaning method for {getProblemDisplayName(pType)}:
                         </div>
 
+                        {/* AUTO recommendation result summary if available (Item 4) */}
+                        {pType === "NULL_CLUSTER" && autoRec && (
+                          <div className="p-3 rounded-lg bg-cyan-950/40 border border-cyan-500/40 text-xs font-mono space-y-1">
+                            <div className="flex items-center gap-2 text-cyan-300 font-bold">
+                              <Sparkles className="w-4 h-4 text-cyan-400" />
+                              <span>AUTO Benchmark Winner: {autoRec.bestMethod}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-300 leading-relaxed">
+                              {autoRec.reason} (Bucket: {autoRec.bucket} samples)
+                            </p>
+                            {autoRec.ranking && autoRec.ranking.length > 0 && (
+                              <div className="text-[10px] text-slate-400 flex flex-wrap gap-2 pt-1 border-t border-cyan-500/20">
+                                <span>Ranking:</span>
+                                {autoRec.ranking.map((r) => (
+                                  <span key={r.method} className={r.method === autoRec.bestMethod ? "text-cyan-300 font-bold" : "text-slate-400"}>
+                                    {r.method} ({r.nrmse.toFixed(3)})
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         <div className="space-y-2">
                           {CLEANING_METHODS[pType].map((m) => {
                             const isChosen = (selectedMethodPerRow[a.id!] || CLEANING_METHODS[pType][0].id) === m.id;
+                            const isRecommended = (pType === "NULL_CLUSTER" && autoRec?.bestMethod === m.id);
                             return (
-                              <label
-                                key={m.id}
-                                className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${isChosen
-                                  ? "bg-cyan-500/10 border-cyan-500/50 text-white"
-                                  : "bg-wellqc-dark/50 border-wellqc-border text-slate-300 hover:border-slate-600"
-                                  }`}
-                              >
-                                <input
-                                  type="radio"
-                                  name={`method-${a.id}`}
-                                  value={m.id}
-                                  checked={isChosen}
-                                  onChange={() =>
-                                    setSelectedMethodPerRow((prev) => ({
-                                      ...prev,
-                                      [a.id!]: m.id,
-                                    }))
-                                  }
-                                  className="mt-0.5 text-cyan-500 focus:ring-0"
-                                />
-                                <div className="space-y-0.5 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-mono font-bold">{m.name}</span>
-                                    {m.recommended && (
-                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                        Recommended
-                                      </span>
-                                    )}
+                              <div key={m.id} className="space-y-1.5">
+                                <label
+                                  className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${isChosen
+                                    ? "bg-cyan-500/10 border-cyan-500/50 text-white"
+                                    : "bg-wellqc-dark/50 border-wellqc-border text-slate-300 hover:border-slate-600"
+                                    }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`method-${a.id}`}
+                                    value={m.id}
+                                    checked={isChosen}
+                                    onChange={() =>
+                                      setSelectedMethodPerRow((prev) => ({
+                                        ...prev,
+                                        [a.id!]: m.id,
+                                      }))
+                                    }
+                                    className="mt-0.5 text-cyan-500 focus:ring-0"
+                                  />
+                                  <div className="space-y-0.5 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-mono font-bold">{m.name}</span>
+                                      {isRecommended && (
+                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                          Recommended by AUTO
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] font-mono text-slate-400 leading-relaxed">
+                                      {m.description}
+                                    </p>
                                   </div>
-                                  <p className="text-[11px] font-mono text-slate-400 leading-relaxed">
-                                    {m.description}
-                                  </p>
-                                </div>
-                              </label>
+                                </label>
+
+                                {/* Delete row warning (Item 7) */}
+                                {m.id === "DELETE_ROW" && isChosen && (
+                                  <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono flex items-start gap-2 ml-4">
+                                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                                    <span>Warning: Deleting this row also removes good readings on other curves at depth {a.depthStart} {depthUnit}.</span>
+                                  </div>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
@@ -1156,10 +1486,18 @@ export default function QAEngineWorkspace() {
                           </button>
                           <button
                             type="button"
+                            disabled={isRankingGaps}
                             onClick={() => handleConfirmRowApprove(a.id!, pType)}
-                            className="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-bold text-xs shadow-sm transition-all"
+                            className="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 text-slate-950 font-mono font-bold text-xs shadow-sm transition-all flex items-center gap-1.5"
                           >
-                            Confirm &amp; apply
+                            {isRankingGaps && selectedMethodPerRow[a.id!] === "AUTO" ? (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                <span>Benchmarking AUTO...</span>
+                              </>
+                            ) : (
+                              <span>Confirm &amp; apply</span>
+                            )}
                           </button>
                         </div>
                       </div>
@@ -1307,7 +1645,7 @@ export default function QAEngineWorkspace() {
                   </div>
                 </div>
 
-                {/* 4 Count Cards */}
+                {/* Count Cards - Item 7 & 12 */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:col-span-4">
                   <div className="p-3.5 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
                     <span className="text-[11px] font-mono text-slate-400 uppercase">Duplicate depths</span>
@@ -1318,11 +1656,24 @@ export default function QAEngineWorkspace() {
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
-                    <span className="text-[11px] font-mono text-slate-400 uppercase">Boundary clamped</span>
+                    <span className="text-[11px] font-mono text-slate-400 uppercase">Impossible values</span>
                     <div className="text-2xl font-black font-mono text-amber-400">
-                      {repairResult.verificationReport?.outliersRemovedCount ?? 0}
+                      {(repairResult.verificationReport?.outliersRemovedCount ?? 0) +
+                        (repairResult.verificationReport?.outliersClippedCount ?? 0) +
+                        (repairResult.verificationReport?.outlierRowsDeletedCount ?? 0)}
                     </div>
-                    <span className="text-[10px] font-mono text-slate-500">Impossible values fixed</span>
+                    <div className="text-[10px] font-mono text-slate-400 space-y-0.5">
+                      {(repairResult.verificationReport?.outliersClippedCount ?? 0) > 0 && (
+                        <div>{repairResult.verificationReport?.outliersClippedCount} clipped</div>
+                      )}
+                      {(repairResult.verificationReport?.outlierRowsDeletedCount ?? 0) > 0 && (
+                        <div className="text-rose-300">
+                          {repairResult.verificationReport?.outlierRowsDeletedCount} rows deleted (
+                          {repairResult.verificationReport?.goodReadingsLostInDeletedRows ?? 0} good readings lost)
+                        </div>
+                      )}
+                      <div>{repairResult.verificationReport?.outliersRemovedCount ?? 0} set to null</div>
+                    </div>
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
@@ -1330,7 +1681,15 @@ export default function QAEngineWorkspace() {
                     <div className="text-2xl font-black font-mono text-purple-400">
                       {repairResult.verificationReport?.nullsImputedCount ?? 0}
                     </div>
-                    <span className="text-[10px] font-mono text-slate-500">Gaps filled</span>
+                    <span className="text-[10px] font-mono text-slate-500 block">Values filled</span>
+                    {repairResult.verificationReport?.imputedByCurve &&
+                      Object.keys(repairResult.verificationReport.imputedByCurve).length > 0 && (
+                        <div className="text-[9px] font-mono text-purple-300/80 truncate">
+                          {Object.entries(repairResult.verificationReport.imputedByCurve)
+                            .map(([c, n]) => `${c}: ${n}`)
+                            .join(", ")}
+                        </div>
+                      )}
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-wellqc-dark border border-wellqc-border space-y-1">
@@ -1338,10 +1697,27 @@ export default function QAEngineWorkspace() {
                     <div className="text-2xl font-black font-mono text-cyan-400">
                       {repairResult.verificationReport?.spikesDespikedCount ?? 0}
                     </div>
-                    <span className="text-[10px] font-mono text-slate-500">Spikes corrected</span>
+                    <span className="text-[10px] font-mono text-slate-500">Replaced by neighbour average</span>
                   </div>
                 </div>
               </div>
+
+              {/* Petrophysical Cleaner Execution Notes (Item 12) */}
+              {repairResult.verificationReport?.notes && repairResult.verificationReport.notes.length > 0 && (
+                <div className="p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/40 space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-cyan-400" />
+                    <span className="text-xs font-mono font-bold text-cyan-200">
+                      Petrophysical Cleaner Execution Notes ({repairResult.verificationReport.notes.length}):
+                    </span>
+                  </div>
+                  <ul className="space-y-1.5 pl-5 list-disc text-xs font-mono text-cyan-100/90 leading-relaxed">
+                    {repairResult.verificationReport.notes.map((note, idx) => (
+                      <li key={idx}>{note}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Cleaned Log Viewer Component */}
               <div className="rounded-xl border border-wellqc-border overflow-hidden bg-slate-950">
@@ -1440,32 +1816,12 @@ export default function QAEngineWorkspace() {
                       const isApproved = dec?.status === "APPROVED";
                       const isRejected = dec?.status === "REJECTED";
 
-                      let samplesChanged = 0;
-                      if (isApproved) {
-                        if (pType === "DUPLICATE_DEPTH") samplesChanged = 1;
-                        else if (pType === "IMPOSSIBLE_VALUE") samplesChanged = 2;
-                        else if (pType === "NULL_CLUSTER") samplesChanged = 12;
-                        else if (pType === "EXTREME_SPIKE") samplesChanged = 1;
-                      }
-
-                      let valBeforeAfter = "Unchanged";
-                      if (pType === "DUPLICATE_DEPTH") {
-                        valBeforeAfter = isApproved
-                          ? `Duplicate (${a.depthStart}) -> Pruned (Monotonic)`
-                          : `Duplicate kept`;
-                      } else if (pType === "IMPOSSIBLE_VALUE") {
-                        valBeforeAfter = isApproved
-                          ? `Out-of-bounds (${a.depthStart}) -> Clamped to limit`
-                          : `Out-of-bounds kept`;
-                      } else if (pType === "NULL_CLUSTER") {
-                        valBeforeAfter = isApproved
-                          ? `Null (-999.25) -> Imputed with valid values`
-                          : `Null run kept`;
-                      } else if (pType === "EXTREME_SPIKE") {
-                        valBeforeAfter = isApproved
-                          ? `Spike peak (>4.5σ) -> Despiked (Median)`
-                          : `Spike kept`;
-                      }
+                      const { samplesChanged, valBefore, valAfter } = getAnomalyChangeDetails(
+                        a,
+                        dec,
+                        depthUnit,
+                        rawLas
+                      );
 
                       return (
                         <tr key={a.id} className="hover:bg-slate-800/40 transition-colors">
@@ -1496,7 +1852,14 @@ export default function QAEngineWorkspace() {
                             {isApproved ? dec?.method : "—"}
                           </td>
                           <td className="py-2.5 px-3 text-center text-slate-200">{samplesChanged}</td>
-                          <td className="py-2.5 px-3 text-slate-300">{valBeforeAfter}</td>
+                          <td className="py-2.5 px-3 text-slate-300">
+                            <div className="space-y-0.5">
+                              <span className="text-slate-400 block text-[11px]">{valBefore}</span>
+                              <span className={isApproved ? "text-emerald-300 font-bold block" : "text-slate-400 block"}>
+                                &rarr; {valAfter}
+                              </span>
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}

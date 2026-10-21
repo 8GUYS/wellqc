@@ -1,0 +1,59 @@
+ID,Outline_Level,Task_Name,Duration,Start_Date,Finish_Date,Predecessors,Resource_Names,Percent_Complete
+1,1,WellQC Platform Development,70d,2026-07-20,2026-10-23,,,95%
+2,2,"Sprint 1: Discovery, Architecture & Core Stack",10d,2026-07-20,2026-07-31,,,100%
+3,3,Petrophysical Domain Modeling & Curve Physical Limits,5d,2026-07-20,2026-07-24,,"DA1, DA2",100%
+4,3,LAS 2.0 Parser Engine & Line Splitter Validation,6d,2026-07-22,2026-07-29,3,SE1,100%
+5,3,"Next.js 15 App Shell, Navigation & Design System",7d,2026-07-20,2026-07-28,,SE2,100%
+6,3,Database Schema Design & Prisma Setup,7d,2026-07-22,2026-07-30,3,CE2,100%
+7,3,CI/CD Pipeline Setup & Repository Governance,5d,2026-07-20,2026-07-25,,CE1,100%
+8,3,Milestone: Core Architecture & Ingestion Proof-of-Concept,0d,2026-07-31,2026-07-31,"4,5,6,7","SE1, SE2, CE1, CE2",100%
+9,2,"Sprint 2: Foundation, Auth & Multi-Tenant Database",10d,2026-08-03,2026-08-14,8,,100%
+10,3,Multi-Tenant PostgreSQL Architecture on Neon,5d,2026-08-03,2026-08-07,8,CE2,100%
+11,3,"Authentication Engine, Session Tokens & Scrypt Hashing",5d,2026-08-05,2026-08-11,10,"SE2, CE2",100%
+12,3,Mnemonic Dictionary & 14 Standard Curve Classifications,5d,2026-08-03,2026-08-07,8,DA1,100%
+13,3,Wireline Curve Anomaly Classification & Root Cause Engine,5d,2026-08-06,2026-08-12,12,DA2,100%
+14,3,File Upload UI with Drag-and-Drop & Pre-Validation,5d,2026-08-07,2026-08-13,11,SE2,100%
+15,3,Vercel Preview Deployments & DB Migration Automation,10d,2026-08-03,2026-08-14,8,CE1,100%
+16,3,Milestone: Authenticated Ingestion & Mnemonic Baseline,0d,2026-08-14,2026-08-14,"10,11,13,14,15","SE2, CE2, DA1",100%
+17,2,"Sprint 3: Core Engine, Quality Scoring & Ingestion Workspace",10d,2026-08-17,2026-08-28,16,,100%
+18,3,Multi-Factor Quality Scoring Algorithm (Completeness/Integrity/Noise),5d,2026-08-17,2026-08-21,16,"SE1, DA1",100%
+19,3,Upload Workspace Redesign & Modular Tabbed Layout,5d,2026-08-18,2026-08-24,16,SE2,100%
+20,3,Subsurface Basin Analytics & KPI Dashboard Aggregations,5d,2026-08-19,2026-08-25,18,DA3,100%
+21,3,Automated PDF Audit Report Generator,5d,2026-08-21,2026-08-27,18,DA4,100%
+22,3,Atomic Transaction Ingestion Pipeline & Downsampling,5d,2026-08-20,2026-08-26,18,CE2,100%
+23,3,Milestone: Complete Quality Scoring & PDF Audit Capability,0d,2026-08-28,2026-08-28,"18,19,20,21,22","SE1, SE2, DA1, DA4",100%
+24,2,"Sprint 4: Advanced Visualisation, Imputation & Python Migration",10d,2026-08-31,2026-09-11,23,,100%
+25,3,FastAPI Microservice Migration & Native NumPy/Pandas Stack,6d,2026-08-31,2026-09-07,23,"SE1, CE2",100%
+26,3,SVG Multi-Track Wireline Log Viewer with Depth Sync,6d,2026-09-01,2026-09-08,23,SE2,100%
+27,3,Custom Mnemonic Aliases & Tenant Rule Management,5d,2026-09-02,2026-09-08,25,DA1,100%
+28,3,"Imputation Algorithm Benchmark (KNN, Spline, Iterative SVD)",5d,2026-09-03,2026-09-09,25,DA2,100%
+29,3,Zero-Mock Clean Seeder & Performance Load Testing,5d,2026-09-04,2026-09-10,25,"CE1, DA3",100%
+30,3,Milestone: Unified Python Backend & Interactive Log Viewer,0d,2026-09-11,2026-09-11,"25,26,27,28,29","SE1, SE2, CE2",100%
+31,2,"Sprint 5: Security Hardening, Default-to-Deny RBAC & Admin Tools",10d,2026-09-14,2026-09-25,30,,100%
+32,3,Server-Side RBAC Enforcement & Ghost Token Elimination,5d,2026-09-14,2026-09-18,30,"SE1, CE2",100%
+33,3,Self-Registration Role Escalation Block (403 on ADMIN role),4d,2026-09-16,2026-09-21,32,SE1,100%
+34,3,Interactive Admin Management CLI (`manage_admin.py`),4d,2026-09-17,2026-09-22,32,CE2,100%
+35,3,Admin Panel UI with Tabbed User Management & Tokens,5d,2026-09-18,2026-09-24,33,SE2,100%
+36,3,Automated Security Test Suite (14 Tests in `test_admin_auth.py`),5d,2026-09-21,2026-09-25,33,"DA4, CE1",100%
+37,3,Milestone: Default-to-Deny Security & Administrative Center,0d,2026-09-25,2026-09-25,"32,33,34,35,36","SE1, SE2, CE2",100%
+38,2,Sprint 6: Production Hardening & Quality Engine 12-Item Overhaul,10d,2026-09-28,2026-10-09,37,,100%
+39,3,Item 1-2: Per-Row Anomaly Approvals & Specific Method Routing,5d,2026-09-28,2026-10-02,37,"SE1, SE2",100%
+40,3,Item 3: AUTO Imputation Gap Ranking via Cross-Validation,5d,2026-09-29,2026-10-05,39,"DA2, SE1",100%
+41,3,Item 4: Impossible Values Action Suite (Remove / Clip / Delete Row),5d,2026-09-30,2026-10-06,39,"DA1, SE1",100%
+42,3,Item 5: Long Null Cluster Guards & Unfillable Flag Boundaries,4d,2026-10-01,2026-10-06,40,"DA2, DA1",100%
+43,3,Item 6-7: Duplicate Depth Prune & 2-Point Neighbour Despiking,4d,2026-10-02,2026-10-07,41,SE1,100%
+44,3,Item 8-9: Real Change Report Telemetry & Audit Certificate ID,4d,2026-10-05,2026-10-08,"42,43","DA4, SE1",100%
+45,3,Item 10-12: Staged Non-Destructive QA UI & Cleaned Export Suite,5d,2026-10-05,2026-10-09,39,SE2,100%
+46,3,Sliding-Window IP Rate Limiter & Security Stabilization,5d,2026-09-28,2026-10-02,37,"CE2, CE1",100%
+47,3,Milestone: Certified Quality Engine Overhaul & Audit Pipeline,0d,2026-10-09,2026-10-09,"39,40,41,42,43,44,45,46","SE1, SE2, DA1, DA2, DA4",100%
+48,2,"Sprint 7: Multi-Well Comparison, NUPRC Compliance & Batch Processing",10d,2026-10-12,2026-10-23,47,,75%
+49,3,Multi-Well Depth Alignment & Correlation Engine (SE1),5d,2026-10-12,2026-10-16,47,SE1,100%
+50,3,Cross-Well Canvas UI with Synchronized Depth Scrolling (SE2),5d,2026-10-13,2026-10-19,49,SE2,90%
+51,3,Unsupervised ML Lithology Classification on GR-RHOB-NPHI (SE1),4d,2026-10-15,2026-10-20,49,"SE1, DA2",80%
+52,3,"NUPRC Compliance Report Template & Digital Signatures (SE2, DA4)",5d,2026-10-14,2026-10-20,47,"SE2, DA4",85%
+53,3,"Niger Delta Formation Cutoffs (Akata, Agbada, Benin) (DA1, DA2)",5d,2026-10-12,2026-10-16,47,"DA1, DA2",100%
+54,3,Offset Niger Delta Demonstration Well Package Curation (DA3),5d,2026-10-13,2026-10-19,53,DA3,90%
+55,3,Asynchronous Batch Ingestion Background Workers & Live Progress (CE1),6d,2026-10-14,2026-10-21,47,CE1,75%
+56,3,Outbound Webhook Event Dispatcher for Cloud Storage Sync (CE2),6d,2026-10-15,2026-10-22,47,CE2,70%
+57,3,End-to-End System Integration & Acceptance Testing Suite (All),5d,2026-10-19,2026-10-23,"50,51,52,54,55,56","SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4",60%
+58,3,Milestone: Final Production Platform Release & NUPRC Audit Readiness,0d,2026-10-23,2026-10-23,57,"SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4",0%

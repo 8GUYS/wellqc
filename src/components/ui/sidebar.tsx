@@ -41,7 +41,14 @@ interface NavSection {
 
 export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: SidebarProps) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem("wellqc_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [userProfile, setUserProfile] = useState<{
     name: string;
     department: string;
@@ -55,13 +62,6 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
   });
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("wellqc_sidebar_collapsed");
-      if (saved !== null) {
-        setCollapsed(saved === "true");
-      }
-    } catch {}
-
     // Load active profile details for sidebar card
     async function loadProfile() {
       try {
@@ -77,7 +77,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
             });
           }
         }
-      } catch {}
+      } catch { }
     }
 
     loadProfile();
@@ -92,7 +92,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
       const next = !prev;
       try {
         localStorage.setItem("wellqc_sidebar_collapsed", String(next));
-      } catch {}
+      } catch { }
       return next;
     });
   };
@@ -135,15 +135,13 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
 
   const sidebarContent = (
     <aside
-      className={`${
-        collapsed ? "w-16" : "w-64"
-      } transition-[width] duration-300 ease-in-out bg-wellqc-panel border-r border-wellqc-border flex flex-col h-full select-none text-slate-300 relative shadow-xl`}
+      className={`${collapsed ? "w-16" : "w-64"
+        } transition-[width] duration-300 ease-in-out bg-wellqc-panel border-r border-wellqc-border flex flex-col h-full select-none text-slate-300 relative shadow-xl`}
     >
       {/* Brand & Workstation Header */}
       <div
-        className={`h-14 border-b border-wellqc-border flex items-center justify-between bg-slate-950/40 backdrop-blur-md ${
-          collapsed ? "px-2 justify-center" : "px-4"
-        }`}
+        className={`h-14 border-b border-wellqc-border flex items-center justify-between bg-slate-950/40 backdrop-blur-md ${collapsed ? "px-2 justify-center" : "px-4"
+          }`}
       >
         <Link
           href="/dashboard"
@@ -189,11 +187,10 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
           href="/upload"
           onClick={onCloseMobileNav}
           title={collapsed ? "Ingest LAS Log File" : undefined}
-          className={`flex items-center justify-center rounded-xl font-medium text-xs transition-all duration-200 shadow-sm ${
-            collapsed
+          className={`flex items-center justify-center rounded-xl font-medium text-xs transition-all duration-200 shadow-sm ${collapsed
               ? "w-10 h-10 p-0 bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/20"
               : "w-full space-x-2 px-3.5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-md shadow-cyan-600/20 group hover:shadow-cyan-500/30 active:scale-[0.98]"
-          }`}
+            }`}
         >
           <UploadCloud className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-y-0.5" />
           {!collapsed && (
@@ -228,22 +225,19 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
                     href={item.href}
                     onClick={onCloseMobileNav}
                     title={collapsed ? item.label : undefined}
-                    className={`group flex items-center rounded-xl text-xs font-medium transition-all duration-200 ${
-                      collapsed ? "justify-center h-10 w-full" : "justify-between px-3 py-2"
-                    } ${
-                      isActive
+                    className={`group flex items-center rounded-xl text-xs font-medium transition-all duration-200 ${collapsed ? "justify-center h-10 w-full" : "justify-between px-3 py-2"
+                      } ${isActive
                         ? "bg-cyan-500/15 text-cyan-300 dark:text-cyan-200 font-semibold shadow-sm border border-cyan-500/30"
                         : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 hover:translate-x-1"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center space-x-3 min-w-0">
                       <div className="relative">
                         <Icon
-                          className={`w-4 h-4 shrink-0 transition-colors ${
-                            isActive
+                          className={`w-4 h-4 shrink-0 transition-colors ${isActive
                               ? "text-cyan-400 dark:text-cyan-300"
                               : "text-slate-400 group-hover:text-cyan-300"
-                          }`}
+                            }`}
                         />
                         {item.isLive && (
                           <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
@@ -256,11 +250,10 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
                       <div className="flex items-center space-x-1.5">
                         {item.badge && (
                           <span
-                            className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                              isActive
+                            className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${isActive
                                 ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/30"
                                 : "bg-slate-800 text-slate-400 border border-slate-700/60"
-                            }`}
+                              }`}
                           >
                             {item.badge}
                           </span>

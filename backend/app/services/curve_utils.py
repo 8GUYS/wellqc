@@ -6,9 +6,8 @@ import numpy as np
 
 HARD_NULL_SENTINELS = (-999.25, -9999.0, 999.25, -999.9)
 
-# A spike is a sample further than SPIKE_SIGMA standard deviations from BOTH of
-# its immediate neighbours. QA flags with this and the cleaner repairs with it.
-SPIKE_SIGMA = 4.5
+SPIKE_IQR_MULTIPLIER = 3.0
+SPIKE_SIGMA = SPIKE_IQR_MULTIPLIER
 SPIKE_MIN_STD = 0.001
 SPIKE_MIN_VALID_SAMPLES = 5
 
@@ -89,11 +88,13 @@ def true_runs(mask: np.ndarray) -> List[Tuple[int, int]]:
     return list(zip(starts.tolist(), ends.tolist()))
 
 
-def find_spikes(values: np.ndarray, nulls: np.ndarray, sigma: float = SPIKE_SIGMA) -> np.ndarray:
+def find_spikes(values: np.ndarray, nulls: np.ndarray, multiplier: float = SPIKE_IQR_MULTIPLIER) -> np.ndarray:
     """
     Indices of spike samples. A spike needs a valid sample on each side (adjacent,
-    not just "the next valid one") and must differ from both by more than
-    sigma * std, where std is taken over all valid samples.
+    not just "the next valid one"). It is flagged when its jump to BOTH neighbours is
+    larger than the fence and the two jumps go the same way (a peak or a dip).
+    fence = Q3 + multiplier x IQR, taken over the absolute steps between every pair of
+    adjacent valid samples. A curve with no usable step size (flat or stepped) has none.
     """
     n = len(values)
     if n < 3:
@@ -101,16 +102,24 @@ def find_spikes(values: np.ndarray, nulls: np.ndarray, sigma: float = SPIKE_SIGM
     valid = values[~nulls]
     if valid.size < SPIKE_MIN_VALID_SAMPLES:
         return np.array([], dtype=int)
-    std = float(np.std(valid))
-    if std < SPIKE_MIN_STD:
+    with np.errstate(invalid="ignore"):
+        pair_ok = ~(nulls[1:] | nulls[:-1])
+        steps = np.abs(np.diff(values))[pair_ok]
+    if steps.size < SPIKE_MIN_VALID_SAMPLES:
         return np.array([], dtype=int)
-    thr = sigma * std
+    q1, q3 = np.percentile(steps, [25, 75])
+    fence = float(q3 + multiplier * (q3 - q1))
+    if not np.isfinite(fence) or fence <= SPIKE_MIN_STD:
+        return np.array([], dtype=int)
     with np.errstate(invalid="ignore"):
         usable = ~(nulls[1:-1] | nulls[:-2] | nulls[2:])
+        left = values[1:-1] - values[:-2]
+        right = values[1:-1] - values[2:]
         hit = (
             usable
-            & (np.abs(values[1:-1] - values[:-2]) > thr)
-            & (np.abs(values[1:-1] - values[2:]) > thr)
+            & (np.abs(left) > fence)
+            & (np.abs(right) > fence)
+            & (np.sign(left) == np.sign(right))
         )
     return np.flatnonzero(hit) + 1
 
@@ -150,7 +159,7 @@ def find_cycle_skips(
 
 
 def find_sonic_events(
-    values: np.ndarray, nulls: np.ndarray, sigma: float = SPIKE_SIGMA
+    values: np.ndarray, nulls: np.ndarray, sigma: float = SPIKE_IQR_MULTIPLIER
 ) -> Tuple[np.ndarray, List[Tuple[int, int]]]:
     """
     (spike_indices, cycle_skip_runs) for a sonic curve. Samples inside a cycle-skip

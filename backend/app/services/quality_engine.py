@@ -383,7 +383,7 @@ def analyze_well_log_quality(
                     anomalyType=AnomalyType.EXTREME_SPIKE,
                     severity=AnomalySeverity.WARNING,
                     description=f"Unrealistic spike value {values[i]:.2f} detected at depth {float(depth[i])} {depth_unit}",
-                    suggestedCorrection="Apply median despiking filter across 5-point window.",
+                    suggestedCorrection="Replace the spike with the mean of its two neighbouring samples.",
                 )
                 for i in spike_idx
             ]

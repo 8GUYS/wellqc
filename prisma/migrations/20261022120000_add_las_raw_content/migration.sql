@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "LASFile" ADD COLUMN IF NOT EXISTS "rawContent" TEXT;

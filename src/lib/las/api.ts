@@ -13,6 +13,8 @@ import {
   MissingValueDiagnostic,
   ImputationBenchmarkResult,
   CustomAliasEntry,
+  ApprovedFix,
+  GapRecommendationResult,
 } from "@/lib/api-types";
 
 export interface AnalyzeLASResponse {
@@ -255,6 +257,36 @@ export interface QARepairRequestPayload {
   outlierClipping?: boolean;
   duplicateDepthPruning?: boolean;
   imputationStrategy?: string;
+  duplicateAction?: "REMOVE_SECOND" | "COMPARE_ROWS";
+  impossibleAction?: "REMOVE" | "CLIP" | "DELETE_ROW";
+  approvedFixes?: ApprovedFix[];
+}
+
+export interface QAFixResult {
+  problem: string;
+  curve: string;
+  depthStart: number;
+  depthEnd: number;
+  method?: string;
+  samplesChanged: number;
+}
+
+export interface QAOtherChange {
+  curve: string;
+  samplesChanged: number;
+  depthFrom: number;
+  depthTo: number;
+}
+
+export interface QAChangeReport {
+  rowsBefore: number;
+  rowsAfter: number;
+  rowsRemoved: number;
+  valuesChangedByCurve: Record<string, number>;
+  totalValuesChanged: number;
+  fixResults: QAFixResult[];
+  otherChanges: QAOtherChange[];
+  otherRowsRemoved: number;
 }
 
 export interface QARepairResponse {
@@ -274,6 +306,7 @@ export interface QARepairResponse {
   cleanedLasText: string;
   cleanedCsvText: string;
   auditCertificateId: string;
+  changeReport?: QAChangeReport;
   auditLogEntry: {
     certificateId: string;
     userName: string;
@@ -335,4 +368,27 @@ export async function getQAEngineOverview(): Promise<QAEngineOverviewResponse> {
   }
   return res.json();
 }
+
+/**
+ * Rank null clusters with AUTO benchmark recommendations
+ */
+export async function rankGapsQAEngine(payload: {
+  wellId?: string;
+  wellName?: string;
+  rawLasText?: string;
+  rawLas?: ParsedLAS;
+  gaps: Array<{ curve: string; depthStart: number; depthEnd: number }>;
+}): Promise<{ recommendations: GapRecommendationResult[] }> {
+  const res = await fetch("/api/qa-engine/rank-gaps", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Gap ranking failed with status ${res.status}`);
+  }
+  return res.json();
+}
+
 

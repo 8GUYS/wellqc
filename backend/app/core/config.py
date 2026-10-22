@@ -52,9 +52,10 @@ class Settings(BaseSettings):
     RESEND_FROM_EMAIL: str = os.getenv("RESEND_FROM_EMAIL", "WellQC <onboarding@resend.dev>")
     
     # Database
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql://postgres:postgres@localhost:5432/main"
+    DATABASE_URL: str = (
+        os.getenv("POSTGRES_URL")
+        or os.getenv("DATABASE_URL")
+        or "postgresql://postgres:postgres@localhost:5432/main"
     )
     
     # CORS

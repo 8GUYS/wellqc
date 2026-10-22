@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, SyntheticEvent } from "react";
 import { Database, KeyRound, Mail, UserRound, LoaderCircle, Home, Eye, EyeOff } from "lucide-react";
+import { WellQCLogo } from "@/components/ui/wellqc-logo";
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -81,15 +82,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     <main className="min-h-screen bg-wellqc-dark flex items-center justify-center p-5">
       <div className="w-full max-w-md border border-wellqc-border bg-wellqc-panel p-7 rounded-xl shadow-2xl">
         <div className="flex items-center justify-between mb-7">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
-              <Database className="w-5 h-5 text-cyan-300" />
-            </div>
-            <div>
-              <h1 className="text-xl font-black text-white">WellQC</h1>
-              <p className="text-xs text-wellqc-muted font-mono">Well log quality workspace</p>
-            </div>
-          </div>
+          <WellQCLogo iconSize={30} showTagline={true} />
           <Link
             href="/"
             title="Back to home page"

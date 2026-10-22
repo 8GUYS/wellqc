@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" fill="none">
+  <defs>
+    <!-- Left droplet navy gradient -->
+    <linearGradient id="wellqcLeftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#071b34" />
+      <stop offset="50%" stop-color="#0b2c58" />
+      <stop offset="100%" stop-color="#08386b" />
+    </linearGradient>
+
+    <!-- Right droplet emerald / teal gradient -->
+    <linearGradient id="wellqcRightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00a887" />
+      <stop offset="50%" stop-color="#00bf9a" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+
+    <!-- Log curve bright cyan gradient -->
+    <linearGradient id="wellqcCurveGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+  </defs>
+
+  <!-- Left Half Droplet (Deep Navy) -->
+  <path
+    d="M 50 8 
+       C 48 11, 26 38, 16 60
+       C 8 78, 14 100, 32 110
+       C 40 114, 48 115, 50 115
+       L 50 8 Z"
+    fill="url(#wellqcLeftGrad)"
+  />
+
+  <!-- Track horizontal ticks on left side (Well log grid lines) -->
+  <g stroke="#0ea5e9" stroke-width="2.2" stroke-linecap="round" opacity="0.85">
+    <line x1="28" y1="46" x2="41" y2="46" />
+    <line x1="24" y1="56" x2="39" y2="56" />
+    <line x1="22" y1="66" x2="38" y2="66" />
+    <line x1="22" y1="76" x2="40" y2="76" />
+    <line x1="25" y1="86" x2="42" y2="86" />
+    <line x1="31" y1="96" x2="44" y2="96" />
+  </g>
+
+  <!-- Central Petrophysical Log Curve (wavy white/cyan spine) -->
+  <path
+    d="M 50 16
+       C 43 28, 43 38, 48 48
+       C 53 58, 41 68, 45 78
+       C 49 88, 45 98, 49 108"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="3.5"
+    stroke-linecap="round"
+  />
+
+  <!-- Right Half Droplet (Teal / Emerald Green Wing) -->
+  <path
+    d="M 50 8
+       C 52 11, 74 38, 84 60
+       C 92 78, 86 100, 68 110
+       C 60 114, 52 115, 50 115
+       C 54 100, 56 75, 52 50
+       C 50 35, 50 20, 50 8 Z"
+    fill="url(#wellqcRightGrad)"
+  />
+</svg>

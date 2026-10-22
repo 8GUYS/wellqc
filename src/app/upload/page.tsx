@@ -96,13 +96,16 @@ export default function LASUploadPage() {
   const [restoredFromStorage, setRestoredFromStorage] = useState(initialWorkspace.restoredFromStorage);
   const [activeTab, setActiveTab] = useState<"curves" | "anomalies" | "headers" | "raw" | "viewer">("curves");
 
+  // Persist complete un-downsampled raw LAS text to IndexedDB on file change only
+  useEffect(() => {
+    if (fileName && rawText) {
+      saveFullLasText(fileName, rawText).catch(() => {});
+    }
+  }, [fileName, rawText]);
+
   // Persist state to localStorage on changes with quota protection
   useEffect(() => {
     if (!parsedLAS || !qaResult) return;
-
-    if (rawText) {
-      saveFullLasText(fileName, rawText).catch(() => {});
-    }
 
     try {
       const activeUserId = localStorage.getItem("wellqc_active_user_id") || undefined;

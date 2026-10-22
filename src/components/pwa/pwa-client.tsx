@@ -11,7 +11,8 @@ interface BeforeInstallPromptEvent extends Event {
 export function PWAClient() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
-  const [isOffline, setIsOffline] = useState(() => (typeof navigator !== "undefined" ? !navigator.onLine : false));
+  const [isOffline, setIsOffline] = useState(false);
+  const [offlineDismissed, setOfflineDismissed] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     if (typeof window !== "undefined") {
       try {
@@ -65,12 +66,40 @@ export function PWAClient() {
     };
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
-    // 3. Online / Offline status monitoring
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
+    // 3. Online / Offline status monitoring with false-positive guard for WebKit/iOS Safari
+    const verifyConnectivity = async () => {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        try {
+          // Verify with a lightweight network fetch to guard against iOS WebKit false-positives
+          const res = await fetch("/manifest.webmanifest", { method: "HEAD", cache: "no-store" });
+          if (res.ok) {
+            setIsOffline(false);
+            return;
+          }
+        } catch {
+          setIsOffline(true);
+          return;
+        }
+      }
+      setIsOffline(false);
+    };
+
+    const handleOnline = () => {
+      setIsOffline(false);
+      setOfflineDismissed(false);
+    };
+
+    const handleOffline = () => {
+      verifyConnectivity();
+    };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+
+    // Verify on mount if navigator reports offline
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      verifyConnectivity();
+    }
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -103,10 +132,20 @@ export function PWAClient() {
   return (
     <>
       {/* Offline Toast Banner */}
-      {isOffline && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-black px-4 py-1.5 text-xs font-semibold flex items-center justify-center space-x-2 shadow-lg animate-in slide-in-from-top duration-200">
-          <WifiOff className="w-4 h-4 shrink-0" />
-          <span>Offline Mode Active &bull; Running on cached workstation telemetry</span>
+      {isOffline && !offlineDismissed && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-black px-4 py-2 text-xs font-semibold flex items-center justify-between shadow-lg animate-in slide-in-from-top duration-200">
+          <div className="flex items-center space-x-2 mx-auto">
+            <WifiOff className="w-4 h-4 shrink-0" />
+            <span>Offline Mode Active &bull; Running on cached workstation telemetry</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOfflineDismissed(true)}
+            className="p-1 text-black/80 hover:text-black rounded hover:bg-black/10 transition-colors shrink-0 ml-2"
+            aria-label="Dismiss offline banner"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 

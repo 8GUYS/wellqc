@@ -541,3 +541,115 @@ def test_admin_can_access_and_manage_all_wells():
     assert res_admin_list.status_code == 200
     all_well_ids = [w["id"] for w in res_admin_list.json()["wells"]]
     assert "well-alpha-admin-test" in all_well_ids
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. QUALITY ENGINE SAVED WELL CROSS-TENANT OWNERSHIP AUTHORIZATION
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_cross_user_qa_engine_saved_well_access_denied():
+    """
+    Verifies that a second non-admin user cannot run repair or rank-gaps on another
+    user's saved well and receives 403 Forbidden. Owner and Admin can proceed.
+    """
+    db = TestingSessionLocal()
+    try:
+        user_alpha = create_test_user(db, "user-alpha-qa", "alpha_qa@example.com", "User Alpha")
+        user_beta = create_test_user(db, "user-beta-qa", "beta_qa@example.com", "User Beta")
+        admin_user = create_test_user(db, "admin-qa", "admin_qa@example.com", "System Admin", role="ADMIN")
+
+        well_alpha = Well(
+            id="well-alpha-qa-test",
+            apiNo="API-ALPHA-QA",
+            name="Alpha QA Well",
+            operatorName="Shell",
+            fieldName="Bonga",
+            basin="Niger Delta Basin",
+            country="Nigeria",
+            latitude=4.0,
+            longitude=6.0,
+            ownerId=user_alpha["id"],
+        )
+        db.add(well_alpha)
+        db.flush()
+
+        las_content = (
+            "~VERSION\n"
+            "VERS. 2.0 : CWLS\n"
+            "WRAP. NO  : One line per depth step\n"
+            "~WELL\n"
+            "WELL. Alpha QA Well : Well Name\n"
+            "NULL. -999.25       : Null Value\n"
+            "~CURVE\n"
+            "DEPT.FT : Depth\n"
+            "GR.GAPI : Gamma Ray\n"
+            "~A\n"
+            "1000.0  50.0\n"
+            "1000.5  55.0\n"
+            "1001.0  -999.25\n"
+            "1001.5  60.0\n"
+            "1002.0  62.0\n"
+        )
+
+        las_file = LASFile(
+            id="las-alpha-qa-1",
+            wellId=well_alpha.id,
+            originalName="alpha_qa.las",
+            fileSizeKb=1.0,
+            lasVersion="2.0",
+            startDepth=1000.0,
+            stopDepth=1002.0,
+            stepDepth=0.5,
+            nullValue=-999.25,
+            depthUnit="FT",
+            rawHeader="~VERSION\nVERS. 2.0: CWLS\n~WELL\nWELL. Alpha QA Well:\n~CURVE\nDEPT.FT:\nGR.GAPI:\n~A\n",
+            rawContent=las_content,
+            curveCount=2,
+            pointCount=5,
+            status="PROCESSED",
+            ownerId=user_alpha["id"],
+        )
+        db.add(las_file)
+        db.commit()
+    finally:
+        db.close()
+
+    client = TestClient(app)
+
+    repair_payload = {"wellId": "well-alpha-qa-test"}
+    rank_gaps_payload = {
+        "wellId": "well-alpha-qa-test",
+        "gaps": [{"curve": "GR", "depthStart": 1000.5, "depthEnd": 1001.5}],
+    }
+
+    # 1. User Beta (non-owner, non-admin) -> 403 Forbidden
+    res_beta_repair = client.post("/api/qa-engine/repair", json=repair_payload, cookies=user_beta["cookies"])
+    assert res_beta_repair.status_code == 403
+    assert "permission" in res_beta_repair.json()["detail"].lower()
+
+    res_beta_rank = client.post("/api/qa-engine/rank-gaps", json=rank_gaps_payload, cookies=user_beta["cookies"])
+    assert res_beta_rank.status_code == 403
+    assert "permission" in res_beta_rank.json()["detail"].lower()
+
+    # 2. Unauthenticated user -> 403 Forbidden
+    res_anon_repair = client.post("/api/qa-engine/repair", json=repair_payload)
+    assert res_anon_repair.status_code == 403
+
+    res_anon_rank = client.post("/api/qa-engine/rank-gaps", json=rank_gaps_payload)
+    assert res_anon_rank.status_code == 403
+
+    # 3. User Alpha (Owner) -> 200 OK
+    res_alpha_repair = client.post("/api/qa-engine/repair", json=repair_payload, cookies=user_alpha["cookies"])
+    assert res_alpha_repair.status_code == 200
+    assert "cleanedLas" in res_alpha_repair.json()
+
+    res_alpha_rank = client.post("/api/qa-engine/rank-gaps", json=rank_gaps_payload, cookies=user_alpha["cookies"])
+    assert res_alpha_rank.status_code == 200
+    assert "recommendations" in res_alpha_rank.json()
+
+    # 4. Admin User -> 200 OK
+    res_admin_repair = client.post("/api/qa-engine/repair", json=repair_payload, cookies=admin_user["cookies"])
+    assert res_admin_repair.status_code == 200
+
+    res_admin_rank = client.post("/api/qa-engine/rank-gaps", json=rank_gaps_payload, cookies=admin_user["cookies"])
+    assert res_admin_rank.status_code == 200

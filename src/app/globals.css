@@ -633,4 +633,15 @@ pre,
 
 [data-theme="light"] .hero-switcher-btn-active span {
   color: #1c1917 !important;
-}
+}
+
+/* Hide scrollbar for Chrome, Safari, and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge, and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

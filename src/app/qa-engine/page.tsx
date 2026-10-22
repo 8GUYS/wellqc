@@ -538,7 +538,7 @@ export default function QAEngineWorkspace() {
             curves: detail.curvesData.curves || {},
           },
           rawHeader: "",
-          totalPoints: detail.curvesData.depth?.length || 0,
+          totalPoints: detail.well.pointCount || detail.curvesData.depth?.length || 0,
         };
 
         setRawLas(parsedFromDb);
@@ -1111,7 +1111,7 @@ export default function QAEngineWorkspace() {
                 <span>
                   Samples:{" "}
                   <strong className="text-slate-200">
-                    {rawLas?.totalPoints || rawLas?.data?.depth?.length || 0}
+                    {(rawLas?.totalPoints || rawLas?.data?.depth?.length || 0).toLocaleString()}
                   </strong>
                 </span>
                 <span>

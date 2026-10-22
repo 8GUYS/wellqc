@@ -14,6 +14,9 @@ import {
   RefreshCw,
   Calendar,
   Award,
+  UploadCloud,
+  Camera,
+  Trash2,
 } from "lucide-react";
 
 interface UserProfileData {
@@ -22,6 +25,7 @@ interface UserProfileData {
   email: string;
   role: string;
   department: string;
+  avatarUrl?: string;
   tier: string;
   freeChecksUsed: number;
   maxFreeChecks: number;
@@ -42,6 +46,7 @@ export default function UserProfilePage() {
     name: "",
     department: "",
     role: "",
+    avatarUrl: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
@@ -64,12 +69,15 @@ export default function UserProfilePage() {
       const data = await res.json();
 
       if (data.user) {
-        setProfile(data.user);
+        const resolvedAvatar = data.user.avatarUrl || "";
+
+        setProfile({ ...data.user, avatarUrl: resolvedAvatar });
         setFormData((prev) => ({
           ...prev,
           name: data.user.name || "",
           department: data.user.department || "Subsurface Analytics",
           role: data.user.role || "PETROPHYSICIST",
+          avatarUrl: resolvedAvatar,
         }));
       }
     } catch (err) {
@@ -78,6 +86,94 @@ export default function UserProfilePage() {
       setLoading(false);
     }
   }
+
+  const handleCustomAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setFeedback({ type: "error", message: "Please select an image file (JPEG, PNG, WEBP)." });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setFeedback({ type: "error", message: "Image size must be under 10MB." });
+      return;
+    }
+
+    try {
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        const rawDataUrl = uploadEvent.target?.result as string;
+        if (!rawDataUrl) return;
+
+        const img = new Image();
+        img.onload = async () => {
+          const canvas = document.createElement("canvas");
+          const size = 320;
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+
+          if (ctx) {
+            // Square crop center
+            const minDim = Math.min(img.width, img.height);
+            const startX = (img.width - minDim) / 2;
+            const startY = (img.height - minDim) / 2;
+            ctx.drawImage(img, startX, startY, minDim, minDim, 0, 0, size, size);
+            const optimizedDataUrl = canvas.toDataURL("image/jpeg", 0.88);
+
+            // Update UI state immediately
+            setFormData((prev) => ({ ...prev, avatarUrl: optimizedDataUrl }));
+            setProfile((prev) => (prev ? { ...prev, avatarUrl: optimizedDataUrl } : null));
+
+            // Persist immediately to database
+            try {
+              const res = await fetch("/api/user/profile", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  avatarUrl: optimizedDataUrl,
+                }),
+              });
+              if (res.ok) {
+                setFeedback({ type: "success", message: "Profile picture saved to your account in the database!" });
+                window.dispatchEvent(new Event("wellqc_user_updated"));
+              } else {
+                setFeedback({ type: "error", message: "Failed to persist profile picture to database." });
+              }
+            } catch {
+              setFeedback({ type: "error", message: "Connection error while saving picture to database." });
+            }
+          }
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setFeedback({ type: "error", message: "Failed to process image file." });
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    setFormData((prev) => ({ ...prev, avatarUrl: "" }));
+    setProfile((prev) => (prev ? { ...prev, avatarUrl: "" } : null));
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          avatarUrl: "",
+        }),
+      });
+      if (res.ok) {
+        setFeedback({ type: "success", message: "Profile picture removed from database." });
+        window.dispatchEvent(new Event("wellqc_user_updated"));
+      }
+    } catch {
+      setFeedback({ type: "error", message: "Could not remove picture from database." });
+    }
+  };
 
   async function handleProfileSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -103,6 +199,7 @@ export default function UserProfilePage() {
           name: formData.name,
           department: formData.department,
           role: formData.role,
+          avatarUrl: formData.avatarUrl,
           currentPassword: formData.currentPassword || undefined,
           newPassword: formData.newPassword || undefined,
         }),
@@ -135,13 +232,35 @@ export default function UserProfilePage() {
 
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
             <div className="flex items-center space-x-5">
-              <div className="relative">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-3xl shadow-xl shadow-cyan-500/20 border-2 border-cyan-400/30">
-                  {profile?.name ? profile.name.charAt(0).toUpperCase() : "U"}
+              <div className="relative group">
+                <div className="w-20 h-20 rounded-2xl overflow-hidden ring-4 ring-cyan-500/30 shadow-2xl shadow-cyan-500/20 bg-slate-900 flex items-center justify-center">
+                  {(formData.avatarUrl || profile?.avatarUrl) ? (
+                    <img
+                      src={formData.avatarUrl || profile?.avatarUrl}
+                      alt={profile?.name || "User Avatar"}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-slate-800/90 border border-slate-700/80 flex items-center justify-center text-slate-400">
+                      <User className="w-9 h-9 text-slate-400" />
+                    </div>
+                  )}
                 </div>
-                <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-wellqc-dark flex items-center justify-center text-[10px] bg-emerald-500 text-white" title="Active Workspace">
-                  ✓
-                </span>
+                <label
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-wellqc-dark flex items-center justify-center bg-cyan-600 hover:bg-cyan-500 text-white cursor-pointer shadow transition-all hover:scale-110"
+                  title="Upload / Change Profile Picture"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleCustomAvatarUpload}
+                  />
+                </label>
               </div>
 
               <div>
@@ -264,7 +383,75 @@ export default function UserProfilePage() {
                 </div>
               </div>
 
-              <form onSubmit={handleProfileSubmit} className="space-y-4">
+              <form onSubmit={handleProfileSubmit} className="space-y-6">
+                {/* Profile Photo Upload & Management (Stored in Database) */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-wellqc-panel/70 border border-wellqc-border space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center space-x-4">
+                      {/* Avatar Live Preview */}
+                      <div className="relative shrink-0">
+                        <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-cyan-500/40 bg-slate-900 flex items-center justify-center shadow-md">
+                          {(formData.avatarUrl || profile?.avatarUrl) ? (
+                            <img
+                              src={formData.avatarUrl || profile?.avatarUrl}
+                              alt="Avatar Preview"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-slate-800/90 border border-slate-700/80 flex items-center justify-center text-slate-400">
+                              <User className="w-7 h-7 text-slate-400" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-white flex items-center space-x-2">
+                          <span>Profile Photo</span>
+                          {(formData.avatarUrl || profile?.avatarUrl) ? (
+                            <span className="text-[10px] text-emerald-400 font-mono font-medium bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+                              Saved to Database
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-mono font-medium bg-slate-800/80 border border-slate-700 px-1.5 py-0.5 rounded">
+                              No Photo Added
+                            </span>
+                          )}
+                        </label>
+                        <p className="text-[11px] text-slate-400 mt-0.5 max-w-sm">
+                          Add your own picture. It is saved directly to your account in the database and displayed across your workstation.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action buttons: Upload and optional Remove */}
+                    <div className="flex items-center space-x-2 shrink-0">
+                      <label className="cursor-pointer inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-semibold transition-all shadow-md shadow-cyan-600/20 active:scale-95">
+                        <UploadCloud className="w-4 h-4" />
+                        <span>{(formData.avatarUrl || profile?.avatarUrl) ? "Change Photo" : "Add Photo"}</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={handleCustomAvatarUpload}
+                        />
+                      </label>
+
+                      {(formData.avatarUrl || profile?.avatarUrl) && (
+                        <button
+                          type="button"
+                          onClick={handleRemovePhoto}
+                          title="Remove picture from database"
+                          className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 text-xs font-semibold transition-all"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Remove</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-slate-300 mb-1">

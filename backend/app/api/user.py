@@ -17,6 +17,7 @@ class UpdateProfileRequest(BaseModel):
     name: Optional[str] = None
     department: Optional[str] = None
     role: Optional[str] = None
+    avatarUrl: Optional[str] = None
     currentPassword: Optional[str] = None
     newPassword: Optional[str] = None
 
@@ -63,6 +64,7 @@ def get_profile(
             "email": current_user.email,
             "role": current_user.role,
             "department": current_user.department or "Subsurface Analytics",
+            "avatarUrl": current_user.avatarUrl or "",
             "tier": current_user.tier or "FREE",
             "freeChecksUsed": current_user.freeChecksUsed or 0,
             "maxFreeChecks": 2,
@@ -95,6 +97,8 @@ def update_profile(
         current_user.name = req.name.strip()
     if req.department is not None:
         current_user.department = req.department.strip()
+    if req.avatarUrl is not None:
+        current_user.avatarUrl = req.avatarUrl.strip()
 
     if req.role is not None and req.role.strip():
         requested_role = req.role.strip().upper()
@@ -133,18 +137,20 @@ def update_profile(
     db.commit()
     db.refresh(current_user)
 
-    # Refresh session cookie
+    # Refresh session cookie without large data URLs
     user_dict = {
         "id": current_user.id,
         "name": current_user.name,
         "email": current_user.email,
         "role": current_user.role,
         "department": current_user.department or "",
+        "avatarUrl": current_user.avatarUrl or "",
         "tier": current_user.tier or "FREE",
         "freeChecksUsed": current_user.freeChecksUsed or 0,
         "ndaAcceptedAt": current_user.ndaAcceptedAt.isoformat() if current_user.ndaAcceptedAt else None,
     }
-    token = create_session_token(user_dict)
+    cookie_user = {k: v for k, v in user_dict.items() if k != "avatarUrl" or not str(v or "").startswith("data:")}
+    token = create_session_token(cookie_user)
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
         value=token,

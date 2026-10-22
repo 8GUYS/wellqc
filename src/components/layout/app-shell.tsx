@@ -15,6 +15,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     department: string;
     role?: string;
     tier?: string;
+    avatarUrl?: string;
     freeChecksUsed?: number;
     ndaAcceptedAt?: string | null;
   } | null>(null);
@@ -50,6 +51,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           localStorage.setItem("wellqc_active_user_id", user.id);
         } catch {}
 
+        const resolvedAvatar = user.avatarUrl || "";
+
         setCurrentRole(user.role || "PETROPHYSICIST");
         setCurrentUser({
           name: user.name,
@@ -57,6 +60,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           department: user.department || "Subsurface Analytics",
           role: user.role || "PETROPHYSICIST",
           tier: user.tier || "FREE",
+          avatarUrl: resolvedAvatar,
           freeChecksUsed: user.freeChecksUsed ?? 0,
           ndaAcceptedAt: user.ndaAcceptedAt || null,
         });
@@ -93,7 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!currentUser) return <div className="min-h-screen bg-wellqc-dark" />;
 
   return (
-    <div className="flex min-h-screen bg-wellqc-dark">
+    <div className="flex min-h-screen bg-wellqc-dark text-wellqc-text">
       <Sidebar
         currentRole={currentRole}
         mobileOpen={mobileNavOpen}
@@ -107,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onLogout={handleLogout}
           onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)}
         />
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto bg-gradient-to-b from-wellqc-dark via-wellqc-dark to-[#080b11]">
+        <main className="flex-1 p-4 md:p-5 overflow-y-auto bg-wellqc-dark">
           {children}
         </main>
       </div>

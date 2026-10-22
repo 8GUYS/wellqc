@@ -37,6 +37,7 @@ def _format_user(user: User) -> dict:
         "email": user.email,
         "role": user.role,
         "department": user.department or "",
+        "avatarUrl": getattr(user, "avatarUrl", None) or "",
         "tier": user.tier or "FREE",
         "freeChecksUsed": user.freeChecksUsed or 0,
         "ndaAcceptedAt": user.ndaAcceptedAt.isoformat() if user.ndaAcceptedAt else None,
@@ -45,7 +46,9 @@ def _format_user(user: User) -> dict:
     }
 
 def _set_session_cookie(response: Response, user_dict: dict) -> str:
-    token = create_session_token(user_dict)
+    # Avoid packing heavy base64 data URLs into the 4KB browser cookie token
+    cookie_user = {k: v for k, v in user_dict.items() if k != "avatarUrl" or not str(v or "").startswith("data:")}
+    token = create_session_token(cookie_user)
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
         value=token,

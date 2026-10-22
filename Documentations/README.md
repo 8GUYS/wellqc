@@ -58,6 +58,22 @@ WellQC is a full-stack cloud platform that automatically validates, cleans, stan
 - Paystack webhook listener with HMAC-SHA512 signature validation
 - Automatic PRO tier activation on verified payment
 
+### 📱 Progressive Web App (PWA) & Offline-First Rig Mobility
+- **Offline Service Worker (`sw.js`)**: Intelligent cache-first strategy for static assets and scripts, network-first with automatic offline cache fallback for application navigation routes, and transparent bypass for live `/api/` mutations.
+- **Web App Manifest (`manifest.json` & `manifest.ts`)**: Configures standalone display mode, orientation locking, branded high-DPI icons (`192x192`, `512x512`), theme background tokens, and quick-launch shortcuts (`/dashboard`, `/upload`, `/wells`).
+- **Dedicated Offline Experience (`/offline`)**: Custom subsurface offline screen providing real-time network reconnect telemetry and cached well indicators.
+- **Native 1-Click Install Banner (`pwa-client.tsx`)**: Responsive, non-intrusive install banner hooking into browser `beforeinstallprompt` events with automated local storage state dismissal.
+- **iOS & Desktop App-Like Experience**: Full support for iOS Safari home screen (`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style: black-translucent`) and cross-platform desktop PWA installation on Chrome, Edge, and macOS Safari.
+
+### 🎨 Apple SF Pro Typography & Radiant Theme Studio
+- **Apple San Francisco Typography**: Native offline typography powered by Apple SF Pro Display webfonts (`SFPRODISPLAYREGULAR`, `SFPRODISPLAYMEDIUM`, `SFPRODISPLAYBOLD`), featuring optical kerning, tabular figures, and calibrated letter spacing (`-0.015em` body, `-0.024em` headings).
+- **Curated Theme Presets**:
+  - **Subsurface Dark**: High-contrast petroleum engineering dark theme.
+  - **Apple Studio Light**: Creamy tactile background (`#fcfbfa` / `#f6f4ee`) with high-elevation card shadows and crisp typography.
+  - **Radiant Gradient Presets**: `Aurora Borealis`, `Sunset Horizon`, `Deep Ocean Trench`, `Cyberpunk Terminal`, and `Emerald Energy`.
+- **Interactive Theme Customizer Studio**: In-app floating design studio allowing engineers to construct custom CSS linear gradients, dial in angle rotations (0°–360°), adjust card/panel surface opacity, configure accent glow radiance, and persist preferences to `localStorage`.
+- **Dynamic Hardware Showcase**: Hero section featuring an interactive, auto-advancing hardware slideshow demonstrating live multi-theme captures of the Petrophysical QA Engine, Imputation Benchmark, Command Telemetry, and Parser across Dark and Light modes.
+
 ### 🏢 Enterprise Platform Modules
 | Module | Description |
 |---|---|
@@ -87,6 +103,21 @@ WellQC is a full-stack cloud platform that automatically validates, cleans, stan
 | [Framer Motion](https://www.framer.com/motion/) | ^11.11.17 | Smooth animations & micro-interactions |
 | [Lucide React](https://lucide.dev/) | ^0.460.0 | Consistent icon system |
 | [Recharts](https://recharts.org/) | ^2.13.3 | Petrophysical chart and log track rendering |
+
+### Progressive Web App (PWA) & Offline
+| Technology | Purpose |
+|---|---|
+| Service Worker (`sw.js`) | Background asset caching, offline page fallback, and mutation bypass |
+| Web App Manifest (`manifest.ts` / `manifest.json`) | Standalone display mode, launch icons (192px/512px), theme colors & app shortcuts |
+| Cache Storage API | Static asset and CSS bundle preservation for zero-network rig usage |
+| Install Prompt API (`beforeinstallprompt`) | Custom native install experience with local state management |
+
+### Typography & Design System
+| Technology | Purpose |
+|---|---|
+| Apple SF Pro Display | Locally bundled webfonts (Regular, Medium, Bold) with Apple letter spacing |
+| Custom Theme Studio | Real-time gradient & surface design engine with persistent `localStorage` |
+| CSS Custom Properties | Dynamic design tokens for multi-gradient and light/dark theme switching |
 
 ### Forms & Validation
 | Technology | Version | Purpose |
@@ -155,14 +186,23 @@ WellQC/
 │   ├── user_stories.md            # Agile user stories & Gherkin acceptance criteria
 │   ├── sprint_plan.md             # 3-Month master sprint plan & ownership matrix
 │   └── database_erd.md            # Entity-relationship schema documentation
-├── middleware.ts                  # Route protection & freemium limit middleware
+├── middleware.ts                  # Route protection, freemium gating & PWA asset bypass
+├── public/                        # Static assets, PWA service worker & manifest
+│   ├── brand/                     # SVG brand assets and logomarks
+│   ├── fonts/                     # Apple SF Pro Display webfonts (Regular, Medium, Bold)
+│   ├── manifest.json              # Static Web App Manifest fallback
+│   ├── sw.js                      # Offline caching service worker
+│   ├── icon-192.png               # High-res PWA icon (192x192)
+│   └── icon-512.png               # High-res PWA icon (512x512)
 ├── prisma/
 │   ├── schema.prisma              # Database schema (12+ models incl. billing tier fields)
 │   └── seed.ts                   # Sample data: Niger Delta demo wells
-├── backend/                       # FastAPI backend (Render): auth, uploads, wells, analytics, standardisation, quality engine, imputation
+├── backend/                       # FastAPI backend: auth, uploads, wells, analytics, quality engine
 └── src/
     ├── app/
-    │   ├── page.tsx               # Public landing page with Paystack pricing section
+    │   ├── page.tsx               # Public landing page with dynamic hero slideshow & team showcase
+    │   ├── manifest.ts            # Dynamic Next.js Web App Manifest route
+    │   ├── offline/page.tsx       # Dedicated offline connection fallback screen
     │   ├── pricing/               # Public pricing & plans portal (NGN/USD toggle)
     │   ├── dashboard/             # Command centre dashboard with payment success toast
     │   ├── wells/                 # Well management & detail view
@@ -186,7 +226,13 @@ WellQC/
     │       │   └── webhook/       # Paystack charge.success webhook (HMAC-SHA512)
     │       └── checkout/          # Payment intent router
     ├── components/
-    │   ├── ui/                    # Header (with Upgrade button), sidebar, shared components
+    │   ├── pwa/
+    │   │   └── pwa-client.tsx     # Service Worker registration, install banner & offline toasts
+    │   ├── theme/
+    │   │   ├── theme-provider.tsx # Multi-theme context (Light, Dark, Gradients, Custom)
+    │   │   ├── theme-switcher.tsx # Grouped theme selector with studio customizer launcher
+    │   │   └── theme-customizer-modal.tsx # Interactive real-time gradient & color designer
+    │   ├── ui/                    # Header, sidebar, wellqc-logo, shared design components
     │   ├── pricing/
     │   │   └── payment-modal.tsx  # React Portal payment modal (z-[99999])
     │   └── well-log/              # Interactive log track viewer & imputation benchmark modal

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ShieldCheck,
   Lock,
   FileText,
   CheckCircle2,
@@ -15,6 +14,7 @@ import {
   Globe,
   Database,
 } from "lucide-react";
+import { WellQCIcon } from "@/components/ui/wellqc-logo";
 
 export default function NDAPage() {
   const router = useRouter();
@@ -77,15 +77,13 @@ export default function NDAPage() {
         {/* Header Branding */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-wellqc-border pb-6">
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 p-0.5 shadow-lg shadow-cyan-500/20">
-              <div className="w-full h-full bg-wellqc-dark rounded-[14px] flex items-center justify-center">
-                <ShieldCheck className="w-6 h-6 text-cyan-400" />
-              </div>
+            <div className="w-12 h-12 rounded-2xl border border-slate-700/80 bg-slate-900/90 flex items-center justify-center shadow-lg shadow-cyan-500/10">
+              <WellQCIcon size={28} />
             </div>
             <div>
               <div className="flex items-center space-x-2">
                 <span className="text-xl font-extrabold tracking-tight text-white">
-                  WellQC<span className="text-cyan-400 font-black">+</span>
+                  Well<span className="text-cyan-400 font-black">QC</span>
                 </span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
                   ENTERPRISE DATA ROOM

@@ -3,16 +3,20 @@ import type { NextRequest } from "next/server";
 
 const authFormPaths = ["/login", "/register", "/forgot-password", "/reset-password"];
 const publicVerificationPaths = ["/verify-email", "/verify-email-pending"];
-const publicGeneralPaths = ["/", "/pricing"];
+const publicGeneralPaths = ["/", "/pricing", "/offline", "/manifest.json", "/manifest.webmanifest"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = Boolean(request.cookies.get("wellqc_session")?.value);
 
-  // Static assets, public images, and team photos must always bypass auth middleware
+  // Static assets, public images, PWA files, fonts, and team photos must always bypass auth middleware
   if (
     pathname.startsWith("/team/") ||
-    /\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$/i.test(pathname)
+    pathname.startsWith("/fonts/") ||
+    pathname === "/sw.js" ||
+    pathname === "/manifest.json" ||
+    pathname === "/manifest.webmanifest" ||
+    /\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|webmanifest|woff|woff2)$/i.test(pathname)
   ) {
     return NextResponse.next();
   }
@@ -37,6 +41,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|sw.js|manifest.json|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff|woff2)$).*)",
   ],
 };

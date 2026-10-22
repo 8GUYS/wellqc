@@ -1,94 +1,636 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Apple San Francisco Pro Display Webfont Declarations (100% Offline & High-Performance) */
+@font-face {
+  font-family: 'SF Pro Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('SF Pro Display'), local('SF Pro'), local('SFProDisplay-Regular'),
+    url('/fonts/SFPRODISPLAYREGULAR.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'SF Pro Display';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local('SF Pro Display Medium'), local('SFProDisplay-Medium'),
+    url('/fonts/SFPRODISPLAYMEDIUM.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'SF Pro Display';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local('SF Pro Display Semibold'), local('SFProDisplay-Semibold'),
+    url('/fonts/SFPRODISPLAYMEDIUM.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'SF Pro Display';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('SF Pro Display Bold'), local('SFProDisplay-Bold'),
+    url('/fonts/SFPRODISPLAYBOLD.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'SF Pro Display';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: local('SF Pro Display Heavy'), local('SFProDisplay-Heavy'),
+    url('/fonts/SFPRODISPLAYBOLD.woff') format('woff');
+}
+
 :root {
-  --background: #0b0f17;
-  --foreground: #f1f5f9;
+  --background: #090d16;
+  --foreground: #e2e8f0;
+
+  --wellqc-dark: #090d16;
+  --wellqc-panel: #0f172a;
+  --wellqc-card: #141e33;
+  --wellqc-border: #1e293b;
+  --wellqc-accent: #2563eb;
+  --wellqc-cyan: #0284c7;
+  --wellqc-emerald: #059669;
+  --wellqc-amber: #d97706;
+  --wellqc-rose: #dc2626;
+  --wellqc-violet: #7c3aed;
+  --wellqc-text: #f8fafc;
+  --wellqc-muted: #64748b;
+  color-scheme: dark;
+}
+
+/* Apple Studio Light Mode (Warm Creamy Backdrop & Elevated Pro Panels) */
+[data-theme="light"] {
+  --background: #f7f4ec;
+  --foreground: #1c1917;
+
+  --wellqc-dark: #f7f4ec;
+  --wellqc-panel: #ffffff;
+  --wellqc-card: #ffffff;
+  --wellqc-border: rgba(60, 50, 40, 0.08);
+  --wellqc-accent: #0071e3;
+  --wellqc-cyan: #0071e3;
+  --wellqc-emerald: #16a34a;
+  --wellqc-amber: #d97706;
+  --wellqc-rose: #dc2626;
+  --wellqc-violet: #7c3aed;
+  --wellqc-text: #1c1917;
+  --wellqc-muted: #78716c;
+  color-scheme: light;
+}
+
+/* OLED Obsidian (Ultra-High Contrast Pitch Black) */
+[data-theme="obsidian"] {
+  --background: #000000;
+  --foreground: #e5e5e5;
+
+  --wellqc-dark: #000000;
+  --wellqc-panel: #0a0a0a;
+  --wellqc-card: #121212;
+  --wellqc-border: #262626;
+  --wellqc-accent: #3b82f6;
+  --wellqc-cyan: #0ea5e9;
+  --wellqc-emerald: #10b981;
+  --wellqc-amber: #f59e0b;
+  --wellqc-rose: #ef4444;
+  --wellqc-violet: #8b5cf6;
+  --wellqc-text: #f5f5f5;
+  --wellqc-muted: #737373;
+  color-scheme: dark;
+}
+
+/* Midnight Navy (Technical Subsurface Workstation) */
+[data-theme="navy"] {
+  --background: #040814;
+  --foreground: #cbd5e1;
+
+  --wellqc-dark: #040814;
+  --wellqc-panel: #0a1329;
+  --wellqc-card: #0f1d3d;
+  --wellqc-border: #1e2e4f;
+  --wellqc-accent: #38bdf8;
+  --wellqc-cyan: #38bdf8;
+  --wellqc-emerald: #34d399;
+  --wellqc-amber: #fbbf24;
+  --wellqc-rose: #f87171;
+  --wellqc-violet: #a78bfa;
+  --wellqc-text: #f1f5f9;
+  --wellqc-muted: #607b9b;
+  color-scheme: dark;
+}
+
+/* Graphite Charcoal (Neutral Industrial Monolith) */
+[data-theme="charcoal"] {
+  --background: #111113;
+  --foreground: #d4d4d8;
+
+  --wellqc-dark: #111113;
+  --wellqc-panel: #18181b;
+  --wellqc-card: #222227;
+  --wellqc-border: #2e2e33;
+  --wellqc-accent: #10b981;
+  --wellqc-cyan: #06b6d4;
+  --wellqc-emerald: #10b981;
+  --wellqc-amber: #f59e0b;
+  --wellqc-rose: #f43f5e;
+  --wellqc-violet: #8b5cf6;
+  --wellqc-text: #f4f4f5;
+  --wellqc-muted: #71717a;
+  color-scheme: dark;
+}
+
+/* Cosmic Aurora (Iridescent Deep Space Gradient) */
+[data-theme="aurora"] {
+  --background: #06111e;
+  --foreground: #e2f1f8;
+
+  --wellqc-dark: radial-gradient(circle at 15% 15%, #0d2836 0%, #06111e 65%, #050b14 100%);
+  --wellqc-panel: #091a27;
+  --wellqc-card: #0d2233;
+  --wellqc-border: rgba(6, 182, 212, 0.25);
+  --wellqc-accent: #06b6d4;
+  --wellqc-cyan: #22d3ee;
+  --wellqc-emerald: #10b981;
+  --wellqc-amber: #f59e0b;
+  --wellqc-rose: #f43f5e;
+  --wellqc-violet: #8b5cf6;
+  --wellqc-text: #f0fdfa;
+  --wellqc-muted: #648ba2;
+  color-scheme: dark;
+}
+
+/* Neon Sunset (Velvet Dusk & Violet-Rose Gradient) */
+[data-theme="sunset"] {
+  --background: #14091a;
+  --foreground: #fce7f3;
+
+  --wellqc-dark: radial-gradient(circle at 80% 20%, #2a0e28 0%, #15091c 60%, #0d0412 100%);
+  --wellqc-panel: #1e0d29;
+  --wellqc-card: #271235;
+  --wellqc-border: rgba(244, 63, 94, 0.25);
+  --wellqc-accent: #f43f5e;
+  --wellqc-cyan: #38bdf8;
+  --wellqc-emerald: #10b981;
+  --wellqc-amber: #fb923c;
+  --wellqc-rose: #f43f5e;
+  --wellqc-violet: #c084fc;
+  --wellqc-text: #faf5ff;
+  --wellqc-muted: #9d7b9f;
+  color-scheme: dark;
+}
+
+/* Deep Oceanic (Abyssal Trench & Sapphire Glow Gradient) */
+[data-theme="ocean"] {
+  --background: #020e17;
+  --foreground: #e0f2fe;
+
+  --wellqc-dark: radial-gradient(circle at 50% 10%, #03253b 0%, #02121f 55%, #01080e 100%);
+  --wellqc-panel: #04192b;
+  --wellqc-card: #07233c;
+  --wellqc-border: rgba(56, 189, 248, 0.22);
+  --wellqc-accent: #0ea5e9;
+  --wellqc-cyan: #38bdf8;
+  --wellqc-emerald: #34d399;
+  --wellqc-amber: #f59e0b;
+  --wellqc-rose: #f87171;
+  --wellqc-violet: #818cf8;
+  --wellqc-text: #f0f9ff;
+  --wellqc-muted: #5c849e;
+  color-scheme: dark;
+}
+
+/* Cyberpunk Matrix (Electric Violet & Lime Glow Gradient) */
+[data-theme="cyberpunk"] {
+  --background: #0a0614;
+  --foreground: #f5f3ff;
+
+  --wellqc-dark: radial-gradient(circle at 20% 80%, #1a082c 0%, #0c0617 60%, #05020a 100%);
+  --wellqc-panel: #160b29;
+  --wellqc-card: #1f0f38;
+  --wellqc-border: rgba(168, 85, 247, 0.25);
+  --wellqc-accent: #a855f7;
+  --wellqc-cyan: #06b6d4;
+  --wellqc-emerald: #4ade80;
+  --wellqc-amber: #facc15;
+  --wellqc-rose: #ec4899;
+  --wellqc-violet: #a855f7;
+  --wellqc-text: #faf5ff;
+  --wellqc-muted: #8b74a4;
+  color-scheme: dark;
+}
+
+/* Subsurface Emerald (Bioluminescent Moss & Malachite Gradient) */
+[data-theme="emerald"] {
+  --background: #03140e;
+  --foreground: #ecfdf5;
+
+  --wellqc-dark: radial-gradient(circle at 75% 25%, #062b1e 0%, #03140e 60%, #010a07 100%);
+  --wellqc-panel: #052016;
+  --wellqc-card: #082d20;
+  --wellqc-border: rgba(16, 185, 129, 0.25);
+  --wellqc-accent: #10b981;
+  --wellqc-cyan: #14b8a6;
+  --wellqc-emerald: #10b981;
+  --wellqc-amber: #f59e0b;
+  --wellqc-rose: #f43f5e;
+  --wellqc-violet: #a855f7;
+  --wellqc-text: #f0fdf4;
+  --wellqc-muted: #5a8a77;
+  color-scheme: dark;
 }
 
 @theme {
-  --color-background: #0b0f17;
-  --color-foreground: #f1f5f9;
+  --font-sans: "SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SF Mono", Monaco, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  --color-wellqc-dark: #0b0f17;
-  --color-wellqc-panel: #131b2e;
-  --color-wellqc-card: #182238;
-  --color-wellqc-border: #233252;
-  --color-wellqc-accent: #3b82f6;
-  --color-wellqc-cyan: #06b6d4;
-  --color-wellqc-emerald: #10b981;
-  --color-wellqc-amber: #f59e0b;
-  --color-wellqc-rose: #ef4444;
-  --color-wellqc-violet: #8b5cf6;
-  --color-wellqc-text: #f1f5f9;
-  --color-wellqc-muted: #94a3b8;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-wellqc-dark: var(--wellqc-dark);
+  --color-wellqc-panel: var(--wellqc-panel);
+  --color-wellqc-card: var(--wellqc-card);
+  --color-wellqc-border: var(--wellqc-border);
+  --color-wellqc-accent: var(--wellqc-accent);
+  --color-wellqc-cyan: var(--wellqc-cyan);
+  --color-wellqc-emerald: var(--wellqc-emerald);
+  --color-wellqc-amber: var(--wellqc-amber);
+  --color-wellqc-rose: var(--wellqc-rose);
+  --color-wellqc-violet: var(--wellqc-violet);
+  --color-wellqc-text: var(--wellqc-text);
+  --color-wellqc-muted: var(--wellqc-muted);
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: var(--wellqc-text);
+  background: var(--wellqc-dark);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: -0.015em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   overflow-x: hidden;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Custom Scrollbar for Enterprise Tables and Panels */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.hero-heading {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: -0.024em;
+  font-feature-settings: "liga" 1, "calt" 1;
+}
+
+code,
+pre,
+.font-mono {
+  font-family: "SF Mono", Monaco, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Apple Style Dynamic Buttons */
+.btn-apple-primary {
+  background-color: #0071e3;
+  color: #ffffff !important;
+  border-radius: 9999px;
+  font-weight: 500;
+  padding: 0.625rem 1.375rem;
+  font-size: 0.875rem;
+  letter-spacing: -0.012em;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 113, 227, 0.25);
+  cursor: pointer;
+}
+
+.btn-apple-primary:hover {
+  background-color: #0077ed;
+  box-shadow: 0 4px 14px rgba(0, 113, 227, 0.4);
+  transform: translateY(-0.5px);
+}
+
+.btn-apple-primary:active {
+  background-color: #0062c4;
+  transform: translateY(0);
+}
+
+.btn-apple-secondary {
+  background-color: transparent;
+  color: #0071e3 !important;
+  border: 1px solid #0071e3;
+  border-radius: 9999px;
+  font-weight: 500;
+  padding: 0.625rem 1.375rem;
+  font-size: 0.875rem;
+  letter-spacing: -0.012em;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.btn-apple-secondary:hover {
+  background-color: #0071e3;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(0, 113, 227, 0.25);
+  transform: translateY(-0.5px);
+}
+
+/* Precision Scrollbar for Workstation Tables and Log Panels */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #0b0f17;
+  background: var(--wellqc-dark);
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: var(--wellqc-border);
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: var(--wellqc-muted);
 }
 
-/* Glassmorphic Panel Styling */
+/* Apple-style Smooth Rounded Glass Panels */
 .glass-panel {
-  background: rgba(19, 27, 46, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(35, 50, 82, 0.6);
+  background: var(--wellqc-panel);
+  border: 1px solid var(--wellqc-border);
+  border-radius: 1rem;
 }
 
 .glass-panel-glow {
-  background: rgba(19, 27, 46, 0.85);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(6, 182, 212, 0.3);
-  box-shadow: 0 0 20px rgba(6, 182, 212, 0.08);
+  background: var(--wellqc-panel);
+  border: 1px solid var(--wellqc-border);
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.25);
 }
 
-/* Glowing Badges */
+[data-theme="light"] .glass-panel {
+  background: #ffffff;
+  border-color: rgba(60, 50, 40, 0.08);
+  box-shadow: 0 1px 3px 0 rgba(60, 50, 40, 0.04), 0 4px 16px -2px rgba(60, 50, 40, 0.08);
+}
+
+[data-theme="light"] .glass-panel-glow {
+  background: #ffffff;
+  border-color: rgba(60, 50, 40, 0.08);
+  box-shadow: 0 2px 4px 0 rgba(60, 50, 40, 0.04), 0 8px 24px -3px rgba(60, 50, 40, 0.1);
+}
+
+/* Flat Technical Status Badges */
 .badge-excellent {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
 }
 
 .badge-good {
-  background: rgba(6, 182, 212, 0.15);
-  color: #22d3ee;
-  border: 1px solid rgba(6, 182, 212, 0.3);
+  background: rgba(14, 165, 233, 0.1);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.25);
 }
 
 .badge-poor {
-  background: rgba(245, 158, 11, 0.15);
+  background: rgba(245, 158, 11, 0.1);
   color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
 .badge-critical {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.1);
   color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
 /* Petrophysical Log Grid lines */
 .log-track-grid {
-  background-image: linear-gradient(to right, rgba(35, 50, 82, 0.3) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(35, 50, 82, 0.2) 1px, transparent 1px);
+  background-image: linear-gradient(to right, rgba(30, 41, 59, 0.6) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(30, 41, 59, 0.4) 1px, transparent 1px);
   background-size: 20px 20px;
 }
+
+[data-theme="light"] .log-track-grid {
+  background-image: linear-gradient(to right, rgba(203, 213, 225, 0.7) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(203, 213, 225, 0.5) 1px, transparent 1px);
+}
+
+/* High-Density Light Mode Overrides for Utility Slate Colors & Creamy Insets */
+[data-theme="light"] .bg-slate-950,
+[data-theme="light"] .bg-slate-950\/95,
+[data-theme="light"] .bg-slate-950\/90,
+[data-theme="light"] .bg-slate-950\/80,
+[data-theme="light"] .bg-slate-950\/70,
+[data-theme="light"] .bg-slate-950\/60,
+[data-theme="light"] .bg-slate-950\/40 {
+  background-color: #f2eee3 !important;
+}
+
+[data-theme="light"] .bg-slate-900,
+[data-theme="light"] .bg-slate-900\/95,
+[data-theme="light"] .bg-slate-900\/90,
+[data-theme="light"] .bg-slate-900\/80,
+[data-theme="light"] .bg-slate-900\/60,
+[data-theme="light"] .bg-slate-900\/50,
+[data-theme="light"] .bg-slate-900\/40 {
+  background-color: #ffffff !important;
+}
+
+[data-theme="light"] .bg-slate-800,
+[data-theme="light"] .bg-slate-800\/80,
+[data-theme="light"] .bg-slate-800\/60,
+[data-theme="light"] .bg-slate-800\/50,
+[data-theme="light"] .bg-slate-800\/40 {
+  background-color: #eae5d8 !important;
+}
+
+[data-theme="light"] .border-slate-800,
+[data-theme="light"] .border-slate-800\/80,
+[data-theme="light"] .border-slate-800\/60,
+[data-theme="light"] .border-slate-700 {
+  border-color: rgba(60, 50, 40, 0.1) !important;
+}
+
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] .hero-heading,
+[data-theme="light"] .wellqc-wordmark,
+[data-theme="light"] .text-white {
+  color: #1c1917 !important;
+}
+
+/* Header & Sidebar in Apple Studio Light Mode */
+[data-theme="light"] header {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid rgba(60, 50, 40, 0.08) !important;
+  box-shadow: 0 1px 3px 0 rgba(60, 50, 40, 0.04) !important;
+}
+
+[data-theme="light"] aside {
+  background-color: #ffffff !important;
+  border-right: 1px solid rgba(60, 50, 40, 0.08) !important;
+  box-shadow: 2px 0 12px 0 rgba(60, 50, 40, 0.03) !important;
+}
+
+/* WellQC Panels, Cards & Telemetry Elevated Styling */
+[data-theme="light"] .bg-wellqc-panel,
+[data-theme="light"] .bg-wellqc-card,
+[data-theme="light"] .enterprise-kpi-card {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(60, 50, 40, 0.08) !important;
+  box-shadow: 0 1px 2px 0 rgba(60, 50, 40, 0.03), 0 6px 18px -2px rgba(60, 50, 40, 0.08), 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+  border-radius: 1rem !important;
+}
+
+[data-theme="light"] .enterprise-kpi-card:hover,
+[data-theme="light"] .bg-wellqc-panel:hover,
+[data-theme="light"] .bg-wellqc-card:hover {
+  border-color: rgba(60, 50, 40, 0.18) !important;
+  box-shadow: 0 3px 8px -1px rgba(60, 50, 40, 0.05), 0 14px 28px -3px rgba(60, 50, 40, 0.12), 0 2px 4px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .nav-link-item {
+  color: #1d1d1f !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="light"] .nav-link-item:hover {
+  color: #0071e3 !important;
+}
+
+/* Apple dynamic blue in light mode */
+[data-theme="light"] .text-sky-400,
+[data-theme="light"] .text-cyan-400,
+[data-theme="light"] .text-cyan-600,
+[data-theme="light"] .text-cyan-700 {
+  color: #0071e3 !important;
+}
+
+[data-theme="light"] .bg-cyan-600,
+[data-theme="light"] .bg-cyan-700 {
+  background-color: #0071e3 !important;
+}
+
+[data-theme="light"] .bg-cyan-600:hover,
+[data-theme="light"] .bg-cyan-700:hover {
+  background-color: #0077ed !important;
+}
+
+/* Severity Cards High-Contrast Overrides in Light Mode */
+[data-theme="light"] .severity-card-critical {
+  background-color: #fff5f5 !important;
+  border-color: #fca5a5 !important;
+  box-shadow: 0 1px 2px 0 rgba(220, 38, 38, 0.06), 0 6px 18px -2px rgba(220, 38, 38, 0.15) !important;
+}
+
+[data-theme="light"] .severity-card-critical .severity-title {
+  color: #991b1b !important;
+}
+
+[data-theme="light"] .severity-card-critical .severity-value {
+  color: #dc2626 !important;
+}
+
+[data-theme="light"] .severity-card-critical .severity-sub {
+  color: #b91c1c !important;
+}
+
+[data-theme="light"] .severity-card-moderate {
+  background-color: #fffdf0 !important;
+  border-color: #fde047 !important;
+  box-shadow: 0 1px 2px 0 rgba(217, 119, 6, 0.06), 0 6px 18px -2px rgba(217, 119, 6, 0.15) !important;
+}
+
+[data-theme="light"] .severity-card-moderate .severity-title {
+  color: #854d0e !important;
+}
+
+[data-theme="light"] .severity-card-moderate .severity-value {
+  color: #ca8a04 !important;
+}
+
+[data-theme="light"] .severity-card-moderate .severity-sub {
+  color: #a16207 !important;
+}
+
+[data-theme="light"] .severity-card-gaps {
+  background-color: #f0f9ff !important;
+  border-color: #7dd3fc !important;
+  box-shadow: 0 1px 2px 0 rgba(2, 132, 199, 0.06), 0 6px 18px -2px rgba(2, 132, 199, 0.15) !important;
+}
+
+[data-theme="light"] .severity-card-gaps .severity-title {
+  color: #075985 !important;
+}
+
+[data-theme="light"] .severity-card-gaps .severity-value {
+  color: #0369a1 !important;
+}
+
+[data-theme="light"] .severity-card-gaps .severity-sub {
+  color: #0284c7 !important;
+}
+
+[data-theme="light"] .text-slate-100,
+[data-theme="light"] .text-slate-200,
+[data-theme="light"] .text-slate-300 {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .text-slate-400 {
+  color: #475569 !important;
+}
+
+[data-theme="light"] .text-slate-500 {
+  color: #64748b !important;
+}
+
+[data-theme="light"] .text-slate-600 {
+  color: #64748b !important;
+}
+
+/* Hero Switcher Navigation Light Mode Refinements */
+[data-theme="light"] .hero-switcher-btn {
+  background-color: #ffffff !important;
+  color: #292524 !important;
+  border-color: rgba(60, 50, 40, 0.14) !important;
+  box-shadow: 0 1px 3px 0 rgba(60, 50, 40, 0.05) !important;
+}
+
+[data-theme="light"] .hero-switcher-btn:hover {
+  background-color: #fbf9f4 !important;
+  color: #0c0a09 !important;
+  border-color: rgba(60, 50, 40, 0.28) !important;
+}
+
+[data-theme="light"] .hero-switcher-btn-active {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+  border-color: rgba(0, 113, 227, 0.45) !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 113, 227, 0.15), 0 1px 3px 0 rgba(60, 50, 40, 0.08) !important;
+}
+
+[data-theme="light"] .hero-switcher-btn-active span {
+  color: #1c1917 !important;
+}

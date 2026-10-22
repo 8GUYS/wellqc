@@ -1,4 +1,3 @@
-import { AnomalyType } from "@/types/enums";
 import { QARepairRequestPayload } from "@/lib/las/api";
 
 describe("Petrophysical QA Engine Deliverables & Anomaly Filters", () => {

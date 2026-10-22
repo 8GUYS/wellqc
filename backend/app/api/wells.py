@@ -153,12 +153,7 @@ def list_wells(
             wells = query.order_by(desc(Well.updatedAt)).all()
         else:
             wells = (
-                query.filter(
-                    or_(
-                        Well.ownerId == current_user.id,
-                        Well.ownerId.is_(None),
-                    )
-                )
+                query.filter(Well.ownerId == current_user.id)
                 .order_by(desc(Well.updatedAt))
                 .all()
             )
@@ -296,9 +291,9 @@ def get_well_detail(
             detail=f"Well with ID, API number, or Name '{clean_id}' not found.",
         )
 
-    # Permission check: ADMIN, SUPERVISOR, owner, or unassigned/public well
+    # Permission check: ADMIN, SUPERVISOR, or owner
     is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
-    is_owner = (well.ownerId == current_user.id) or (well.ownerId is None)
+    is_owner = (well.ownerId == current_user.id)
     if not is_admin and not is_owner:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

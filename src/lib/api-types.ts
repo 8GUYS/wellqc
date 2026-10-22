@@ -346,6 +346,7 @@ export interface UserProfileDetails {
   email: string;
   role: string;
   department: string;
+  avatarUrl?: string;
   tier: "FREE" | "PRO" | "ENTERPRISE";
   freeChecksUsed: number;
   maxFreeChecks: number;

@@ -3,21 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  Activity,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
-  Database,
-  Layers,
   Lock,
   Pause,
   Play,
   ShieldCheck,
   Sparkles,
-  Sliders,
   CheckCircle2,
-  Cpu,
-  Palette,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 

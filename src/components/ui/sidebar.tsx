@@ -16,7 +16,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Radio,
   Sparkles,
 } from "lucide-react";
 import { WellQCIcon } from "./wellqc-logo";

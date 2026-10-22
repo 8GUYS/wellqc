@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ShieldCheck,
   Lock,
   FileText,
   CheckCircle2,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, WifiOff, X, Sparkles, CheckCircle2 } from "lucide-react";
+import { Download, WifiOff, X } from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;

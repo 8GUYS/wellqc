@@ -6,27 +6,15 @@ import Link from "next/link";
 import { DashboardSummary } from "@/lib/api-types";
 import { safeReadJson } from "@/lib/http-client";
 import {
-  Database,
-  UploadCloud,
   Award,
-  Activity,
-  AlertTriangle,
-  FileQuestion,
   CheckCircle2,
   TrendingUp,
   Layers,
-  MapPin,
   RefreshCw,
-  Info,
-  X,
   Plus,
-  Download,
   Settings,
-  ChevronDown,
-  ArrowUpRight,
   ShieldAlert,
   ArrowRight,
-  Filter,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 

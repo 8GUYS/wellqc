@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Palette, Check, Sliders, Sparkles, ChevronRight } from "lucide-react";
-import { useTheme, THEMES, ThemeId, ThemeConfig } from "./theme-provider";
+import { useTheme, ThemeConfig } from "./theme-provider";
 import { ThemeCustomizerModal } from "./theme-customizer-modal";
 
 export function ThemeSwitcher() {

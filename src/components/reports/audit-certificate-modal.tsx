@@ -5,17 +5,11 @@ import {
   Printer,
   Download,
   X,
-  ShieldCheck,
   CheckCircle2,
-  AlertTriangle,
   BadgeCheck,
-  Lock,
   Scale,
-  FileText,
   Copy,
   Check,
-  Layers,
-  ChevronRight,
 } from "lucide-react";
 import { CryptographicBadge } from "./cryptographic-badge";
 import { computeWellSignature } from "@/lib/crypto-signature";

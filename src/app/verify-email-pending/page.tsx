@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  Sparkles,
 } from "lucide-react";
 
 import { safeReadJson } from "@/lib/http-client";

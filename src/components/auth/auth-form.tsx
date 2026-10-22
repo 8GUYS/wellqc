@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, SyntheticEvent } from "react";
-import { Database, KeyRound, Mail, UserRound, LoaderCircle, Home, Eye, EyeOff } from "lucide-react";
+import { KeyRound, Mail, UserRound, LoaderCircle, Home, Eye, EyeOff } from "lucide-react";
 import { WellQCLogo } from "@/components/ui/wellqc-logo";
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();

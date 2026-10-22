@@ -9,14 +9,12 @@ import {
   Download,
   ShieldCheck,
   CheckCircle2,
-  FileText,
   Printer,
   Database,
   Eye,
   RefreshCw,
   CheckSquare,
   Archive,
-  Lock,
 } from "lucide-react";
 import { safeReadJson } from "@/lib/http-client";
 import {

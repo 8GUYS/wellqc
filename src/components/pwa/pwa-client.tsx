@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, WifiOff, X, Sparkles, CheckCircle2 } from "lucide-react";
+import { Download, WifiOff, X } from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -11,9 +11,26 @@ interface BeforeInstallPromptEvent extends Event {
 export function PWAClient() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
-  const [isOffline, setIsOffline] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
+  const [isOffline, setIsOffline] = useState(() => (typeof navigator !== "undefined" ? !navigator.onLine : false));
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return sessionStorage.getItem("wellqc_pwa_dismissed") === "true";
+      } catch {}
+    }
+    return false;
+  });
+  const [isStandalone] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return Boolean(
+          window.matchMedia("(display-mode: standalone)").matches ||
+          (window.navigator as unknown as { standalone?: boolean })?.standalone === true
+        );
+      } catch {}
+    }
+    return false;
+  });
 
   useEffect(() => {
     // 1. Register Service Worker
@@ -40,16 +57,7 @@ export function PWAClient() {
       });
     }
 
-    // 2. Detect Standalone Display Mode
-    const checkStandalone = () => {
-      const isStandaloneMode =
-        window.matchMedia("(display-mode: standalone)").matches ||
-        (window.navigator as unknown as { standalone?: boolean }).standalone === true;
-      setIsStandalone(Boolean(isStandaloneMode));
-    };
-    checkStandalone();
-
-    // 3. Listen for Install Prompt (Chrome, Edge, Android)
+    // 2. Listen for Install Prompt (Chrome, Edge, Android)
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -57,20 +65,12 @@ export function PWAClient() {
     };
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
-    // 4. Online / Offline status monitoring
+    // 3. Online / Offline status monitoring
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
 
-    setIsOffline(!navigator.onLine);
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-
-    // 5. Check if user already dismissed install banner this session
-    try {
-      if (sessionStorage.getItem("wellqc_pwa_dismissed") === "true") {
-        setBannerDismissed(true);
-      }
-    } catch {}
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);

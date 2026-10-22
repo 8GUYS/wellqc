@@ -6,27 +6,15 @@ import Link from "next/link";
 import { DashboardSummary } from "@/lib/api-types";
 import { safeReadJson } from "@/lib/http-client";
 import {
-  Database,
-  UploadCloud,
   Award,
-  Activity,
-  AlertTriangle,
-  FileQuestion,
   CheckCircle2,
   TrendingUp,
   Layers,
-  MapPin,
   RefreshCw,
-  Info,
-  X,
   Plus,
-  Download,
   Settings,
-  ChevronDown,
-  ArrowUpRight,
   ShieldAlert,
   ArrowRight,
-  Filter,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -57,47 +45,49 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [showNotice, setShowNotice] = useState(true);
   const [filterScope, setFilterScope] = useState<"ALL" | "COMMITTED" | "ATTENTION">("ALL");
-  const [paymentNotice, setPaymentNotice] = useState<{ status: string; plan?: string; ref?: string } | null>(null);
-  const [dashboardMode, setDashboardMode] = useState<"executive" | "workstation" | "telemetry">("executive");
-
-  useEffect(() => {
+  const [paymentNotice, setPaymentNotice] = useState<{ status: string; plan?: string; ref?: string } | null>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("wellqc_dashboard_mode") as "executive" | "workstation" | "telemetry";
-      if (saved && (saved === "executive" || saved === "workstation" || saved === "telemetry")) {
-        setDashboardMode(saved);
-      }
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const payment = urlParams.get("payment");
+        if (payment === "success") {
+          return {
+            status: "success",
+            plan: urlParams.get("plan") || "Pro Petrophysicist Plan",
+            ref: urlParams.get("reference") || undefined,
+          };
+        } else if (payment === "failed" || payment === "error") {
+          return {
+            status: "failed",
+            plan: urlParams.get("message") || "Payment processing could not be completed.",
+          };
+        }
+      } catch {}
     }
-  }, []);
+    return null;
+  });
+
+  const [dashboardMode, setDashboardMode] = useState<"executive" | "workstation" | "telemetry">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("wellqc_dashboard_mode");
+        if (saved === "executive" || saved === "workstation" || saved === "telemetry") {
+          return saved;
+        }
+      } catch {}
+    }
+    return "executive";
+  });
 
   const handleModeChange = (mode: "executive" | "workstation" | "telemetry") => {
     setDashboardMode(mode);
     if (typeof window !== "undefined") {
-      localStorage.setItem("wellqc_dashboard_mode", mode);
+      try {
+        localStorage.setItem("wellqc_dashboard_mode", mode);
+      } catch {}
     }
   };
-
-  useEffect(() => {
-    function checkPaymentCallback() {
-      if (typeof window === "undefined") return;
-      const urlParams = new URLSearchParams(window.location.search);
-      const payment = urlParams.get("payment");
-      if (payment === "success") {
-        setPaymentNotice({
-          status: "success",
-          plan: urlParams.get("plan") || "Pro Petrophysicist Plan",
-          ref: urlParams.get("reference") || undefined,
-        });
-      } else if (payment === "failed" || payment === "error") {
-        setPaymentNotice({
-          status: "failed",
-          plan: urlParams.get("message") || "Payment processing could not be completed.",
-        });
-      }
-    }
-    checkPaymentCallback();
-  }, []);
 
   const loadDashboard = useCallback(async (showRefreshingSpinner = false) => {
     if (showRefreshingSpinner) setIsRefreshing(true);
@@ -120,12 +110,37 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    loadDashboard();
+    let active = true;
+
+    async function initDashboard() {
+      try {
+        const response = await fetch("/api/dashboard", { cache: "no-store" });
+        const res = await safeReadJson<DashboardSummary>(response, "Unable to load dashboard data.");
+
+        if (!active) return;
+        if (!res.ok || !res.data) {
+          throw new Error(res.error || "Unable to load dashboard data.");
+        }
+
+        setSummary(res.data);
+        setError("");
+      } catch (err) {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : "Unable to load dashboard data.");
+      } finally {
+        if (active) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      }
+    }
+
+    initDashboard();
+
     return () => {
-      cancelled = true;
+      active = false;
     };
-  }, [loadDashboard]);
+  }, []);
 
   const trendData = summary.trend.length > 0 ? summary.trend : EMPTY_SUMMARY.trend;
 

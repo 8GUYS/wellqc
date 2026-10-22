@@ -16,7 +16,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Radio,
   Sparkles,
 } from "lucide-react";
 import { WellQCIcon } from "./wellqc-logo";
@@ -42,7 +41,17 @@ interface NavSection {
 
 export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: SidebarProps) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("wellqc_sidebar_collapsed");
+        if (saved !== null) {
+          return saved === "true";
+        }
+      } catch {}
+    }
+    return false;
+  });
   const [userProfile, setUserProfile] = useState<{
     name: string;
     department: string;
@@ -56,13 +65,6 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
   });
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("wellqc_sidebar_collapsed");
-      if (saved !== null) {
-        setCollapsed(saved === "true");
-      }
-    } catch {}
-
     // Load active profile details for sidebar card
     async function loadProfile() {
       try {

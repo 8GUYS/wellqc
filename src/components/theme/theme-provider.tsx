@@ -287,25 +287,22 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeId>("slate");
-  const [customTheme, setCustomThemeState] = useState<CustomThemeSettings>(DEFAULT_CUSTOM_THEME);
+  const [customTheme, setCustomThemeState] = useState<CustomThemeSettings>(() => getStoredCustomTheme());
+  const [theme, setThemeState] = useState<ThemeId>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("wellqc_theme") as ThemeId;
+        if (saved && (saved === "custom" || THEMES.some((t) => t.id === saved))) {
+          return saved;
+        }
+      } catch {}
+    }
+    return "slate";
+  });
 
   useEffect(() => {
-    try {
-      const savedCustom = getStoredCustomTheme();
-      setCustomThemeState(savedCustom);
-
-      const saved = localStorage.getItem("wellqc_theme") as ThemeId;
-      if (saved && (saved === "custom" || THEMES.some((t) => t.id === saved))) {
-        setThemeState(saved);
-        applyThemeToDOM(saved, savedCustom);
-      } else {
-        applyThemeToDOM("slate");
-      }
-    } catch {
-      applyThemeToDOM("slate");
-    }
-  }, []);
+    applyThemeToDOM(theme, customTheme);
+  }, [theme, customTheme]);
 
   const setTheme = (newTheme: ThemeId) => {
     setThemeState(newTheme);

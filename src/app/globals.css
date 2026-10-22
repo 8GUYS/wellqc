@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Apple San Francisco Pro Display Webfont Declarations (100% Offline & High-Performance) */
 @font-face {
   font-family: 'SF Pro Display';
@@ -71,7 +73,7 @@
   --foreground: #1c1917;
 
   --wellqc-dark: #f7f4ec;
-  --wellqc-panel: #44801d;
+  --wellqc-panel: #ffffff;
   --wellqc-card: #ffffff;
   --wellqc-border: rgba(60, 50, 40, 0.08);
   --wellqc-accent: #0071e3;
@@ -607,3 +609,28 @@ pre,
 [data-theme="light"] .text-slate-600 {
   color: #64748b !important;
 }
+
+/* Hero Switcher Navigation Light Mode Refinements */
+[data-theme="light"] .hero-switcher-btn {
+  background-color: #ffffff !important;
+  color: #292524 !important;
+  border-color: rgba(60, 50, 40, 0.14) !important;
+  box-shadow: 0 1px 3px 0 rgba(60, 50, 40, 0.05) !important;
+}
+
+[data-theme="light"] .hero-switcher-btn:hover {
+  background-color: #fbf9f4 !important;
+  color: #0c0a09 !important;
+  border-color: rgba(60, 50, 40, 0.28) !important;
+}
+
+[data-theme="light"] .hero-switcher-btn-active {
+  background-color: #ffffff !important;
+  color: #1c1917 !important;
+  border-color: rgba(0, 113, 227, 0.45) !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 113, 227, 0.15), 0 1px 3px 0 rgba(60, 50, 40, 0.08) !important;
+}
+
+[data-theme="light"] .hero-switcher-btn-active span {
+  color: #1c1917 !important;
+}

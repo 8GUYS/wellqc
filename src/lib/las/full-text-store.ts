@@ -36,10 +36,11 @@ function openDatabase(): Promise<IDBDatabase> {
  * Fails silently if IndexedDB is unavailable or blocked.
  */
 export async function saveFullLasText(fileName: string, fullText: string): Promise<void> {
+  let db: IDBDatabase | null = null;
   try {
-    const db = await openDatabase();
+    db = await openDatabase();
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readwrite");
+      const tx = db!.transaction(STORE_NAME, "readwrite");
       const store = tx.objectStore(STORE_NAME);
       const req = store.put({ fileName, fullText }, RECORD_KEY);
       req.onsuccess = () => resolve();
@@ -48,6 +49,12 @@ export async function saveFullLasText(fileName: string, fullText: string): Promi
     });
   } catch {
     // Fail silently; never throw
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      // Fail silently
+    }
   }
 }
 
@@ -56,10 +63,11 @@ export async function saveFullLasText(fileName: string, fullText: string): Promi
  * Returns null if no record is found or if storage cannot be accessed.
  */
 export async function loadFullLasText(): Promise<StoredFullLasText | null> {
+  let db: IDBDatabase | null = null;
   try {
-    const db = await openDatabase();
+    db = await openDatabase();
     return await new Promise<StoredFullLasText | null>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readonly");
+      const tx = db!.transaction(STORE_NAME, "readonly");
       const store = tx.objectStore(STORE_NAME);
       const req = store.get(RECORD_KEY);
       req.onsuccess = () => {
@@ -70,6 +78,12 @@ export async function loadFullLasText(): Promise<StoredFullLasText | null> {
     });
   } catch {
     return null;
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      // Fail silently
+    }
   }
 }
 
@@ -78,10 +92,11 @@ export async function loadFullLasText(): Promise<StoredFullLasText | null> {
  * Fails silently if storage cannot be accessed.
  */
 export async function clearFullLasText(): Promise<void> {
+  let db: IDBDatabase | null = null;
   try {
-    const db = await openDatabase();
+    db = await openDatabase();
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readwrite");
+      const tx = db!.transaction(STORE_NAME, "readwrite");
       const store = tx.objectStore(STORE_NAME);
       const req = store.delete(RECORD_KEY);
       req.onsuccess = () => resolve();
@@ -90,5 +105,11 @@ export async function clearFullLasText(): Promise<void> {
     });
   } catch {
     // Fail silently; never throw
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      // Fail silently
+    }
   }
 }

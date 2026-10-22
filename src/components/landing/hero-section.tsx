@@ -134,6 +134,7 @@ export function HeroSection() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [autoplayProgress, setAutoplayProgress] = useState(0);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   const SLIDE_DURATION = 5000; // 5 seconds per slide
   const TICK_INTERVAL = 50;
@@ -154,6 +155,22 @@ export function HeroSection() {
   const goToSlide = (idx: number) => {
     setCurrentSlideIndex(idx);
     setAutoplayProgress(0);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX - touchEndX;
+    if (diff > 40) {
+      handleNext();
+    } else if (diff < -40) {
+      handlePrev();
+    }
+    setTouchStartX(null);
   };
 
   // Autoplay timer
@@ -177,22 +194,22 @@ export function HeroSection() {
   return (
     <section
       id="home"
-      className="relative pt-32 pb-20 md:pt-44 md:pb-32 overflow-hidden border-b border-slate-200/70 dark:border-slate-800/60"
+      className="relative pt-28 pb-16 md:pt-44 md:pb-32 overflow-hidden border-b border-slate-200/70 dark:border-slate-800/60"
     >
       {/* Background Dynamic Ambient Glows */}
       <div className={`absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-gradient-to-tr ${accent.glow} rounded-full blur-[140px] pointer-events-none transition-all duration-1000`} />
       <div className="absolute top-1/3 left-10 w-[300px] h-[300px] bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="text-center max-w-4xl mx-auto space-y-6">
+        <div className="text-center max-w-4xl mx-auto space-y-5 sm:space-y-6">
           {/* Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold tracking-wide uppercase shadow-inner">
-            <Sparkles className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold tracking-wide uppercase shadow-inner">
+            <Sparkles className="w-3.5 h-3.5 shrink-0" />
             <span>Next-Gen Petrophysical Quality Assurance</span>
           </div>
 
           {/* Main Headline */}
-          <h1 className="hero-heading text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.15]">
+          <h1 className="hero-heading text-3xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.18] sm:leading-[1.15]">
             Automated Well Log <br />
             <span className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 dark:from-emerald-400 dark:via-teal-300 dark:to-cyan-400 bg-clip-text text-transparent">
               Quality Assurance &amp; Standardisation
@@ -200,22 +217,22 @@ export function HeroSection() {
           </h1>
 
           {/* Subtitle */}
-          <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-300 font-normal leading-relaxed max-w-3xl mx-auto">
+          <p className="text-base sm:text-xl text-slate-600 dark:text-slate-300 font-normal leading-relaxed max-w-3xl mx-auto px-2 sm:px-0">
             WellQC automatically validates LAS 2.0 files, detects anomalous spikes &amp; flatlines, standardises raw mnemonics, and imputes missing curves with KNN ML models.
           </p>
 
           {/* CTA Buttons — Apple Style Pill Pair */}
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3.5">
+          <div className="pt-3 sm:pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-3.5 w-full max-w-md mx-auto sm:max-w-none">
             <Link
               href="/register"
-              className="btn-apple-primary w-full sm:w-auto text-base px-8 py-3.5 shadow-lg shadow-blue-500/25"
+              className="btn-apple-primary w-full sm:w-auto text-sm sm:text-base px-7 py-3 sm:px-8 sm:py-3.5 shadow-lg shadow-blue-500/25"
             >
               <span>Check Log Files for Free</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 shrink-0" />
             </Link>
             <Link
               href="#services"
-              className="btn-apple-secondary w-full sm:w-auto text-base px-7 py-3.5"
+              className="btn-apple-secondary w-full sm:w-auto text-sm sm:text-base px-6 py-3 sm:px-7 sm:py-3.5"
             >
               <span>Explore Platform Modules</span>
             </Link>
@@ -223,37 +240,37 @@ export function HeroSection() {
 
           {/* Freemium Trust Note */}
           <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2 pt-1 font-medium">
-            <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
+            <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-cyan-400 shrink-0" />
             <span>No credit card required for your free log file checks</span>
           </p>
         </div>
 
         {/* Dynamic Interactive Laptop Slideshow Showcase */}
         <div
-          className="mt-14 relative max-w-5xl mx-auto"
+          className="mt-10 sm:mt-14 relative max-w-5xl mx-auto"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
           {/* Laptop Lid Housing */}
-          <div className="relative rounded-[28px] bg-slate-950 dark:bg-slate-900 p-2.5 sm:p-3.5 shadow-2xl shadow-black/60 border border-slate-700/60 ring-1 ring-white/10">
+          <div className="relative rounded-[22px] sm:rounded-[28px] bg-slate-950 dark:bg-slate-900 p-2 sm:p-3.5 shadow-2xl shadow-black/60 border border-slate-700/60 ring-1 ring-white/10">
             {/* Top Display Bezel with Chrome & Dynamic Status */}
-            <div className="flex items-center justify-between pb-2.5 px-3">
-              <div className="flex items-center space-x-2">
-                <span className="w-3 h-3 rounded-full bg-[#ff5f57] border border-[#e0443e] inline-block shadow-sm" />
-                <span className="w-3 h-3 rounded-full bg-[#febc2e] border border-[#d89e24] inline-block shadow-sm" />
-                <span className="w-3 h-3 rounded-full bg-[#28c840] border border-[#1aab29] inline-block shadow-sm" />
+            <div className="flex items-center justify-between pb-2 px-2 sm:px-3">
+              <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
+                <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-[#ff5f57] border border-[#e0443e] inline-block shadow-sm" />
+                <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-[#febc2e] border border-[#d89e24] inline-block shadow-sm" />
+                <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-[#28c840] border border-[#1aab29] inline-block shadow-sm" />
               </div>
 
-              {/* Dynamic URL Bar */}
-              <div className="flex items-center space-x-2 px-3 py-0.5 rounded-full bg-slate-900/90 border border-slate-800 text-[11px] font-mono transition-colors duration-300">
-                <Lock className="w-3 h-3 text-emerald-400" />
-                <span className="text-slate-300 font-medium">{currentSlide.url}</span>
-                <span className="text-slate-600">|</span>
-                <span className="text-cyan-400 font-bold uppercase tracking-wider">{currentSlide.badge}</span>
+              {/* Dynamic URL Bar (Hidden on Mobile to ensure rock-solid alignment) */}
+              <div className="hidden sm:flex items-center space-x-2 px-3 py-0.5 rounded-full bg-slate-900/90 border border-slate-800 text-[11px] font-mono transition-colors duration-300 max-w-sm truncate shadow-xs">
+                <Lock className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span className="text-slate-300 font-medium truncate">{currentSlide.url}</span>
+                <span className="text-slate-600 shrink-0">|</span>
+                <span className="text-cyan-400 font-bold uppercase tracking-wider shrink-0">{currentSlide.badge}</span>
               </div>
 
               {/* Play/Pause & Slide counter */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsPaused(!isPaused)}
@@ -271,8 +288,12 @@ export function HeroSection() {
               </div>
             </div>
 
-            {/* Laptop Display Screen Area */}
-            <div className="relative rounded-2xl overflow-hidden aspect-[16/9] bg-slate-950 group border border-slate-800/80 shadow-inner">
+            {/* Laptop Display Screen Area with Touch Swipe */}
+            <div
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              className="relative rounded-2xl overflow-hidden aspect-[16/9] bg-slate-950 group border border-slate-800/80 shadow-inner select-none cursor-grab active:cursor-grabbing"
+            >
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentSlide.id}
@@ -285,7 +306,7 @@ export function HeroSection() {
                   <img
                     src={currentSlide.image}
                     alt={currentSlide.alt}
-                    className="w-full h-full object-cover object-top"
+                    className="w-full h-full object-cover object-top pointer-events-none"
                   />
 
                   {/* Subtle Top Vignette */}
@@ -293,12 +314,12 @@ export function HeroSection() {
                 </motion.div>
               </AnimatePresence>
 
-              {/* Next/Prev Arrow Controls — appear on hover */}
+              {/* Next/Prev Arrow Controls — desktop hover */}
               <button
                 type="button"
                 onClick={handlePrev}
                 aria-label="Previous slide"
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-950/70 hover:bg-slate-900 border border-slate-700/80 text-white flex items-center justify-center backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-105 shadow-xl"
+                className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-950/70 hover:bg-slate-900 border border-slate-700/80 text-white items-center justify-center backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-105 shadow-xl"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -306,30 +327,30 @@ export function HeroSection() {
                 type="button"
                 onClick={handleNext}
                 aria-label="Next slide"
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-950/70 hover:bg-slate-900 border border-slate-700/80 text-white flex items-center justify-center backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-105 shadow-xl"
+                className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-950/70 hover:bg-slate-900 border border-slate-700/80 text-white items-center justify-center backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-105 shadow-xl"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
 
               {/* Status Overlay Tagline & Badges */}
-              <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pointer-events-none">
-                <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-950/90 backdrop-blur-md border border-slate-700/70 text-white text-xs shadow-2xl">
-                  <span className={`w-2 h-2 rounded-full ${accent.indicator} animate-pulse`} />
-                  <span className="font-bold tracking-tight">{currentSlide.title}</span>
+              <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:bottom-4 sm:left-4 sm:right-4 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pointer-events-none">
+                <div className="flex items-center gap-2 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-lg sm:rounded-xl bg-slate-950/90 backdrop-blur-md border border-slate-700/70 text-white text-[11px] sm:text-xs shadow-2xl max-w-[88%] sm:max-w-none">
+                  <span className={`w-2 h-2 rounded-full ${accent.indicator} animate-pulse shrink-0`} />
+                  <span className="font-bold tracking-tight truncate">{currentSlide.title}</span>
                   <span className="hidden sm:inline text-slate-500">&bull;</span>
                   <span className="hidden sm:inline text-slate-300 font-normal truncate max-w-md">
                     {currentSlide.tagline}
                   </span>
                 </div>
 
-                {/* Highlights Chips */}
+                {/* Highlights Chips (Desktop Only) */}
                 <div className="hidden lg:flex items-center gap-1.5">
                   {currentSlide.highlights.slice(0, 2).map((item, idx) => (
                     <span
                       key={idx}
                       className="px-2.5 py-1 rounded-lg bg-slate-950/80 backdrop-blur-md border border-slate-800 text-[11px] font-medium text-slate-300 shadow-md flex items-center gap-1.5"
                     >
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
                       <span>{item}</span>
                     </span>
                   ))}
@@ -339,15 +360,32 @@ export function HeroSection() {
           </div>
 
           {/* Laptop Base / Deck Edge & Thumb Notch */}
-          <div className="relative mx-auto w-[92%] sm:w-[94%] h-3.5 sm:h-4 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 rounded-b-2xl shadow-xl border-t border-slate-600/50 flex items-center justify-center">
-            <div className="w-24 sm:w-32 h-1 bg-slate-950/80 rounded-b-md border-b border-slate-600/30" />
+          <div className="relative mx-auto w-[92%] sm:w-[94%] h-3 sm:h-4 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 rounded-b-2xl shadow-xl border-t border-slate-600/50 flex items-center justify-center">
+            <div className="w-20 sm:w-32 h-1 bg-slate-950/80 rounded-b-md border-b border-slate-600/30" />
+          </div>
+
+          {/* Mobile Pagination Dot Indicators */}
+          <div className="flex sm:hidden justify-center items-center gap-1.5 mt-3">
+            {HERO_SLIDES.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => goToSlide(i)}
+                aria-label={`Go to slide ${i + 1}`}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === currentSlideIndex
+                    ? `w-6 ${accent.indicator}`
+                    : "w-1.5 bg-slate-400/30 hover:bg-slate-400/60"
+                }`}
+              />
+            ))}
           </div>
 
           {/* Soft Bottom Ambient Glow */}
           <div className={`absolute -bottom-8 left-1/2 -translate-x-1/2 w-3/4 h-14 bg-gradient-to-r ${accent.glow} blur-3xl pointer-events-none rounded-full transition-all duration-1000`} />
 
-          {/* Interactive Slide Switcher Navigation Bar */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+          {/* Interactive Slide Switcher Navigation Bar (Smooth Touch Scroll on Mobile) */}
+          <div className="mt-4 sm:mt-8 flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar py-2 px-1 sm:px-0 sm:justify-center sm:flex-wrap">
             {HERO_SLIDES.map((slide, idx) => {
               const isActive = idx === currentSlideIndex;
               const slideAccent = ACCENT_STYLES[slide.accent];
@@ -356,20 +394,20 @@ export function HeroSection() {
                   key={slide.id}
                   type="button"
                   onClick={() => goToSlide(idx)}
-                  className={`hero-switcher-btn relative flex items-center gap-2.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-300 border ${
+                  className={`hero-switcher-btn shrink-0 relative flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-300 border ${
                     isActive
                       ? "hero-switcher-btn-active bg-white text-stone-900 border-stone-300 shadow-md shadow-stone-900/5 scale-[1.02] dark:bg-slate-900 dark:text-white dark:border-slate-700 dark:shadow-xl dark:shadow-black/40"
                       : "bg-white/85 text-stone-700 border-stone-200/90 hover:bg-white hover:text-stone-950 hover:border-stone-300 shadow-2xs dark:bg-slate-900/60 dark:text-slate-400 dark:border-slate-800 dark:hover:bg-slate-900 dark:hover:text-white dark:hover:border-slate-700"
                   }`}
                 >
                   <span
-                    className={`w-2 h-2 rounded-full transition-transform duration-300 ${
+                    className={`w-2 h-2 rounded-full transition-transform duration-300 shrink-0 ${
                       isActive
                         ? `${slideAccent.indicator} scale-125 ring-2 ring-current/25`
                         : `${slideAccent.indicator} opacity-70`
                     }`}
                   />
-                  <span className="font-medium tracking-tight">
+                  <span className="font-medium tracking-tight whitespace-nowrap">
                     {slide.name}
                   </span>
 
@@ -389,22 +427,22 @@ export function HeroSection() {
         </div>
 
         {/* Social Proof Metric Bar */}
-        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 pt-10 border-t border-stone-300/70 dark:border-slate-800/80 text-center">
+        <div className="mt-12 sm:mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 pt-8 sm:pt-10 border-t border-stone-300/70 dark:border-slate-800/80 text-center">
           <div>
-            <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">10,000+</span>
-            <span className="block text-sm text-stone-700 dark:text-slate-400 mt-1 font-medium">LAS Files Processed</span>
+            <span className="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400">10,000+</span>
+            <span className="block text-xs sm:text-sm text-stone-700 dark:text-slate-400 mt-1 font-medium">LAS Files Processed</span>
           </div>
           <div>
-            <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">99.4%</span>
-            <span className="block text-sm text-stone-700 dark:text-slate-400 mt-1 font-medium">Mnemonic Accuracy</span>
+            <span className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">99.4%</span>
+            <span className="block text-xs sm:text-sm text-stone-700 dark:text-slate-400 mt-1 font-medium">Mnemonic Accuracy</span>
           </div>
           <div>
-            <span className="text-3xl font-extrabold text-blue-600 dark:text-blue-400">&lt; 3 Secs</span>
-            <span className="block text-sm text-stone-700 dark:text-slate-400 mt-1 font-medium">Audit Generation Time</span>
+            <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 dark:text-blue-400">&lt; 3 Secs</span>
+            <span className="block text-xs sm:text-sm text-stone-700 dark:text-slate-400 mt-1 font-medium">Audit Generation Time</span>
           </div>
           <div>
-            <span className="text-3xl font-extrabold text-violet-600 dark:text-purple-400">100%</span>
-            <span className="block text-sm text-stone-700 dark:text-slate-400 mt-1 font-medium">Multi-Tenant Data Isolation</span>
+            <span className="text-2xl sm:text-3xl font-extrabold text-violet-600 dark:text-purple-400">100%</span>
+            <span className="block text-xs sm:text-sm text-stone-700 dark:text-slate-400 mt-1 font-medium">Multi-Tenant Data Isolation</span>
           </div>
         </div>
       </div>

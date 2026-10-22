@@ -109,6 +109,22 @@ A story is accepted as done when:
     And a notification confirms the session was successfully restored from storage
   ```
 
+#### US-ING-04: Efficient IndexedDB Raw LAS Storage with Connection Lifecycle Management
+- **As a** Petrophysicist (PER-1) or Subsurface Data Engineer (PER-2),
+- **I want** the browser to store the active un-downsampled raw LAS text in IndexedDB without connection leaks or redundant multi-megabyte rewrites on UI state changes,
+- **So that** memory footprint remains low and full-resolution cleaning runs reliably even on multi-thousand sample wells.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 5 · SE1 / CE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Storing un-downsampled raw LAS text efficiently
+    Given an uploaded LAS file with complete raw text (~3.5 MB)
+    When the raw text is received and parsed in the upload workspace
+    Then the raw LAS text is persisted to IndexedDB ("wellqc_full_las") strictly on file/content change
+    And every IndexedDB operation closes its database connection in a finally block to prevent connection accumulation
+    And ordinary workspace state changes (anomalies, tabs, queue) do not re-write full text to IndexedDB
+  ```
+
 ---
 
 ### 🏷️ Epic 2: Curve Mnemonic Standardisation & Dictionary Management
@@ -199,6 +215,22 @@ A story is accepted as done when:
     When the report is generated
     Then the `aiSummary` field provides a narrative explanation of curve issues
     And provides bulleted recommendations for petrophysical remediation
+  ```
+
+#### US-QCE-04: Accurate Sample Count Header Display for Database Wells
+- **As a** Lead Petrophysicist (PER-1) or Geoscientist (PER-5),
+- **I want** the Quality Engine header to display the true total point count (`pointCount`) for saved database wells rather than the downsampled visualization count,
+- **So that** I immediately recognize the real depth resolution and size of the well log being examined.
+- **Priority:** Should Have
+- **Sprint / Owner:** Sprint 5 · SE1 / DA1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Loading a database well in the Quality Engine
+    Given a saved well asset with 20,018 total depth samples in the database
+    When I open the well in the Quality Engine workstation
+    Then the workstation constructs the in-memory log using `detail.well.pointCount`
+    And the header displays "Samples: 20,018" with thousand separators
+    And falls back to received points length only if pointCount is missing or zero
   ```
 
 ---
@@ -452,6 +484,23 @@ A story is accepted as done when:
     Then the request is rejected with 400 Bad Request to prevent lockout
   ```
 
+#### US-SEC-05: Quality Engine Cross-Tenant Saved Well Ownership Enforcement
+- **As an** Enterprise Systems & Security Admin (PER-4),
+- **I want** all Quality Engine execution endpoints (`/repair` and `/rank-gaps`) to enforce server-side ownership checks before resolving saved well data,
+- **So that** unauthorized users cannot access, repair, or generate audit activity against well assets owned by another tenant.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 5 · CE2 / SE1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Non-owner attempts to repair another tenant's saved well
+    Given User Beta is signed in with standard PETROPHYSICIST role
+    And User Alpha owns saved well "well-alpha-123"
+    When User Beta sends POST /api/qa-engine/repair or POST /api/qa-engine/rank-gaps referencing "well-alpha-123"
+    Then the server immediately stops with 403 Forbidden before reading raw text or curves
+    And no activity log or cleaned data is returned to User Beta
+    And when User Alpha or an Admin sends the same request, it succeeds with 200 OK
+  ```
+
 #### US-AUT-01: Interactive Password Visibility Toggle on Authentication Form
 - **As a** Platform User (PER-1, PER-2, PER-5),
 - **I want** a toggle button inside password fields to reveal or hide typed characters,
@@ -519,6 +568,45 @@ A story is accepted as done when:
 
 ---
 
+### 📱 Epic 11: Mobile Ergonomics & Progressive Web App (PWA) Telemetry
+
+#### US-MOB-01: Responsive Hero Showcase & Dynamic Layout Stabilization
+- **As a** Geoscientist or Petrophysicist accessing WellQC on a mobile device or tablet (PER-1, PER-2),
+- **I want** the hero showcase slider to remain structurally stabilized without jumping or overflowing,
+- **So that** I can seamlessly review workstation themes, swipe through slide previews, and tap controls without visual disruption.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 6 · SE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Viewing hero slideshow on mobile viewports (< 640px)
+    Given I navigate to the landing page on a mobile device
+    When the hero section renders
+    Then the variable-length mock browser URL bar is hidden on mobile to prevent layout shifts
+    And the top display bezel maintains clean, stable macOS window controls and slide counter
+    And the slide switcher provides smooth horizontal touch-scrolling with no-scrollbar styling
+    And touch-swipe gestures (swipe left / swipe right) advance the slides
+    And compact dot indicators display the active slide progression
+  ```
+
+#### US-PWA-01: False-Positive Resilient Offline Status Detection
+- **As a** Field Petrophysicist using WellQC on mobile devices with variable cellular connections,
+- **I want** the offline banner to trigger only when the network is genuinely unreachable,
+- **So that** I am not greeted by false "Offline Mode Active" warnings caused by iOS WebKit `navigator.onLine` initialization quirks.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 6 · SE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Initializing WellQC in iOS Safari / WebKit browsers
+    Given a user loading WellQC over HTTPS on an iPhone or mobile browser
+    When the PWA client hydrates
+    Then `isOffline` defaults to false to prevent false-positive hydration warnings
+    And if `navigator.onLine` reports false, a lightweight network probe confirms true offline status
+    And the offline banner provides an explicit dismiss button (`X`)
+    And returning online automatically clears the offline indicator
+  ```
+
+---
+
 ## 📊 4. Requirements Traceability Matrix (RTM)
 
 | Story ID | Epic Title | MoSCoW | Sprint Target | Lead Owner | Primary Code Modules |
@@ -526,11 +614,13 @@ A story is accepted as done when:
 | **US-ING-01** | Multi-Version LAS Parsing | Must Have | Sprint 1 | SE1 | `backend/app/services/parser.py`, `src/lib/las/parser.ts` |
 | **US-ING-02** | Corrupt LAS File Diagnostics | Must Have | Sprint 3 | SE1 | `backend/app/api/las.py`, `src/lib/las/parser.ts` |
 | **US-ING-03** | Quota-Safe LocalStorage Persistence | Must Have | Sprint 5 | SE2 | `src/lib/las/storage-utils.ts`, `src/app/upload/` |
+| **US-ING-04** | IndexedDB Lifecycle & Targeted Workspace Sync | Must Have | Sprint 6 | SE2 | `src/lib/las/full-text-store.ts`, `src/app/upload/page.tsx` |
 | **US-STD-01** | Vendor Mnemonic Mapping | Must Have | Sprint 3 | DA1 | `backend/app/api/standardisation.py`, `standardiser.py` |
 | **US-STD-02** | Persistent Custom Aliases | Should Have | Sprint 3 | DA1 | `backend/app/api/standardisation.py`, `/standardisation` |
 | **US-QCE-01** | Composite Quality Scoring | Must Have | Sprint 3 | SE1 | `backend/app/services/quality_engine.py` |
 | **US-QCE-02** | 11 Anomaly Category Audits | Must Have | Sprint 4 | DA1 | `backend/app/services/quality_engine.py`, `cleaner.py` |
 | **US-QCE-03** | AI Natural Language Summary | Should Have | Sprint 3 | SE1 | `backend/app/api/wells.py`, `ai_analyzer.py` |
+| **US-QCE-04** | Ground-Truth Sample Count Display | Must Have | Sprint 6 | SE1 | `src/app/qa-engine/page.tsx`, `backend/app/api/wells.py` |
 | **US-IMP-01** | Root-Cause Classifications | Should Have | Sprint 4 | DA2 | `src/lib/las/imputation-engine.ts`, `backend/app/api/las.py` |
 | **US-IMP-02** | Imputation Benchmarking | Should Have | Sprint 4 | DA2 | `imputation-benchmark-modal.tsx`, `imputation.py` |
 | **US-VIW-01** | 3-Track Wireline Presentation | Must Have | Sprint 4 | SE1 | `src/components/well-log/log-viewer.tsx` |
@@ -545,10 +635,13 @@ A story is accepted as done when:
 | **US-SEC-02** | Multi-Tenant Data Isolation | Must Have | Sprint 2 | CE2 | `backend/app/api/wells.py`, `schema.prisma` |
 | **US-SEC-03** | Server RBAC Default-to-Deny | Must Have | Sprint 5 | SE1 | `backend/app/core/dependencies.py`, `test_admin_auth.py` |
 | **US-SEC-04** | Admin Management CLI & Lockout Protection | Must Have | Sprint 5 | CE2 | `scripts/manage_admin.py`, `backend/app/api/admin.py` |
+| **US-SEC-05** | Quality Engine Cross-Tenant Authorization | Must Have | Sprint 6 | SE1 | `backend/app/api/qa_engine.py`, `test_object_authorization.py` |
 | **US-AUT-01** | Password Visibility Toggle | Should Have | Sprint 5 | SE2 | `src/components/auth/auth-form.tsx` |
 | **US-API-01** | Interactive Swagger Authorize | Must Have | Sprint 6 | SE2 | `backend/app/core/dependencies.py`, `backend/app/main.py` |
 | **US-API-02** | Flexible Well Retrieval (ID/API) | Must Have | Sprint 6 | SE1 | `backend/app/api/wells.py` |
 | **US-API-03** | Webhook HMAC-SHA512 Verification | Must Have | Sprint 5 | CE2 | `backend/app/api/auth.py` |
+| **US-MOB-01** | Responsive Hero Showcase & Layout Stabilization | Must Have | Sprint 6 | SE2 | `src/components/landing/hero-section.tsx`, `globals.css` |
+| **US-PWA-01** | False-Positive Resilient Offline Status Detection | Must Have | Sprint 6 | SE2 | `src/components/pwa/pwa-client.tsx` |
 
 ---
 

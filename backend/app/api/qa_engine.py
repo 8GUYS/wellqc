@@ -179,18 +179,35 @@ def _resolve_target_las(
     raw_las: Optional[Dict[str, Any]],
     server_aliases: Any,
     db: Session,
+    current_user: Optional[User] = None,
 ) -> Tuple[ParsedLAS, str, str]:
     well_name = well_name_req or "Well Log"
     resolved_id = well_id or "upload-session"
     target_las: Optional[ParsedLAS] = None
 
     effective_raw_text = raw_las_text
-    if not effective_raw_text and well_id and well_id not in ("upload-session", "active-upload", "direct-upload"):
+    db_well: Optional[Well] = None
+
+    # Check ownership BEFORE reading anything from a saved well
+    if not effective_raw_text and not raw_las and well_id and well_id not in ("upload-session", "active-upload", "direct-upload"):
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to use this well.",
+            )
         db_well = db.query(Well).filter(Well.id == well_id).first()
-        if db_well and db_well.lasFiles:
-            latest = db_well.lasFiles[0]
-            if getattr(latest, "rawContent", None):
-                effective_raw_text = latest.rawContent
+        if db_well:
+            is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
+            is_owner = (db_well.ownerId == current_user.id)
+            if not is_admin and not is_owner:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have permission to use this well.",
+                )
+            if db_well.lasFiles:
+                latest = db_well.lasFiles[0]
+                if getattr(latest, "rawContent", None):
+                    effective_raw_text = latest.rawContent
 
     if effective_raw_text:
         try:
@@ -212,53 +229,51 @@ def _resolve_target_las(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid ParsedLAS data: {str(exc)}",
             )
-    elif well_id and well_id not in ("upload-session", "active-upload", "direct-upload"):
-        db_well = db.query(Well).filter(Well.id == well_id).first()
-        if db_well:
-            well_name = db_well.name
-            if db_well.lasFiles:
-                latest = db_well.lasFiles[0]
-                if latest.rawHeader:
+    elif db_well:
+        well_name = db_well.name
+        if db_well.lasFiles:
+            latest = db_well.lasFiles[0]
+            if latest.rawHeader:
+                try:
+                    target_las = parse_las_content(latest.rawHeader, custom_aliases=server_aliases)
+                except Exception:
+                    target_las = None
+            if (not target_las or not target_las.data.depth) and latest.curves:
+                depth_vals: List[float] = []
+                curve_vals: Dict[str, List[float]] = {}
+                for c in latest.curves:
                     try:
-                        target_las = parse_las_content(latest.rawHeader, custom_aliases=server_aliases)
+                        pts = json.loads(c.dataJson) if c.dataJson else []
                     except Exception:
-                        target_las = None
-                if (not target_las or not target_las.data.depth) and latest.curves:
-                    depth_vals: List[float] = []
-                    curve_vals: Dict[str, List[float]] = {}
-                    for c in latest.curves:
-                        try:
-                            pts = json.loads(c.dataJson) if c.dataJson else []
-                        except Exception:
-                            pts = []
-                        if not depth_vals and pts:
-                            depth_vals = [float(p.get("depth", 0.0)) for p in pts if isinstance(p, dict) and "depth" in p]
-                        vals = [float(p.get("value", -999.25)) for p in pts if isinstance(p, dict) and "value" in p]
-                        curve_vals[c.originalMnemonic.upper()] = vals
-                    if depth_vals:
-                        if not target_las:
-                            from backend.app.services.parser import LASWellInfo
-                            target_las = ParsedLAS(
-                                version="2.0",
-                                wrap=False,
-                                wellInfo=LASWellInfo(
-                                    wellName=db_well.name,
-                                    company=db_well.operatorName or "",
-                                    field=db_well.fieldName or "",
-                                    startDepth=latest.startDepth or (depth_vals[0] if depth_vals else 0.0),
-                                    stopDepth=latest.stopDepth or (depth_vals[-1] if depth_vals else 0.0),
-                                    step=latest.step or 0.5,
-                                    nullValue=-999.25,
-                                    depthUnit=latest.depthUnit or db_well.depthUnit or "FT",
-                                ),
-                                curves=[],
-                                data={"depth": depth_vals, "curves": curve_vals},
-                                totalPoints=len(depth_vals),
-                            )
-                        else:
-                            target_las.data.depth = depth_vals
-                            target_las.data.curves = curve_vals
-                            target_las.totalPoints = len(depth_vals)
+                        pts = []
+                    if not depth_vals and pts:
+                        depth_vals = [float(p.get("depth", 0.0)) for p in pts if isinstance(p, dict) and "depth" in p]
+                    vals = [float(p.get("value", -999.25)) for p in pts if isinstance(p, dict) and "value" in p]
+                    curve_vals[c.originalMnemonic.upper()] = vals
+                if depth_vals:
+                    if not target_las:
+                        from backend.app.services.parser import LASWellInfo
+                        target_las = ParsedLAS(
+                            version="2.0",
+                            wrap=False,
+                            wellInfo=LASWellInfo(
+                                wellName=db_well.name,
+                                company=db_well.operatorName or "",
+                                field=db_well.fieldName or "",
+                                startDepth=latest.startDepth or (depth_vals[0] if depth_vals else 0.0),
+                                stopDepth=latest.stopDepth or (depth_vals[-1] if depth_vals else 0.0),
+                                step=latest.step or 0.5,
+                                nullValue=-999.25,
+                                depthUnit=latest.depthUnit or db_well.depthUnit or "FT",
+                            ),
+                            curves=[],
+                            data={"depth": depth_vals, "curves": curve_vals},
+                            totalPoints=len(depth_vals),
+                        )
+                    else:
+                        target_las.data.depth = depth_vals
+                        target_las.data.curves = curve_vals
+                        target_las.totalPoints = len(depth_vals)
 
     if not target_las:
         raise HTTPException(
@@ -455,7 +470,7 @@ def repair_anomalies(
 
     server_aliases = _get_user_aliases(db, current_user)
     target_las, well_name, well_id = _resolve_target_las(
-        req.wellId, req.wellName, req.rawLasText, req.rawLas, server_aliases, db
+        req.wellId, req.wellName, req.rawLasText, req.rawLas, server_aliases, db, current_user
     )
 
     # Configure approved repair options
@@ -576,7 +591,7 @@ def rank_gaps_for_clusters(
     """
     server_aliases = _get_user_aliases(db, current_user)
     target_las, _, _ = _resolve_target_las(
-        req.wellId, req.wellName, req.rawLasText, req.rawLas, server_aliases, db
+        req.wellId, req.wellName, req.rawLasText, req.rawLas, server_aliases, db, current_user
     )
 
     depth_arr = np.array(target_las.data.depth, dtype=float)

@@ -476,18 +476,35 @@ export interface AIAnalysisOutput {
   }[];
 }
 
+export interface ApprovedFix {
+  problem: "DUPLICATE_DEPTH" | "IMPOSSIBLE_VALUE" | "NULL_CLUSTER" | "EXTREME_SPIKE";
+  curve: string;
+  depthStart: number;
+  depthEnd: number;
+  method?: string;
+}
+
 export interface CleaningOptions {
   despiking?: boolean;
   outlierClipping?: boolean;
   unitStandardization?: boolean;
   duplicateDepthPruning?: boolean;
+  duplicateAction?: "REMOVE_SECOND" | "COMPARE_ROWS";
+  impossibleAction?: "REMOVE" | "CLIP" | "DELETE_ROW";
+  approvedFixes?: ApprovedFix[];
   flatlineHandling?: boolean;
   depthGapInterpolation?: boolean;
-  imputationStrategy?: "NONE" | "KNN" | "LINEAR" | "MEDIAN";
+  imputationStrategy?: "NONE" | "KNN" | "LINEAR" | "SPLINE" | "RANDOM_FOREST" | "GRADIENT_BOOSTING" | "AUTO" | "MEDIAN";
+  spikeSigma?: number;
+  maxImputeGapSamples?: number;
+  maxDepthGapFillSteps?: number;
 }
 
 export interface VerificationReport {
   outliersRemovedCount: number;
+  outliersClippedCount?: number;
+  outlierRowsDeletedCount?: number;
+  goodReadingsLostInDeletedRows?: number;
   spikesDespikedCount: number;
   unitsConvertedCount: number;
   duplicateDepthsPrunedCount: number;
@@ -501,6 +518,23 @@ export interface VerificationReport {
   scoreImprovement: number;
   isVerifiedClean: boolean;
   summaryMessage: string;
+  imputedByCurve?: Record<string, number>;
+  notes?: string[];
+}
+
+export interface GapRankingItem {
+  method: string;
+  nrmse: number;
+}
+
+export interface GapRecommendationResult {
+  curve: string;
+  depthStart: number;
+  depthEnd: number;
+  bestMethod: string;
+  bucket: number;
+  reason: string;
+  ranking: GapRankingItem[];
 }
 
 export interface CleanedLogResult {

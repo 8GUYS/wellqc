@@ -59,6 +59,8 @@ export const ImputationStrategy = {
   MEAN: "MEAN",
   MEDIAN: "MEDIAN",
   SPLINE: "SPLINE",
+  RANDOM_FOREST: "RANDOM_FOREST",
+  GRADIENT_BOOSTING: "GRADIENT_BOOSTING",
   ROW_DROPPING: "ROW_DROPPING",
 } as const;
 export type ImputationStrategy = (typeof ImputationStrategy)[keyof typeof ImputationStrategy];

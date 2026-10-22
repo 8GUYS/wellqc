@@ -116,7 +116,7 @@ def generate_ai_analysis(las: ParsedLAS, qa_result: QualityAnalysisResult) -> AI
 
     spikes = _curves_for(anomalies, "EXTREME_SPIKE")
     if spikes:
-        recs.append(f"Execute median despiking on {_join(spikes)} over the flagged depths before reservoir zoning.")
+        recs.append(f"Replace each flagged spike on {_join(spikes)} with the mean of its two neighbouring samples before reservoir zoning.")
 
     flat = _curves_for(anomalies, "FLATLINE")
     if flat:

@@ -142,6 +142,7 @@ class LASFile(Base):
     nullValue = Column(Float, default=None, nullable=True)
     depthUnit = Column(String, default="FT", nullable=False)
     rawHeader = Column(Text, nullable=False)
+    rawContent = Column(Text, nullable=True)
     curveCount = Column(Integer, default=0, nullable=False)
     pointCount = Column(Integer, default=0, nullable=False)
     status = Column(String, default="PROCESSED", nullable=False)

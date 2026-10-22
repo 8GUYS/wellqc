@@ -128,6 +128,7 @@ erDiagram
         float nullValue "nullable / optional"
         string depthUnit
         string rawHeader
+        string rawContent "nullable / full file text"
         int curveCount
         int pointCount
         string status
@@ -240,7 +241,7 @@ Every entity in WellQC uses **UUID v4 strings** as its primary key (`id`). The t
 | **`Webhook`** | Standalone | N/A | N/A | N/A | N/A | Event-driven webhook destinations for outbound data pipeline dispatch. |
 
 > [!NOTE]
-> **Optional / Nullable Fields**: `LASFile.nullValue` is optional (`Float?` in Prisma, `nullable=True` in SQLAlchemy with default `None`), ensuring that files lacking explicit NULL header markers can be ingested without database schema violation. `Curve.minVal`, `Curve.maxVal`, and `Curve.meanVal` are likewise nullable for empty or all-null curve logs.
+> **Optional / Nullable Fields**: `LASFile.nullValue` is optional (`Float?` in Prisma, `nullable=True` in SQLAlchemy with default `None`), ensuring that files lacking explicit NULL header markers can be ingested without database schema violation. `LASFile.rawContent` is optional (`String? @db.Text` in Prisma, `nullable=True` in SQLAlchemy), storing the full uncompressed LAS text to enable 100% full-resolution petrophysical cleaning and AUTO gap benchmarking without downsampling artifacts. `Curve.minVal`, `Curve.maxVal`, and `Curve.meanVal` are likewise nullable for empty or all-null curve logs.
 
 ---
 
@@ -260,7 +261,7 @@ When an engineer uploads a LAS file via the **Upload Workspace** (`POST /api/las
                          │
                          ▼
                   ┌──────────────┐
-                  │   LAS_FILE   │ (Metadata: Start, Stop, Step, optional Null, Raw Header)
+                  │   LAS_FILE   │ (Metadata: Start, Stop, Step, optional Null, Raw Header & Raw Content)
                   └──────┬───────┘
             ┌────────────┴────────────┐
             ▼                         ▼

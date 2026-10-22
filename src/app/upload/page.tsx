@@ -8,6 +8,7 @@ import { AIAnalysisOutput } from "@/lib/las/ai-analyzer";
 import { analyzeLAS } from "@/lib/las/api";
 import { reconstructRawLASText } from "@/lib/las/exporter";
 import { downsampleParsedLASForStorage } from "@/lib/las/storage-utils";
+import { saveFullLasText, clearFullLasText } from "@/lib/las/full-text-store";
 import { WellLogViewer } from "@/components/well-log/log-viewer";
 import { CurveInventoryTable } from "@/components/well-log/curve-inventory-table";
 import { UploadHeader } from "@/components/upload/upload-header";
@@ -99,6 +100,10 @@ export default function LASUploadPage() {
   useEffect(() => {
     if (!parsedLAS || !qaResult) return;
 
+    if (rawText) {
+      saveFullLasText(fileName, rawText).catch(() => {});
+    }
+
     try {
       const activeUserId = localStorage.getItem("wellqc_active_user_id") || undefined;
       const lightweightParsed = downsampleParsedLASForStorage(parsedLAS, 300);
@@ -143,6 +148,7 @@ export default function LASUploadPage() {
   }, [parsedLAS, qaResult, aiOutput, rawText, fileName, savedSuccess, savedWell, uploadQueue]);
 
   const handleClearSession = () => {
+    clearFullLasText().catch(() => {});
     try {
       localStorage.removeItem("wellqc_upload_workspace");
     } catch {}

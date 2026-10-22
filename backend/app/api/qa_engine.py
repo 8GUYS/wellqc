@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import json
 import secrets
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Set
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 import numpy as np
 from pydantic import BaseModel, Field
@@ -184,9 +184,17 @@ def _resolve_target_las(
     resolved_id = well_id or "upload-session"
     target_las: Optional[ParsedLAS] = None
 
-    if raw_las_text:
+    effective_raw_text = raw_las_text
+    if not effective_raw_text and well_id and well_id not in ("upload-session", "active-upload", "direct-upload"):
+        db_well = db.query(Well).filter(Well.id == well_id).first()
+        if db_well and db_well.lasFiles:
+            latest = db_well.lasFiles[0]
+            if getattr(latest, "rawContent", None):
+                effective_raw_text = latest.rawContent
+
+    if effective_raw_text:
         try:
-            target_las = parse_las_content(raw_las_text, custom_aliases=server_aliases)
+            target_las = parse_las_content(effective_raw_text, custom_aliases=server_aliases)
             if target_las.wellInfo.wellName:
                 well_name = target_las.wellInfo.wellName
         except LASParseError as exc:
@@ -259,6 +267,170 @@ def _resolve_target_las(
         )
 
     return target_las, well_name, resolved_id
+
+
+def _is_null_val(v: Any, null_val: float) -> bool:
+    if v is None:
+        return True
+    try:
+        fv = float(v)
+        if np.isnan(fv):
+            return True
+        return abs(fv - null_val) < 1e-4 or abs(fv - (-999.25)) < 1e-4
+    except (ValueError, TypeError):
+        return True
+
+
+def _build_change_report(
+    orig_las: ParsedLAS,
+    cleaned_las: ParsedLAS,
+    approved_fixes: Optional[List[ApprovedFix]] = None,
+) -> Dict[str, Any]:
+    orig_depths = orig_las.data.depth
+    cleaned_depths = cleaned_las.data.depth
+    rows_before = len(orig_depths)
+    rows_after = len(cleaned_depths)
+
+    null_val = orig_las.wellInfo.nullValue if orig_las.wellInfo.nullValue is not None else -999.25
+    step = abs(orig_las.wellInfo.step) if orig_las.wellInfo.step else 0.5
+    half_step = 0.5 * step if step > 0 else 1e-4
+
+    matched_pairs: List[Tuple[int, int]] = []
+    removed_orig_indices: Set[int] = set()
+
+    # 1. Match rows: If same count match by position, otherwise match by depth rounded to 6 decimals (first occurrence)
+    if rows_before == rows_after:
+        matched_pairs = [(i, i) for i in range(rows_before)]
+        rows_removed = 0
+    else:
+        cleaned_depth_map: Dict[float, int] = {}
+        for cj, cd in enumerate(cleaned_depths):
+            key = round(float(cd), 6)
+            if key not in cleaned_depth_map:
+                cleaned_depth_map[key] = cj
+
+        used_cleaned: Set[int] = set()
+        for oi, od in enumerate(orig_depths):
+            key = round(float(od), 6)
+            cj = cleaned_depth_map.get(key)
+            if cj is not None and cj not in used_cleaned:
+                matched_pairs.append((oi, cj))
+                used_cleaned.add(cj)
+            else:
+                removed_orig_indices.add(oi)
+
+        rows_removed = len(removed_orig_indices)
+
+    # 2. Count changed values for every curve and matched row
+    cleaned_curve_map = {k.upper(): k for k in cleaned_las.data.curves.keys()}
+    changed_points: Set[Tuple[str, int]] = set()
+
+    for c_name, orig_vals in orig_las.data.curves.items():
+        c_upper = c_name.upper()
+        clean_key = cleaned_curve_map.get(c_upper)
+        if not clean_key:
+            continue
+        clean_vals = cleaned_las.data.curves.get(clean_key, [])
+
+        for oi, cj in matched_pairs:
+            if oi < len(orig_vals) and cj < len(clean_vals):
+                vo = orig_vals[oi]
+                vc = clean_vals[cj]
+                null_o = _is_null_val(vo, null_val)
+                null_c = _is_null_val(vc, null_val)
+
+                if null_o and null_c:
+                    continue
+                elif null_o != null_c:
+                    changed_points.add((c_upper, oi))
+                else:
+                    try:
+                        if abs(float(vo) - float(vc)) > 1e-9:
+                            changed_points.add((c_upper, oi))
+                    except (ValueError, TypeError):
+                        if str(vo) != str(vc):
+                            changed_points.add((c_upper, oi))
+
+    values_changed_by_curve: Dict[str, int] = {}
+    for c_upper, _ in changed_points:
+        values_changed_by_curve[c_upper] = values_changed_by_curve.get(c_upper, 0) + 1
+    total_values_changed = sum(values_changed_by_curve.values())
+
+    # 3. Count per approved fix
+    counted_changed_points: Set[Tuple[str, int]] = set()
+    counted_removed_rows: Set[int] = set()
+    fix_results: List[Dict[str, Any]] = []
+
+    if approved_fixes:
+        for fix in approved_fixes:
+            lo = min(fix.depthStart, fix.depthEnd) - half_step
+            hi = max(fix.depthStart, fix.depthEnd) + half_step
+
+            count = 0
+            if fix.problem == "DUPLICATE_DEPTH":
+                lost_in_range = [
+                    oi for oi in range(rows_before)
+                    if lo <= orig_depths[oi] <= hi and oi in removed_orig_indices
+                ]
+                count = len(lost_in_range)
+                for oi in lost_in_range:
+                    counted_removed_rows.add(oi)
+            elif (fix.method or "").upper() == "DELETE_ROW":
+                del_in_range = [
+                    oi for oi in range(rows_before)
+                    if lo <= orig_depths[oi] <= hi and oi in removed_orig_indices
+                ]
+                count = len(del_in_range)
+                for oi in del_in_range:
+                    counted_removed_rows.add(oi)
+            else:
+                c_upper = fix.curve.upper()
+                changed_in_range = [
+                    oi for oi in range(rows_before)
+                    if lo <= orig_depths[oi] <= hi and (c_upper, oi) in changed_points
+                ]
+                count = len(changed_in_range)
+                for oi in changed_in_range:
+                    counted_changed_points.add((c_upper, oi))
+
+            fix_results.append({
+                "problem": fix.problem,
+                "curve": fix.curve,
+                "depthStart": fix.depthStart,
+                "depthEnd": fix.depthEnd,
+                "method": fix.method or "",
+                "samplesChanged": count,
+            })
+
+    # 4. Report the rest
+    uncovered_changes = [pt for pt in changed_points if pt not in counted_changed_points]
+    other_changes_dict: Dict[str, List[int]] = {}
+    for c_upper, oi in uncovered_changes:
+        other_changes_dict.setdefault(c_upper, []).append(oi)
+
+    other_changes: List[Dict[str, Any]] = []
+    for c_upper, ois in other_changes_dict.items():
+        depths = [orig_depths[oi] for oi in ois]
+        other_changes.append({
+            "curve": c_upper,
+            "samplesChanged": len(ois),
+            "depthFrom": min(depths),
+            "depthTo": max(depths),
+        })
+
+    uncovered_removed = [oi for oi in removed_orig_indices if oi not in counted_removed_rows]
+    other_rows_removed = len(uncovered_removed)
+
+    return {
+        "rowsBefore": rows_before,
+        "rowsAfter": rows_after,
+        "rowsRemoved": rows_removed,
+        "valuesChangedByCurve": values_changed_by_curve,
+        "totalValuesChanged": total_values_changed,
+        "fixResults": fix_results,
+        "otherChanges": other_changes,
+        "otherRowsRemoved": other_rows_removed,
+    }
 
 
 @router.post("/repair")
@@ -353,6 +525,8 @@ def repair_anomalies(
     except Exception:
         db.rollback()
 
+    change_report = _build_change_report(target_las, clean_result.cleanedLas, req.approvedFixes)
+
     return {
         "success": True,
         "message": f"Successfully executed verified petrophysical repairs for {well_name}.",
@@ -370,6 +544,7 @@ def repair_anomalies(
         "cleanedLasText": clean_result.cleanedLasText,
         "cleanedCsvText": clean_result.cleanedCsvText,
         "auditCertificateId": audit_cert_id,
+        "changeReport": change_report,
         "auditLogEntry": {
             "certificateId": audit_cert_id,
             "userName": user_name,

@@ -8,7 +8,9 @@ import {
   rankGapsQAEngine,
   analyzeLAS,
   QARepairResponse,
+  QAChangeReport,
 } from "@/lib/las/api";
+import { loadFullLasText } from "@/lib/las/full-text-store";
 import { downloadTextFile } from "@/lib/las/storage-utils";
 import {
   ParsedLAS,
@@ -205,14 +207,45 @@ function getAnomalyChangeDetails(
   a: AnomalyReportItem,
   dec: FixDecision | undefined,
   depthUnit: string,
-  rawLas: ParsedLAS | null
+  rawLas: ParsedLAS | null,
+  changeReport?: QAChangeReport
 ) {
   const pType = normalizeProblemType(a.anomalyType)!;
   const isApproved = dec?.status === "APPROVED";
   const step = Math.abs(rawLas?.wellInfo?.step || 0.5) || 0.5;
 
   let samplesChanged = 0;
-  if (isApproved) {
+  let foundInReport = false;
+
+  if (isApproved && changeReport?.fixResults && changeReport.fixResults.length > 0) {
+    const curveName = (a.curveMnemonic || "WELL").trim().toLowerCase();
+    const match = changeReport.fixResults.find((fr) => {
+      const frProb = normalizeProblemType(fr.problem) || fr.problem;
+      const frCurve = (fr.curve || "").trim().toLowerCase();
+      const probMatch =
+        frProb === pType ||
+        fr.problem?.toLowerCase() === a.anomalyType?.toLowerCase() ||
+        fr.problem?.toLowerCase() === (pType || "").toLowerCase();
+      const curveMatch =
+        frCurve === curveName ||
+        (pType === "DUPLICATE_DEPTH" && (frCurve === "dept" || frCurve === "depth" || frCurve === "well"));
+      const depthStartMatch =
+        Math.abs(fr.depthStart - a.depthStart) < 1e-4 ||
+        Math.abs(fr.depthStart - a.depthStart) <= step * 0.51;
+      const depthEndMatch =
+        Math.abs(fr.depthEnd - a.depthEnd) < 1e-4 ||
+        Math.abs(fr.depthEnd - a.depthEnd) <= step * 0.51;
+
+      return probMatch && curveMatch && depthStartMatch && depthEndMatch;
+    });
+
+    if (match) {
+      samplesChanged = match.samplesChanged;
+      foundInReport = true;
+    }
+  }
+
+  if (isApproved && !foundInReport) {
     if (pType === "DUPLICATE_DEPTH") {
       samplesChanged = 1;
     } else if (pType === "IMPOSSIBLE_VALUE") {
@@ -427,6 +460,27 @@ export default function QAEngineWorkspace() {
       console.warn("Could not read active upload workspace:", err);
     }
   }
+
+  // Load full LAS text from IndexedDB for active upload if rawLasText is empty
+  useEffect(() => {
+    if (sourceChoice !== "ACTIVE_UPLOAD" || !rawLas || rawLasText) return;
+    let cancelled = false;
+
+    loadFullLasText()
+      .then((stored) => {
+        if (cancelled || !stored || !stored.fullText) return;
+        const wn = rawLas.wellInfo?.wellName;
+        if (wn && !stored.fullText.includes(wn)) {
+          return;
+        }
+        setRawLasText(stored.fullText);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceChoice, rawLas, rawLasText]);
 
   // Helper to reset all review decisions & results from scratch
   const resetWorkspaceState = useCallback(() => {
@@ -912,7 +966,13 @@ export default function QAEngineWorkspace() {
       const decisionStr = dec ? dec.status : "NOT_REVIEWED";
       const methodStr = dec?.status === "APPROVED" ? dec.method || "Standard" : "None";
 
-      const { samplesChanged, valBefore, valAfter } = getAnomalyChangeDetails(a, dec, depthUnit, rawLas);
+      const { samplesChanged, valBefore, valAfter } = getAnomalyChangeDetails(
+        a,
+        dec,
+        depthUnit,
+        rawLas,
+        repairResult?.changeReport
+      );
 
       rows.push(
         `"${idx + 1}","${getProblemDisplayName(pType)}","${a.curveMnemonic || "WELL"}","${a.depthStart} - ${a.depthEnd} ${depthUnit}","${decisionStr}","${methodStr}","${samplesChanged}","${valBefore}","${valAfter}"`
@@ -1820,7 +1880,8 @@ export default function QAEngineWorkspace() {
                         a,
                         dec,
                         depthUnit,
-                        rawLas
+                        rawLas,
+                        repairResult?.changeReport
                       );
 
                       return (
@@ -1867,6 +1928,55 @@ export default function QAEngineWorkspace() {
                 </table>
               </div>
             </div>
+
+            {/* Totals Summary Box */}
+            {repairResult.changeReport && (
+              <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-700/60 space-y-2.5 text-xs font-mono">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-2">
+                  <span className="font-bold text-slate-200">Execution Change Summary</span>
+                  <span className="text-slate-300">
+                    Rows: {repairResult.changeReport.rowsBefore.toLocaleString()} before &rarr; {repairResult.changeReport.rowsAfter.toLocaleString()} after
+                    {repairResult.changeReport.rowsRemoved > 0 && (
+                      <span className="text-rose-400 ml-1.5 font-bold">({repairResult.changeReport.rowsRemoved} removed)</span>
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-slate-300">
+                  <span className="text-slate-400">Values changed in total:</span>
+                  <span className="font-bold text-cyan-300">{repairResult.changeReport.totalValuesChanged.toLocaleString()}</span>
+                  {Object.keys(repairResult.changeReport.valuesChangedByCurve || {}).length > 0 && (
+                    <span className="text-slate-400">
+                      (
+                      {Object.entries(repairResult.changeReport.valuesChangedByCurve)
+                        .map(([curve, count]) => `${curve} ${count}`)
+                        .join(", ")}
+                      )
+                    </span>
+                  )}
+                </div>
+
+                {/* Amber notice: changes or row deletions not tied to an approved fix */}
+                {(repairResult.changeReport.otherRowsRemoved > 0 ||
+                  (repairResult.changeReport.otherChanges && repairResult.changeReport.otherChanges.length > 0)) && (
+                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-1">
+                    <div className="font-bold text-[11px]">
+                      Notice: Additional adjustments not tied to an approved fix:
+                    </div>
+                    {repairResult.changeReport.otherRowsRemoved > 0 && (
+                      <div className="text-[11px]">
+                        &bull; Rows removed outside approved fixes: {repairResult.changeReport.otherRowsRemoved}
+                      </div>
+                    )}
+                    {repairResult.changeReport.otherChanges?.map((oc, i) => (
+                      <div key={i} className="text-[11px]">
+                        &bull; Curve {oc.curve}: {oc.samplesChanged} values changed across {oc.depthFrom} &ndash; {oc.depthTo} {depthUnit}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* The Audit Certificate Box */}
             <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-3">

@@ -262,6 +262,33 @@ export interface QARepairRequestPayload {
   approvedFixes?: ApprovedFix[];
 }
 
+export interface QAFixResult {
+  problem: string;
+  curve: string;
+  depthStart: number;
+  depthEnd: number;
+  method?: string;
+  samplesChanged: number;
+}
+
+export interface QAOtherChange {
+  curve: string;
+  samplesChanged: number;
+  depthFrom: number;
+  depthTo: number;
+}
+
+export interface QAChangeReport {
+  rowsBefore: number;
+  rowsAfter: number;
+  rowsRemoved: number;
+  valuesChangedByCurve: Record<string, number>;
+  totalValuesChanged: number;
+  fixResults: QAFixResult[];
+  otherChanges: QAOtherChange[];
+  otherRowsRemoved: number;
+}
+
 export interface QARepairResponse {
   success: boolean;
   message: string;
@@ -279,6 +306,7 @@ export interface QARepairResponse {
   cleanedLasText: string;
   cleanedCsvText: string;
   auditCertificateId: string;
+  changeReport?: QAChangeReport;
   auditLogEntry: {
     certificateId: string;
     userName: string;

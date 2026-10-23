@@ -15,6 +15,7 @@ import {
   Database,
 } from "lucide-react";
 import { WellQCIcon } from "@/components/ui/wellqc-logo";
+import { safeReadJson } from "@/lib/http-client";
 
 export default function NDAPage() {
   const router = useRouter();
@@ -36,10 +37,10 @@ export default function NDAPage() {
         method: "POST",
       });
 
-      const data = await res.json();
+      const jsonResult = await safeReadJson<{ error?: string }>(res, "Failed to accept NDA.");
 
-      if (!res.ok) {
-        setError(data.error || "Failed to accept NDA.");
+      if (!jsonResult.ok) {
+        setError(jsonResult.error || "Failed to accept NDA.");
         setLoading(false);
         return;
       }

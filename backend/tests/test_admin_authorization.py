@@ -49,7 +49,7 @@ def setup_test_db():
     Base.metadata.drop_all(bind=engine)
     app.dependency_overrides.pop(get_db, None)
 
-def create_test_user(db, user_id: str, email: str, name: str, role: str = "PETROPHYSICIST") -> dict:
+def create_test_user(db, user_id: str, email: str, name: str, role: str = "USER") -> dict:
     user = User(
         id=user_id,
         email=email,
@@ -114,13 +114,13 @@ def test_unauthenticated_cannot_delete_user():
 # 2. ALL NON-ADMIN ROLES ARE DENIED (403 FORBIDDEN - DEFAULT TO DENY)
 # ─────────────────────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("role", ["PETROPHYSICIST", "VIEWER", "DATA_ENGINEER", "GEOSCIENTIST"])
+@pytest.mark.parametrize("role", ["USER", "PETROPHYSICIST", "VIEWER", "DATA_ENGINEER", "GEOSCIENTIST"])
 def test_non_admin_roles_denied_access_to_all_admin_endpoints(role):
     """Every non-admin role must receive 403 Forbidden on all admin endpoints."""
     db = TestingSessionLocal()
     try:
         user = create_test_user(db, f"user-{role.lower()}-id", f"{role.lower()}@test.com", f"Test {role}", role=role)
-        target = create_test_user(db, "target-user-id", "target@test.com", "Target User", role="VIEWER")
+        target = create_test_user(db, "target-user-id", "target@test.com", "Target User", role="USER")
     finally:
         db.close()
 
@@ -236,8 +236,8 @@ def test_admin_can_manage_users_and_roles():
     db = TestingSessionLocal()
     try:
         admin = create_test_user(db, "admin-user-id", "admin@corp.com", "Admin User", role="ADMIN")
-        user1 = create_test_user(db, "u1-id", "u1@corp.com", "User One", role="VIEWER")
-        user2 = create_test_user(db, "u2-id", "u2@corp.com", "User Two", role="PETROPHYSICIST")
+        user1 = create_test_user(db, "u1-id", "u1@corp.com", "User One", role="USER")
+        user2 = create_test_user(db, "u2-id", "u2@corp.com", "User Two", role="USER")
     finally:
         db.close()
 
@@ -249,20 +249,20 @@ def test_admin_can_manage_users_and_roles():
     users = res_list.json()["users"]
     assert len(users) == 3
 
-    # 2. Admin promotes User One to GEOSCIENTIST
+    # 2. Admin promotes User One to ADMIN
     res_patch = client.patch(
         "/api/admin/users",
         cookies=admin["cookies"],
-        json={"userId": user1["id"], "role": "GEOSCIENTIST"},
+        json={"userId": user1["id"], "role": "ADMIN"},
     )
     assert res_patch.status_code == 200
-    assert res_patch.json()["user"]["role"] == "GEOSCIENTIST"
+    assert res_patch.json()["user"]["role"] == "ADMIN"
 
     # Verify in DB
     db = TestingSessionLocal()
     try:
         updated = db.query(User).filter(User.id == user1["id"]).first()
-        assert updated.role == "GEOSCIENTIST"
+        assert updated.role == "ADMIN"
     finally:
         db.close()
 
@@ -318,7 +318,7 @@ def test_admin_cannot_demote_only_remaining_admin():
     res = client.patch(
         "/api/admin/users",
         cookies=admin["cookies"],
-        json={"userId": admin["id"], "role": "PETROPHYSICIST"},
+        json={"userId": admin["id"], "role": "USER"},
     )
     assert res.status_code == 400
     assert "only remaining administrator" in res.json()["detail"].lower()
@@ -342,8 +342,11 @@ def test_admin_cannot_set_invalid_role():
     assert "invalid role" in res.json()["detail"].lower()
 
 
-def test_admin_can_get_and_update_email_settings():
-    """Admins can retrieve and save EmailJS settings, persisting to SystemSetting."""
+def test_admin_can_get_and_update_email_settings(monkeypatch):
+    """Admins can retrieve and save EmailJS settings, with secrets sourced strictly from environment variables."""
+    from backend.app.core.config import settings
+    monkeypatch.setattr(settings, "EMAILJS_PRIVATE_KEY", "priv_key_secret")
+
     db = TestingSessionLocal()
     try:
         admin = create_test_user(db, "adm-email-1", "adm-email@corp.com", "Admin Email", role="ADMIN")
@@ -381,6 +384,19 @@ def test_admin_can_get_and_update_email_settings():
     assert v_data["emailjs_service_id"] == "service_test123"
     assert v_data["emailjs_private_key_configured"] is True
 
+    # 4. Verify secrets are NOT persisted to the database SystemSetting table
+    import json
+    from backend.app.models.models import SystemSetting
+    db_verify = TestingSessionLocal()
+    try:
+        setting = db_verify.query(SystemSetting).filter(SystemSetting.key == "email_settings").first()
+        assert setting is not None
+        stored_dict = json.loads(setting.value)
+        assert "emailjs_private_key" not in stored_dict
+        assert "resend_api_key" not in stored_dict
+    finally:
+        db_verify.close()
+
 
 def test_non_admin_cannot_access_email_settings():
     """Non-admin users receive 403 Forbidden when attempting to view or modify email settings."""
@@ -407,9 +423,9 @@ def test_admin_can_bulk_delete_users():
     db = TestingSessionLocal()
     try:
         admin = create_test_user(db, "admin-bulk-1", "admin-bulk@corp.com", "Chief Admin", role="ADMIN")
-        user1 = create_test_user(db, "u-bulk-1", "u1@corp.com", "Analyst 1", role="PETROPHYSICIST")
-        user2 = create_test_user(db, "u-bulk-2", "u2@corp.com", "Analyst 2", role="GEOSCIENTIST")
-        user3 = create_test_user(db, "u-bulk-3", "u3@corp.com", "Analyst 3", role="VIEWER")
+        user1 = create_test_user(db, "u-bulk-1", "u1@corp.com", "Analyst 1", role="USER")
+        user2 = create_test_user(db, "u-bulk-2", "u2@corp.com", "Analyst 2", role="USER")
+        user3 = create_test_user(db, "u-bulk-3", "u3@corp.com", "Analyst 3", role="USER")
     finally:
         db.close()
 
@@ -442,7 +458,7 @@ def test_bulk_delete_validations():
     db = TestingSessionLocal()
     try:
         admin = create_test_user(db, "admin-guard-1", "guard@corp.com", "Solo Admin", role="ADMIN")
-        reg_user = create_test_user(db, "reg-guard-1", "reg@corp.com", "Regular User", role="VIEWER")
+        reg_user = create_test_user(db, "reg-guard-1", "reg@corp.com", "Regular User", role="USER")
     finally:
         db.close()
 

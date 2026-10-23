@@ -23,6 +23,13 @@ import {
   CheckSquare,
   AlertTriangle,
   CheckCircle2,
+  ShieldCheck,
+  User as UserIcon,
+  Shield,
+  FileText,
+  Clock,
+  UserCheck,
+  Mail,
 } from "lucide-react";
 
 function subscribeToStorage(callback: () => void) {
@@ -41,8 +48,20 @@ function getLatestCommittedWellSnapshot(): string | null {
 
 export default function WellManagementPage() {
   const [wells, setWells] = useState<WellListItem[]>([]);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const storedUser = localStorage.getItem("wellqc_user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        return parsed?.role || null;
+      }
+    } catch {}
+    return null;
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [custodianFilter, setCustodianFilter] = useState<"ALL" | "USER_UPLOADED" | "SYSTEM">("ALL");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -101,6 +120,13 @@ export default function WellManagementPage() {
 
   useEffect(() => {
     loadWells();
+
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user?.role) setCurrentUserRole(data.user.role);
+      })
+      .catch(() => {});
   }, []);
 
   const toggleExpandWell = (wellId: string) => {
@@ -113,9 +139,15 @@ export default function WellManagementPage() {
       well.name.toLowerCase().includes(needle) ||
       well.apiNo.toLowerCase().includes(needle) ||
       well.operatorName.toLowerCase().includes(needle) ||
-      well.fieldName.toLowerCase().includes(needle);
+      well.fieldName.toLowerCase().includes(needle) ||
+      (well.uploaderName && well.uploaderName.toLowerCase().includes(needle)) ||
+      (well.uploaderEmail && well.uploaderEmail.toLowerCase().includes(needle));
     const matchesStatus = statusFilter === "ALL" || well.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesCustodian =
+      custodianFilter === "ALL" ||
+      (custodianFilter === "USER_UPLOADED" && (Boolean(well.uploaderName) || Boolean(well.uploaderEmail))) ||
+      (custodianFilter === "SYSTEM" && !well.uploaderName && !well.uploaderEmail);
+    return matchesSearch && matchesStatus && matchesCustodian;
   });
 
   // Bulk selection computations & handlers
@@ -297,13 +329,6 @@ export default function WellManagementPage() {
     }
   };
 
-  const handleDeleteWell = async (id: string) => {
-    const targetWell = wells.find((w) => w.id === id);
-    if (targetWell) {
-      handleOpenSingleDelete(targetWell);
-    }
-  };
-
   const resetForm = () => {
     setNewWellName("");
     setNewApiNo("");
@@ -319,16 +344,24 @@ export default function WellManagementPage() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-wellqc-panel/60 border border-wellqc-border p-5 rounded-2xl">
           <div>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-blue-500/20 text-cyan-300 border border-cyan-500/40">
                 Module 02 - Well Master Index
               </span>
+              {currentUserRole === "ADMIN" && (
+                <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Global Admin Privileges (All User Accounts)</span>
+                </span>
+              )}
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight mt-1">
               Enterprise Well Asset Management
             </h1>
             <p className="text-xs text-wellqc-muted font-mono mt-0.5">
-              Database-backed list of wells created manually or committed from validated LAS uploads.
+              {currentUserRole === "ADMIN"
+                ? "Full administrative access: Viewing, auditing, and managing uploaded wells across all user accounts."
+                : "Database-backed list of wells created manually or committed from validated LAS uploads."}
             </p>
           </div>
 
@@ -428,25 +461,41 @@ export default function WellManagementPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter wells by Name, API/UWI number, Operator, or Field..."
+              placeholder="Filter wells by Name, API/UWI, Operator, Field, or Uploaded User..."
               className="w-full bg-wellqc-card border border-wellqc-border rounded-lg pl-9 pr-4 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
             />
           </div>
 
-          <div className="flex items-center space-x-2 text-xs font-mono w-full md:w-auto">
-            <Filter className="w-4 h-4 text-slate-400" />
-            <span className="text-slate-400">Status:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-wellqc-card border border-wellqc-border rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="DRILLING">Drilling</option>
-              <option value="SHUT_IN">Shut In</option>
-              <option value="UNVALIDATED">Unvalidated</option>
-            </select>
+          <div className="flex flex-wrap items-center gap-3 text-xs font-mono w-full md:w-auto">
+            <div className="flex items-center space-x-2">
+              <Filter className="w-4 h-4 text-slate-400" />
+              <span className="text-slate-400">Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-wellqc-card border border-wellqc-border rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="ACTIVE">Active</option>
+                <option value="DRILLING">Drilling</option>
+                <option value="SHUT_IN">Shut In</option>
+                <option value="UNVALIDATED">Unvalidated</option>
+              </select>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <UserCheck className="w-4 h-4 text-cyan-400" />
+              <span className="text-slate-400">Ownership:</span>
+              <select
+                value={custodianFilter}
+                onChange={(e) => setCustodianFilter(e.target.value as "ALL" | "USER_UPLOADED" | "SYSTEM")}
+                className="bg-wellqc-card border border-wellqc-border rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
+              >
+                <option value="ALL">All Custodians</option>
+                <option value="USER_UPLOADED">User Uploaded Wells</option>
+                <option value="SYSTEM">System / Legacy Wells</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -576,6 +625,19 @@ export default function WellManagementPage() {
                     <th className="p-4">Field & Basin</th>
                     <th className="p-4">Country</th>
                     <th className="p-4">LAS File</th>
+                    <th className="p-4">
+                      <div className="flex items-center gap-1.5">
+                        <span>Uploaded By</span>
+                        {currentUserRole === "ADMIN" && (
+                          <span
+                            className="px-1.5 py-0.5 rounded text-[9px] bg-rose-500/15 text-rose-300 border border-rose-500/30 font-bold tracking-wider"
+                            title="Administrator Audit View: Tracking user upload provenance and email identities"
+                          >
+                            ADMIN AUDIT
+                          </span>
+                        )}
+                      </div>
+                    </th>
                     <th className="p-4">Quality Score</th>
                     <th className="p-4 text-right">Actions</th>
                   </tr>
@@ -621,6 +683,55 @@ export default function WellManagementPage() {
                             </div>
                           </td>
                           <td className="p-4">
+                            {well.uploaderName || well.uploaderEmail ? (
+                              <div className="flex items-center space-x-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/25 via-blue-600/20 to-purple-600/30 border border-cyan-500/40 flex items-center justify-center shrink-0 text-cyan-200 font-bold text-xs shadow-sm">
+                                  {well.uploaderName ? (
+                                    well.uploaderName.charAt(0).toUpperCase()
+                                  ) : (
+                                    <UserIcon className="w-3.5 h-3.5 text-cyan-300" />
+                                  )}
+                                </div>
+                                <div className="min-w-0 max-w-[210px]">
+                                  <div className="flex items-center gap-1.5">
+                                    <span
+                                      className="text-white font-semibold text-xs truncate"
+                                      title={well.uploaderName || undefined}
+                                    >
+                                      {well.uploaderName || "Registered User"}
+                                    </span>
+                                    {currentUserRole === "ADMIN" && (
+                                      <span
+                                        className="px-1.5 py-0.2 rounded text-[8px] bg-rose-500/15 text-rose-300 border border-rose-500/30 font-mono font-bold shrink-0 uppercase tracking-wider"
+                                        title="User account that uploaded and owns this well asset"
+                                      >
+                                        CUSTODIAN
+                                      </span>
+                                    )}
+                                  </div>
+                                  {well.uploaderEmail ? (
+                                    <div
+                                      className="text-[10px] text-cyan-300/90 font-mono truncate hover:text-cyan-200 transition-colors flex items-center gap-1"
+                                      title={`User Email: ${well.uploaderEmail}`}
+                                    >
+                                      <Mail className="w-2.5 h-2.5 shrink-0 text-cyan-400/70" />
+                                      <span className="truncate">{well.uploaderEmail}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="text-[10px] text-slate-500 font-mono">
+                                      No email recorded
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] bg-slate-800/60 text-slate-400 border border-slate-700/60 font-mono">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                                <span>System / Legacy</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-4">
                             <span className={`px-2.5 py-1 rounded text-xs font-bold ${
                               well.qualityScore >= 90 ? "badge-excellent" :
                               well.qualityScore >= 75 ? "badge-good" :
@@ -635,7 +746,7 @@ export default function WellManagementPage() {
                               onClick={() => toggleExpandWell(well.id)}
                               className={`p-1.5 rounded-lg border inline-flex items-center gap-1 text-xs font-mono transition-all ${
                                 isExpanded
-                                  ? "bg-cyan-500/30 border-cyan-400 text-cyan-200 shadow-sm shadow-cyan-500/20"
+                                   ? "bg-cyan-500/30 border-cyan-400 text-cyan-200 shadow-sm shadow-cyan-500/20"
                                   : "bg-wellqc-card border-wellqc-border hover:border-cyan-500/50 text-cyan-300"
                               }`}
                               title="View Curve Standardisation & Quality Inventory"
@@ -648,6 +759,13 @@ export default function WellManagementPage() {
                                 <ChevronDown className="w-3.5 h-3.5" />
                               )}
                             </button>
+                            <Link
+                              href={`/qa-engine?wellId=${well.id}`}
+                              className="p-1.5 rounded-lg bg-wellqc-card hover:bg-emerald-500/20 text-emerald-400 inline-block transition-colors"
+                              title="Fix Well Log in QA Engine"
+                            >
+                              <ShieldCheck className="w-4 h-4" />
+                            </Link>
                             <Link
                               href={`/wells/${well.id}`}
                               className="p-1.5 rounded-lg bg-wellqc-card hover:bg-cyan-500/20 text-cyan-300 inline-block transition-colors"
@@ -667,7 +785,7 @@ export default function WellManagementPage() {
 
                         {isExpanded && (
                           <tr className="bg-slate-950/80">
-                            <td colSpan={9} className="p-4 border-b border-wellqc-border">
+                            <td colSpan={10} className="p-4 border-b border-wellqc-border">
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between px-1">
                                   <div className="text-xs font-bold text-slate-200 font-mono flex items-center gap-2">
@@ -677,6 +795,13 @@ export default function WellManagementPage() {
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-3 text-xs font-mono">
+                                    <Link
+                                      href={`/qa-engine?wellId=${well.id}`}
+                                      className="text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 font-bold"
+                                    >
+                                      <ShieldCheck className="w-3.5 h-3.5" />
+                                      <span>Repair in QA Engine</span>
+                                    </Link>
                                     <Link
                                       href={`/wells/${well.id}`}
                                       className="text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-1 font-bold"
@@ -691,6 +816,131 @@ export default function WellManagementPage() {
                                     >
                                       Close
                                     </button>
+                                  </div>
+                                </div>
+
+                                {/* Asset Provenance & Upload Audit Section */}
+                                <div className="rounded-xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/30 via-wellqc-panel to-purple-950/20 p-4 shadow-lg space-y-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-wellqc-border/80">
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300">
+                                        <UserCheck className="w-4 h-4" />
+                                      </div>
+                                      <div>
+                                        <div className="text-xs font-bold text-white flex items-center gap-2">
+                                          <span>Asset Provenance & Upload Audit</span>
+                                          {currentUserRole === "ADMIN" && (
+                                            <span className="px-2 py-0.5 rounded text-[9px] bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold uppercase tracking-wider">
+                                              ADMIN AUDIT TRAIL
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 font-mono">
+                                          Subsurface log chain-of-custody, user attribution, and verification details
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[11px] font-mono">
+                                      <span className="text-slate-500">Asset Record ID:</span>
+                                      <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 text-[10px]">
+                                        {well.id}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-mono">
+                                    {/* Tile 1: Uploader / User Information */}
+                                    <div className="bg-slate-950/70 border border-wellqc-border rounded-lg p-3 space-y-1.5">
+                                      <div className="text-[10px] text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <UserIcon className="w-3 h-3 text-cyan-400" />
+                                        <span>Uploaded By (User)</span>
+                                      </div>
+                                      <div className="text-white font-semibold text-xs truncate">
+                                        {well.uploaderName || (well.ownerId ? "Registered User" : "System / Legacy Ingest")}
+                                      </div>
+                                      {well.uploaderEmail ? (
+                                        <div className="text-[11px] text-cyan-300 font-mono truncate flex items-center gap-1.5" title={well.uploaderEmail}>
+                                          <Mail className="w-3 h-3 text-cyan-400 shrink-0" />
+                                          <span className="truncate">{well.uploaderEmail}</span>
+                                        </div>
+                                      ) : (
+                                        <div className="text-[10px] text-slate-500 font-mono">
+                                          No email assigned
+                                        </div>
+                                      )}
+                                      {well.ownerId && (
+                                        <div className="text-[9px] text-slate-500 font-mono truncate pt-0.5">
+                                          User ID: {well.ownerId}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Tile 2: Committed LAS File */}
+                                    <div className="bg-slate-950/70 border border-wellqc-border rounded-lg p-3 space-y-1.5">
+                                      <div className="text-[10px] text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <FileText className="w-3 h-3 text-blue-400" />
+                                        <span>Committed LAS Log File</span>
+                                      </div>
+                                      <div className="text-white font-semibold text-xs truncate" title={well.latestLasFileName || undefined}>
+                                        {well.latestLasFileName || "No LAS File Attached"}
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 font-mono">
+                                        {well.curveCount} curves • {well.pointCount.toLocaleString()} depth steps
+                                      </div>
+                                      {well.latestLasFileId && (
+                                        <div className="text-[9px] text-slate-500 font-mono truncate pt-0.5">
+                                          File ID: {well.latestLasFileId}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Tile 3: Ingestion & Upload Timestamp */}
+                                    <div className="bg-slate-950/70 border border-wellqc-border rounded-lg p-3 space-y-1.5">
+                                      <div className="text-[10px] text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Clock className="w-3 h-3 text-emerald-400" />
+                                        <span>Upload / Ingest Timestamp</span>
+                                      </div>
+                                      <div className="text-white font-semibold text-xs">
+                                        {well.latestLasFileCreatedAt || well.createdAt
+                                          ? new Date(well.latestLasFileCreatedAt || well.createdAt).toLocaleDateString(undefined, {
+                                              year: "numeric",
+                                              month: "short",
+                                              day: "numeric",
+                                              hour: "2-digit",
+                                              minute: "2-digit",
+                                            })
+                                          : "Unknown"}
+                                      </div>
+                                      <div className="text-[10px] text-emerald-400/90 font-mono">
+                                        Verified Depository Ingest
+                                      </div>
+                                      <div className="text-[9px] text-slate-500 font-mono truncate pt-0.5">
+                                        Last Update: {well.updatedAt ? new Date(well.updatedAt).toLocaleDateString() : "—"}
+                                      </div>
+                                    </div>
+
+                                    {/* Tile 4: Governance & Custody Status */}
+                                    <div className="bg-slate-950/70 border border-wellqc-border rounded-lg p-3 space-y-1.5">
+                                      <div className="text-[10px] text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Shield className="w-3 h-3 text-purple-400" />
+                                        <span>Governance & Quality</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                          well.qualityScore >= 90 ? "badge-excellent" :
+                                          well.qualityScore >= 75 ? "badge-good" :
+                                          well.qualityScore >= 50 ? "badge-poor" : "badge-critical"
+                                        }`}>
+                                          Score: {well.qualityScore}/100 ({well.qualityGrade})
+                                        </span>
+                                      </div>
+                                      <div className="text-[10px] text-slate-300 font-mono">
+                                        Lifecycle Status: <span className="font-bold text-cyan-300">{well.status}</span>
+                                      </div>
+                                      <div className="text-[9px] text-slate-500 font-mono truncate pt-0.5">
+                                        Depository Directive §64 Compliant
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
 

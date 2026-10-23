@@ -13,6 +13,8 @@ import {
   RefreshCw,
   UploadCloud,
   Layers,
+  ShieldCheck,
+  Wrench,
 } from "lucide-react";
 import { WellLogViewer } from "@/components/well-log/log-viewer";
 
@@ -93,7 +95,7 @@ export default function WellDetailPage({ params }: { params: Promise<{ id: strin
 
         {well && (
           <>
-            <div className="bg-wellqc-panel border border-wellqc-border p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="bg-wellqc-panel border border-wellqc-border p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className={`w-3 h-3 rounded-full ${well.qualityScore >= 75 ? "bg-emerald-400" : "bg-amber-400"}`} />
@@ -111,10 +113,17 @@ export default function WellDetailPage({ params }: { params: Promise<{ id: strin
                 </p>
               </div>
 
-              <div className="flex items-center space-x-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  href={`/qa-engine?wellId=${well.id}`}
+                  className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-xs shadow-md shadow-cyan-600/20 hover:shadow-cyan-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Fix in QA Engine</span>
+                </Link>
                 <Link
                   href="/reports"
-                  className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-wellqc-card border border-wellqc-border hover:border-cyan-500/50 text-cyan-300 font-semibold text-xs transition-all"
+                  className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-wellqc-card border border-wellqc-border hover:border-cyan-500/50 text-cyan-300 font-semibold text-xs transition-all hover:scale-[1.02] active:scale-[0.98]"
                 >
                   <Download className="w-4 h-4" />
                   <span>Open Reports</span>
@@ -130,9 +139,18 @@ export default function WellDetailPage({ params }: { params: Promise<{ id: strin
             </div>
 
             <div className="p-4 bg-wellqc-card border border-cyan-500/30 rounded-xl space-y-2">
-              <div className="flex items-center space-x-2 text-xs font-bold text-cyan-300">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
-                <span>Petrophysical Summary</span>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center space-x-2 text-xs font-bold text-cyan-300">
+                  <Sparkles className="w-4 h-4 text-cyan-400" />
+                  <span>Petrophysical Summary</span>
+                </div>
+                <Link
+                  href={`/qa-engine?wellId=${well.id}`}
+                  className="inline-flex items-center space-x-1.5 text-[11px] font-mono text-cyan-400 hover:text-cyan-300 font-bold hover:underline"
+                >
+                  <Wrench className="w-3.5 h-3.5" />
+                  <span>Repair Anomalies in QA Engine &rarr;</span>
+                </Link>
               </div>
               <p className="text-xs text-slate-300 font-mono">{detail.aiSummary}</p>
               {detail.recommendations.length > 0 && (

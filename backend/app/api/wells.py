@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, selectinload, defer
 from sqlalchemy import desc, asc, or_
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
+from backend.app.core.security import normalize_role
 from backend.app.models.models import (
     ActivityLog,
     Anomaly,
@@ -30,22 +31,19 @@ logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/api/wells", tags=["wells"])
 
+_wells_cache: Dict[str, Tuple[float, Any]] = {}
+CACHE_TTL_SECONDS = 30.0
+
+def invalidate_wells_cache():
+    _wells_cache.clear()
+
 def _extract_curve_summaries(
     latest_report: Optional[QualityReport],
     latest_las_file: Optional[LASFile],
 ) -> List[Dict[str, Any]]:
-    if latest_report and latest_report.reportJson:
-        try:
-            parsed = json.loads(latest_report.reportJson)
-            if isinstance(parsed, dict) and isinstance(parsed.get("curveSummaries"), list) and parsed["curveSummaries"]:
-                return parsed["curveSummaries"]
-        except Exception:
-            pass
-
     if not latest_las_file:
         return []
 
-    # Safe check if curves are loaded in memory to avoid costly remote N+1 queries
     curves = getattr(latest_las_file, "curves", None)
     if not curves:
         return []
@@ -111,6 +109,21 @@ def _to_well_list_item(well: Well) -> Dict[str, Any]:
     if latest_report:
         anomaly_cnt = latest_report.anomalyCount if latest_report.anomalyCount is not None else 0
 
+    uploader_name = None
+    uploader_email = None
+    if well.owner:
+        uploader_name = well.owner.name
+        uploader_email = well.owner.email
+    elif latest_las_file and latest_las_file.uploadedBy:
+        uploader_name = latest_las_file.uploadedBy.name
+        uploader_email = latest_las_file.uploadedBy.email
+    elif well.lasFiles:
+        for lf in well.lasFiles:
+            if lf.uploadedBy:
+                uploader_name = lf.uploadedBy.name
+                uploader_email = lf.uploadedBy.email
+                break
+
     return {
         "id": well.id,
         "apiNo": well.apiNo,
@@ -129,11 +142,15 @@ def _to_well_list_item(well: Well) -> Dict[str, Any]:
         "qualityGrade": well.qualityGrade,
         "latestLasFileName": latest_las_file.originalName if latest_las_file else None,
         "latestLasFileId": latest_las_file.id if latest_las_file else None,
+        "latestLasFileCreatedAt": latest_las_file.createdAt.isoformat() if latest_las_file and latest_las_file.createdAt else None,
         "latestReportId": latest_report.id if latest_report else None,
         "curveCount": latest_las_file.curveCount if latest_las_file else 0,
         "pointCount": latest_las_file.pointCount if latest_las_file else 0,
         "anomalyCount": anomaly_cnt,
         "curveSummaries": curve_summaries,
+        "ownerId": well.ownerId,
+        "uploaderName": uploader_name,
+        "uploaderEmail": uploader_email,
         "createdAt": well.createdAt.isoformat() if well.createdAt else "",
         "updatedAt": well.updatedAt.isoformat() if well.updatedAt else "",
     }
@@ -144,12 +161,35 @@ def list_wells(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    cache_key = f"{current_user.id}:{normalize_role(current_user.role)}"
+    now = datetime.now(timezone.utc).timestamp()
+    if cache_key in _wells_cache:
+        cached_ts, cached_data = _wells_cache[cache_key]
+        if now - cached_ts < CACHE_TTL_SECONDS:
+            return cached_data
+
     try:
         query = db.query(Well).options(
-            selectinload(Well.lasFiles).selectinload(LASFile.reports),
-            selectinload(Well.reports),
+            selectinload(Well.owner),
+            selectinload(Well.lasFiles).options(
+                defer(LASFile.rawContent),
+                defer(LASFile.rawHeader),
+            ).selectinload(LASFile.curves).options(
+                defer(Curve.dataJson),
+            ),
+            selectinload(Well.lasFiles).selectinload(LASFile.uploadedBy),
+            selectinload(Well.lasFiles).selectinload(LASFile.reports).options(
+                defer(QualityReport.reportJson),
+                defer(QualityReport.aiSummary),
+                defer(QualityReport.recommendations),
+            ),
+            selectinload(Well.reports).options(
+                defer(QualityReport.reportJson),
+                defer(QualityReport.aiSummary),
+                defer(QualityReport.recommendations),
+            ),
         )
-        if current_user.role in ("ADMIN", "SUPERVISOR"):
+        if normalize_role(current_user.role) == "ADMIN":
             wells = query.order_by(desc(Well.updatedAt)).all()
         else:
             wells = (
@@ -157,7 +197,9 @@ def list_wells(
                 .order_by(desc(Well.updatedAt))
                 .all()
             )
-        return {"wells": [_to_well_list_item(w) for w in wells]}
+        result = {"wells": [_to_well_list_item(w) for w in wells]}
+        _wells_cache[cache_key] = (now, result)
+        return result
     except Exception as e:
         logger.error(f"Error listing wells: {e}", exc_info=True)
         return {"wells": [], "error": f"Database error: {str(e)}"}
@@ -204,7 +246,7 @@ def create_well(
     well = db.query(Well).filter(Well.apiNo == api_no).first()
     now = datetime.now(timezone.utc)
     if well:
-        is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
+        is_admin = (normalize_role(current_user.role) == "ADMIN")
         is_owner = (well.ownerId == current_user.id)
         if not is_admin and not is_owner:
             raise HTTPException(
@@ -241,7 +283,7 @@ def create_well(
     # Activity log
     log = ActivityLog(
         userName="Well Management",
-        userRole=current_user.role,
+        userRole=normalize_role(current_user.role),
         userId=current_user.id,
         action="CREATE_WELL",
         targetType="WELL",
@@ -251,6 +293,7 @@ def create_well(
     db.add(log)
     db.commit()
     db.refresh(well)
+    invalidate_wells_cache()
 
     return {"well": _to_well_list_item(well)}
 
@@ -272,6 +315,8 @@ def get_well_detail(
     well = (
         db.query(Well)
         .options(
+            selectinload(Well.owner),
+            selectinload(Well.lasFiles).selectinload(LASFile.uploadedBy),
             selectinload(Well.lasFiles).selectinload(LASFile.reports),
             selectinload(Well.lasFiles).selectinload(LASFile.curves),
             selectinload(Well.reports),
@@ -291,8 +336,8 @@ def get_well_detail(
             detail=f"Well with ID, API number, or Name '{clean_id}' not found.",
         )
 
-    # Permission check: ADMIN, SUPERVISOR, or owner
-    is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
+    # Permission check: ADMIN or owner
+    is_admin = (normalize_role(current_user.role) == "ADMIN")
     is_owner = (well.ownerId == current_user.id)
     if not is_admin and not is_owner:
         raise HTTPException(
@@ -452,7 +497,7 @@ def bulk_delete_wells(
             "message": "No matching wells found to delete.",
         }
 
-    is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
+    is_admin = (normalize_role(current_user.role) == "ADMIN")
     deleted_ids = []
     deleted_names = []
 
@@ -470,7 +515,7 @@ def bulk_delete_wells(
     if deleted_ids:
         log = ActivityLog(
             userName="Well Management",
-            userRole=current_user.role,
+            userRole=normalize_role(current_user.role),
             userId=current_user.id,
             action="BULK_DELETE_WELLS",
             targetType="WELL",
@@ -479,6 +524,8 @@ def bulk_delete_wells(
         )
         db.add(log)
         db.commit()
+
+    invalidate_wells_cache()
 
     return {
         "success": True,
@@ -512,7 +559,7 @@ def delete_well(
             detail=f"Well with ID, API number, or Name '{clean_id}' not found.",
         )
 
-    is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
+    is_admin = (normalize_role(current_user.role) == "ADMIN")
     is_owner = (well.ownerId == current_user.id)
     if not is_admin and not is_owner:
         raise HTTPException(
@@ -526,7 +573,7 @@ def delete_well(
     # Activity log
     log = ActivityLog(
         userName="Well Management",
-        userRole=current_user.role,
+        userRole=normalize_role(current_user.role),
         userId=current_user.id,
         action="DELETE_WELL",
         targetType="WELL",
@@ -535,5 +582,7 @@ def delete_well(
     )
     db.add(log)
     db.commit()
+
+    invalidate_wells_cache()
 
     return {"success": True, "message": f"Well {well_name} deleted successfully."}

@@ -58,6 +58,10 @@ export interface WellListItem {
   pointCount: number;
   anomalyCount: number;
   curveSummaries?: CurveHealthSummary[];
+  ownerId?: string | null;
+  uploaderName?: string | null;
+  uploaderEmail?: string | null;
+  latestLasFileCreatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -304,7 +308,7 @@ export interface AdminUserRecord {
   id: string;
   name: string;
   email: string;
-  role: "ADMIN" | "PETROPHYSICIST" | "DATA_ENGINEER" | "GEOSCIENTIST" | "VIEWER";
+  role: "ADMIN" | "USER";
   ndaAcceptedAt: string | null;
   createdAt: string;
   wellCount: number;

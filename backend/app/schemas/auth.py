@@ -21,7 +21,7 @@ class RegisterRequest(BaseModel):
     name: str
     email: str
     password: str
-    role: Optional[str] = "PETROPHYSICIST"
+    role: Optional[str] = "USER"
     acceptedNda: Optional[bool] = False
 
 class VerifyEmailRequest(BaseModel):

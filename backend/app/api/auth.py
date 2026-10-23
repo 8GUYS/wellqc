@@ -14,6 +14,7 @@ from backend.app.core.security import (
     read_email_verification_token,
     create_password_reset_token,
     read_password_reset_token,
+    normalize_role,
 )
 from backend.app.models.models import User, ActivityLog
 from backend.app.schemas.auth import (
@@ -35,7 +36,7 @@ def _format_user(user: User) -> dict:
         "id": user.id,
         "name": user.name,
         "email": user.email,
-        "role": user.role,
+        "role": normalize_role(user.role),
         "department": user.department or "",
         "avatarUrl": getattr(user, "avatarUrl", None) or "",
         "tier": user.tier or "FREE",
@@ -92,7 +93,7 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
     log = ActivityLog(
         userId=user.id,
         userName=user.name,
-        userRole=user.role,
+        userRole=normalize_role(user.role),
         action="LOGIN",
         targetType="USER",
         targetId=user.id,
@@ -114,8 +115,7 @@ def register(req: RegisterRequest, response: Response, request: Request, db: Ses
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrator accounts cannot be self-registered. Contact an existing administrator for elevated access.",
         )
-    valid_roles = ["PETROPHYSICIST", "DATA_ENGINEER", "GEOSCIENTIST", "VIEWER"]
-    safe_role = role_cand if role_cand in valid_roles else "PETROPHYSICIST"
+    safe_role = "USER"
 
     email_regex = r"^\S+@\S+\.\S+$"
     if (
@@ -176,7 +176,7 @@ def register(req: RegisterRequest, response: Response, request: Request, db: Ses
     log = ActivityLog(
         userId=new_user.id,
         userName=new_user.name,
-        userRole=new_user.role,
+        userRole=normalize_role(new_user.role),
         action="REGISTER",
         targetType="USER",
         targetId=new_user.id,
@@ -402,7 +402,7 @@ def get_nda(current_user: User = Depends(get_current_user)):
             "id": current_user.id,
             "name": current_user.name,
             "email": current_user.email,
-            "role": current_user.role,
+            "role": normalize_role(current_user.role),
             "department": current_user.department,
         },
     }

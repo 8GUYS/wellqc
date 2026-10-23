@@ -34,8 +34,29 @@ export function PWAClient() {
   });
 
   useEffect(() => {
-    // 1. Register Service Worker
+    // 1. Unregister & purge caches on localhost to prevent stale chunk traps during development
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      const isLocalhost =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1" ||
+        window.location.hostname.endsWith(".local");
+
+      if (isLocalhost) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const reg of registrations) {
+            reg.unregister();
+          }
+        });
+        if ("caches" in window) {
+          caches.keys().then((keys) => {
+            for (const key of keys) {
+              caches.delete(key);
+            }
+          });
+        }
+        return;
+      }
+
       window.addEventListener("load", () => {
         navigator.serviceWorker
           .register("/sw.js")

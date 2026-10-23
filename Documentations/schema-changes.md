@@ -51,6 +51,21 @@ Every line should show the `ep-tiny-haze` host. If any shows `ep-divine-field`, 
 3. Apply the migration to dev before running tests, so tests match the schema.
 4. No tests against production. The CI pytest job uses the dev `DATABASE_URL` secret.
 5. No force-push. `main` is protected and needs a PR with `lint-and-build` green.
+6. **Grants live in the migration**: Whenever a migration adds a new table, it must grant the right permissions to `wellqc_api` inside the same migration, wrapped in a check that the role exists:
+   - **Normal tables**: grant `SELECT, INSERT, UPDATE, DELETE`.
+   - **Append-only tables** (like `ActivityLog`): grant only `SELECT, INSERT`.
+   - **Do not use `ALTER DEFAULT PRIVILEGES`** (it would automatically give update and delete rights on tables that should never have them).
+
+   Example migration block:
+   ```sql
+   DO $$
+   BEGIN
+       IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'wellqc_api') THEN
+           GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "NewTableName" TO wellqc_api;
+       END IF;
+   END
+   $$;
+   ```
 
 ## Steps for a schema change
 

@@ -20,10 +20,7 @@ class QualityGrade(str, Enum):
 class UserRole(str, Enum):
     """User access control roles."""
     ADMIN = "ADMIN"
-    PETROPHYSICIST = "PETROPHYSICIST"
-    DATA_ENGINEER = "DATA_ENGINEER"
-    GEOSCIENTIST = "GEOSCIENTIST"
-    VIEWER = "VIEWER"
+    USER = "USER"
 
 
 class SubscriptionTier(str, Enum):

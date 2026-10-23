@@ -57,7 +57,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
   }>({
     name: "Petrophysicist",
     department: "Subsurface Analytics",
-    role: currentRole || "PETROPHYSICIST",
+    role: currentRole || "USER",
     avatarUrl: "",
   });
 
@@ -72,7 +72,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
             setUserProfile({
               name: user.name || "Petrophysicist",
               department: user.department || "Subsurface Analytics",
-              role: user.role || currentRole || "PETROPHYSICIST",
+              role: user.role || currentRole || "USER",
               avatarUrl: user.avatarUrl || "",
             });
           }

@@ -352,7 +352,16 @@ const getServerWorkspace = (): string | null => null;
 
 export default function QAEngineWorkspace() {
   // Data source mode: active upload workspace vs saved database wells
-  const [sourceChoice, setSourceChoice] = useState<"ACTIVE_UPLOAD" | "DATABASE_WELL">("ACTIVE_UPLOAD");
+  const [sourceChoice, setSourceChoice] = useState<"ACTIVE_UPLOAD" | "DATABASE_WELL">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        if (new URLSearchParams(window.location.search).has("wellId")) {
+          return "DATABASE_WELL";
+        }
+      } catch {}
+    }
+    return "ACTIVE_UPLOAD";
+  });
   const [activeUploadAvailable, setActiveUploadAvailable] = useState<boolean>(false);
 
   // Well Data State
@@ -367,7 +376,14 @@ export default function QAEngineWorkspace() {
 
   // Database Wells List
   const [dbWells, setDbWells] = useState<WellListItem[]>([]);
-  const [selectedDbWellId, setSelectedDbWellId] = useState<string>("");
+  const [selectedDbWellId, setSelectedDbWellId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return new URLSearchParams(window.location.search).get("wellId") || "";
+      } catch {}
+    }
+    return "";
+  });
   const [isLoadingWells, setIsLoadingWells] = useState<boolean>(false);
 
   // ─── Section 2 Decisions & Filtering State ─────────────────────────────────
@@ -427,27 +443,30 @@ export default function QAEngineWorkspace() {
   if (savedWorkspace !== appliedWorkspace) {
     setAppliedWorkspace(savedWorkspace);
     try {
+      const hasWellIdQuery = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("wellId");
       const { userId: activeUserId, stored } = JSON.parse(savedWorkspace ?? "{}");
       if (stored) {
         const parsedData = JSON.parse(stored);
         if (parsedData?.parsedLAS && (!parsedData.userId || !activeUserId || parsedData.userId === activeUserId)) {
-          setRawLas(parsedData.parsedLAS);
-          setRawLasText(parsedData.rawText || "");
-          const rawWn = parsedData.parsedLAS.wellInfo?.wellName || "";
-          const validName =
-            rawWn && rawWn !== "2" && !/^\d+$/.test(rawWn)
-              ? rawWn
-              : parsedData.fileName
-                ? parsedData.fileName.replace(/\.(las|txt)$/i, "")
-                : "Active Upload Well";
-          setWellName(validName);
-          setWellId("active-upload");
-          setOperator(parsedData.parsedLAS.wellInfo?.company || "WellQC Petrophysics");
-          setField(parsedData.parsedLAS.wellInfo?.field || "Deepwater Basin");
-          setDepthUnit(parsedData.parsedLAS.wellInfo?.depthUnit || "FT");
-          setQaResult(parsedData.qaResult || null);
           setActiveUploadAvailable(true);
-          setSourceChoice("ACTIVE_UPLOAD");
+          if (!hasWellIdQuery) {
+            setRawLas(parsedData.parsedLAS);
+            setRawLasText(parsedData.rawText || "");
+            const rawWn = parsedData.parsedLAS.wellInfo?.wellName || "";
+            const validName =
+              rawWn && rawWn !== "2" && !/^\d+$/.test(rawWn)
+                ? rawWn
+                : parsedData.fileName
+                  ? parsedData.fileName.replace(/\.(las|txt)$/i, "")
+                  : "Active Upload Well";
+            setWellName(validName);
+            setWellId("active-upload");
+            setOperator(parsedData.parsedLAS.wellInfo?.company || "WellQC Petrophysics");
+            setField(parsedData.parsedLAS.wellInfo?.field || "Deepwater Basin");
+            setDepthUnit(parsedData.parsedLAS.wellInfo?.depthUnit || "FT");
+            setQaResult(parsedData.qaResult || null);
+            setSourceChoice("ACTIVE_UPLOAD");
+          }
         }
       }
     } catch (err) {
@@ -572,6 +591,93 @@ export default function QAEngineWorkspace() {
     },
     [resetWorkspaceState]
   );
+
+  // 3. Inspect URL query parameters for ?wellId=<id> to automatically focus the requested saved well
+  useEffect(() => {
+    const targetWellId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("wellId") : null;
+    if (!targetWellId) return;
+
+    let cancelled = false;
+    fetch(`/api/wells/${targetWellId}`, { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load well details (status ${res.status})`);
+        return res.json();
+      })
+      .then((detail: WellDetailResponse) => {
+        if (cancelled) return;
+        setWellName(detail.well.name || "Database Well");
+        setWellId(detail.well.id);
+        setOperator(detail.well.operatorName || "WellQC Petrophysics");
+        setField(detail.well.fieldName || "Offshore Basin");
+        setDepthUnit(detail.well.depthUnit || "FT");
+
+        const parsedFromDb: ParsedLAS = {
+          version: "2.0",
+          wrap: false,
+          wellInfo: {
+            wellName: detail.well.name,
+            company: detail.well.operatorName,
+            field: detail.well.fieldName,
+            location: "",
+            country: detail.well.country,
+            state: "",
+            apiUwi: detail.well.apiNo,
+            serviceCompany: "",
+            date: detail.well.createdAt || "",
+            startDepth: detail.curvesData.depth?.[0] ?? 0,
+            stopDepth: detail.curvesData.depth?.[detail.curvesData.depth.length - 1] ?? 0,
+            step: 0.5,
+            nullValue: -999.25,
+            depthUnit: detail.well.depthUnit || "FT",
+          },
+          curves: Object.keys(detail.curvesData.curves || {}).map((m) => ({
+            mnemonic: m,
+            unit: "",
+            code: "",
+            description: "",
+          })),
+          data: {
+            depth: detail.curvesData.depth || [],
+            curves: detail.curvesData.curves || {},
+          },
+          rawHeader: "",
+          totalPoints: detail.well.pointCount || detail.curvesData.depth?.length || 0,
+        };
+        setRawLas(parsedFromDb);
+        setRawLasText("");
+
+        const qaFromDb: QualityAnalysisResult = {
+          overallScore: detail.well.qualityScore ?? 80,
+          qualityGrade: (detail.well.qualityGrade as QualityAnalysisResult["qualityGrade"]) ?? "GOOD",
+          completenessScore: 85,
+          consistencyScore: 85,
+          anomalyCount: detail.anomalies?.length || 0,
+          criticalCount: detail.anomalies?.filter((a) => a.severity === "CRITICAL").length || 0,
+          warningCount: detail.anomalies?.filter((a) => a.severity === "WARNING").length || 0,
+          curveSummaries: detail.curveSummaries || [],
+          anomalies: (detail.anomalies || []).map((a, idx) => ({
+            id: `db-anom-${idx}`,
+            curveMnemonic: a.curveMnemonic,
+            depthStart: a.depthStart,
+            depthEnd: a.depthEnd,
+            anomalyType: a.anomalyType as AnomalyReportItem["anomalyType"],
+            severity: a.severity as AnomalyReportItem["severity"],
+            description: a.description,
+            suggestedCorrection: a.suggestedCorrection,
+          })),
+          missingStandardCurves: [],
+        };
+        setQaResult(qaFromDb);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setErrorMessage((err instanceof Error && err.message) || "Failed to load database well details.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Switch Data Source
   const handleSourceChange = (newSource: "ACTIVE_UPLOAD" | "DATABASE_WELL") => {

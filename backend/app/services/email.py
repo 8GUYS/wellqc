@@ -154,14 +154,27 @@ def get_effective_email_config(db: Optional[Any] = None, request: Optional[Any] 
             if record and record.value:
                 db_data = json.loads(record.value)
                 if isinstance(db_data, dict):
+                    # Provider keys and secrets must NOT be read from the database;
+                    # they strictly originate from environment variables to prevent secret leakage across DB branches.
+                    excluded_db_keys = {
+                        "emailjs_private_key",
+                        "resend_api_key",
+                        "emailjs_public_key",
+                    }
                     for k, v in db_data.items():
-                        if v is not None and str(v).strip():
+                        if k not in excluded_db_keys and v is not None and str(v).strip():
                             config[k] = str(v).strip()
         finally:
             if not db:
                 local_db.close()
     except Exception as e:
         logger.debug(f"Could not load email_settings from database: {e}")
+
+    # Ensure provider secrets and keys always strictly originate from environment variables
+    config["emailjs_private_key"] = settings.EMAILJS_PRIVATE_KEY or ""
+    config["resend_api_key"] = settings.RESEND_API_KEY or ""
+    if settings.EMAILJS_PUBLIC_KEY:
+        config["emailjs_public_key"] = settings.EMAILJS_PUBLIC_KEY
 
     return config
 
@@ -433,22 +446,22 @@ def send_verification_email(
             }
 
     # 3. Fallback to local terminal logger banner
-    banner = (
-        "\n"
-        "╔════════════════════════════════════════════════════════════════════════════════════════════════╗\n"
-        "║                     WellQC TRANSACTIONAL EMAIL DISPATCH (DEV LOGGER)                         ║\n"
-        "╠════════════════════════════════════════════════════════════════════════════════════════════════╣\n"
-        f"║  Recipient : {recipient_display:<74} ║\n"
-        f"║  Subject   : {subject:<74} ║\n"
-        f"║  Expires In: {expires_in_hours} Hours                                                                    ║\n"
-        "╟────────────────────────────────────────────────────────────────────────────────────────────────╢\n"
-        f"║  Verification Link:                                                                            ║\n"
-        f"║  {verification_url:<86} ║\n"
-        "╚════════════════════════════════════════════════════════════════════════════════════════════════╝\n"
-    )
-
-    logger.info(banner)
-    print(banner, flush=True)
+    logger.info(f"Verification email dispatched for {recipient_display}. Verification token omitted from application logs.")
+    if settings.ENVIRONMENT != "production":
+        banner = (
+            "\n"
+            "╔════════════════════════════════════════════════════════════════════════════════════════════════╗\n"
+            "║                     WellQC TRANSACTIONAL EMAIL DISPATCH (DEV LOGGER)                         ║\n"
+            "╠════════════════════════════════════════════════════════════════════════════════════════════════╣\n"
+            f"║  Recipient : {recipient_display:<74} ║\n"
+            f"║  Subject   : {subject:<74} ║\n"
+            f"║  Expires In: {expires_in_hours} Hours                                                                    ║\n"
+            "╟────────────────────────────────────────────────────────────────────────────────────────────────╢\n"
+            f"║  Verification Link (Local Dev Only):                                                           ║\n"
+            f"║  {verification_url:<86} ║\n"
+            "╚════════════════════════════════════════════════════════════════════════════════════════════════╝\n"
+        )
+        print(banner, flush=True)
 
     return {
         "status": "delivered",
@@ -662,21 +675,22 @@ def send_password_reset_email(
             }
 
     # 3. Fallback to local terminal logger banner
-    banner = (
-        "\n"
-        "╔════════════════════════════════════════════════════════════════════════════════════════════════╗\n"
-        "║                  WellQC PASSWORD RESET NOTIFICATION (DEV LOGGER)                             ║\n"
-        "╠════════════════════════════════════════════════════════════════════════════════════════════════╣\n"
-        f"║  Recipient : {recipient_display:<74} ║\n"
-        f"║  Subject   : {subject:<74} ║\n"
-        f"║  Expires In: {expires_in_hours} Hour(s)                                                                   ║\n"
-        "╟────────────────────────────────────────────────────────────────────────────────────────────────╢\n"
-        f"║  Reset Link:                                                                                   ║\n"
-        f"║  {reset_url:<86} ║\n"
-        "╚════════════════════════════════════════════════════════════════════════════════════════════════╝\n"
-    )
-    logger.info(banner)
-    print(banner, flush=True)
+    logger.info(f"Password reset email dispatched for {recipient_display}. Reset token omitted from application logs.")
+    if settings.ENVIRONMENT != "production":
+        banner = (
+            "\n"
+            "╔════════════════════════════════════════════════════════════════════════════════════════════════╗\n"
+            "║                  WellQC PASSWORD RESET NOTIFICATION (DEV LOGGER)                             ║\n"
+            "╠════════════════════════════════════════════════════════════════════════════════════════════════╣\n"
+            f"║  Recipient : {recipient_display:<74} ║\n"
+            f"║  Subject   : {subject:<74} ║\n"
+            f"║  Expires In: {expires_in_hours} Hour(s)                                                                   ║\n"
+            "╟────────────────────────────────────────────────────────────────────────────────────────────────╢\n"
+            f"║  Reset Link (Local Dev Only):                                                                  ║\n"
+            f"║  {reset_url:<86} ║\n"
+            "╚════════════════════════════════════════════════════════════════════════════════════════════════╝\n"
+        )
+        print(banner, flush=True)
 
     return {
         "status": "delivered",

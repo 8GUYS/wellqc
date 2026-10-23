@@ -18,9 +18,16 @@ def run_migration():
                 "value" TEXT NOT NULL,
                 "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'wellqc_api') THEN
+                    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "SystemSetting" TO wellqc_api;
+                END IF;
+            END
+            $$;
         '''))
         conn.commit()
-    print("[SUCCESS] SystemSetting table created or verified successfully.")
+    print("[SUCCESS] SystemSetting table created or verified with wellqc_api permissions successfully.")
 
 if __name__ == "__main__":
     run_migration()

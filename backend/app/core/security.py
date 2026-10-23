@@ -51,6 +51,17 @@ def verify_password(password: str, stored_hash: str) -> bool:
     except Exception:
         return False
 
+def normalize_role(role: Optional[str]) -> str:
+    """
+    Normalizes a role string to either 'ADMIN' or 'USER'.
+    Provides backward-compatible fallback mapping any legacy
+    PETROPHYSICIST, DATA_ENGINEER, GEOSCIENTIST, VIEWER, etc. to 'USER'.
+    """
+    if not role:
+        return "USER"
+    r = role.strip().upper()
+    return "ADMIN" if r == "ADMIN" else "USER"
+
 def create_session_token(user_data: Dict[str, Any]) -> str:
     payload_dict = {
         **user_data,

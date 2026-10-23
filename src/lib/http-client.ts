@@ -44,11 +44,19 @@ export async function safeReadJson<T = any>(
     } catch {
       // Body is not valid JSON (e.g. plain text "Internal Server Error" or proxy HTML)
       const cleanSnippet = text.slice(0, 100).trim();
+      let errorDetail = cleanSnippet || response.statusText || fallbackMessage;
+      if (
+        cleanSnippet.toLowerCase() === "internal server error" &&
+        fallbackMessage &&
+        fallbackMessage !== "Unexpected server response"
+      ) {
+        errorDetail = `${cleanSnippet}. ${fallbackMessage}`;
+      }
       return {
         ok: false,
         status,
         data: null,
-        error: `Server returned HTTP ${status}: ${cleanSnippet || response.statusText || fallbackMessage}`,
+        error: `Server returned HTTP ${status}: ${errorDetail}`,
       };
     }
   } catch (readErr) {

@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:python": "uvicorn backend.app.main:app --reload --port 8000",
+    "dev:backend": "python start_engine.py",
+    "dev:all": "powershell -ExecutionPolicy Bypass -File scripts/start-servers.ps1",
     "python:install": "uv pip install -e .",
     "build": "next build",
     "start": "next start",

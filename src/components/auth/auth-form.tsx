@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { useState, SyntheticEvent } from "react";
 import { KeyRound, Mail, UserRound, LoaderCircle, Home, Eye, EyeOff } from "lucide-react";
 import { WellQCLogo } from "@/components/ui/wellqc-logo";
+import { safeReadJson } from "@/lib/http-client";
+
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("PETROPHYSICIST");
   const [acceptedNda, setAcceptedNda] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -28,10 +29,13 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const data = await res.json();
-      setResendStatus(data.message || "Fresh verification link sent! Please check your inbox.");
-    } catch {
-      setResendStatus("Failed to send verification link. Please try again.");
+      const parsed = await safeReadJson<{ message?: string }>(res, "Failed to send verification link.");
+      if (!parsed.ok) {
+        throw new Error(parsed.error || "Failed to send verification link.");
+      }
+      setResendStatus(parsed.data?.message || "Fresh verification link sent! Please check your inbox.");
+    } catch (err) {
+      setResendStatus(err instanceof Error ? err.message : "Failed to send verification link. Please try again.");
     } finally {
       setResending(false);
     }
@@ -47,11 +51,23 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       const response = await fetch(`/api/auth/${mode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role, acceptedNda }),
+        body: JSON.stringify({ name, email, password, role: "USER", acceptedNda }),
       });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.detail || result.error || "Unable to continue.");
+      const res = await safeReadJson<{
+        user?: unknown;
+        token?: string;
+        requiresVerification?: boolean;
+        detail?: string;
+        error?: string;
+      }>(response, "Unable to communicate with the authentication server. Please ensure the backend is running.");
+
+      if (!res.ok) {
+        throw new Error(res.error || "Unable to continue.");
+      }
+
+      const result = res.data;
+      if (!result) {
+        throw new Error("Empty response received from authentication server.");
       }
 
       // If registered account requires email verification, redirect to instructions screen

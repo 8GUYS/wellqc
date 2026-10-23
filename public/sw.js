@@ -1,4 +1,4 @@
-const CACHE_NAME = "wellqc-pwa-v1";
+const CACHE_NAME = "wellqc-pwa-v2";
 
 const PRECACHE_ASSETS = [
   "/",
@@ -35,11 +35,7 @@ self.addEventListener("activate", (event) => {
       .keys()
       .then((cacheNames) => {
         return Promise.all(
-          cacheNames.map((name) => {
-            if (name !== CACHE_NAME) {
-              return caches.delete(name);
-            }
-          })
+          cacheNames.map((name) => caches.delete(name))
         );
       })
       .then(() => self.clients.claim())
@@ -53,6 +49,16 @@ self.addEventListener("fetch", (event) => {
 
   // Bypass non-GET and cross-origin requests
   if (request.method !== "GET" || url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Bypass localhost & local development entirely
+  if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+    return;
+  }
+
+  // Bypass Next.js chunks & hot reload assets
+  if (url.pathname.startsWith("/_next/")) {
     return;
   }
 

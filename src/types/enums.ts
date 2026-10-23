@@ -21,10 +21,7 @@ export type QualityGrade = (typeof QualityGrade)[keyof typeof QualityGrade];
 
 export const UserRole = {
   ADMIN: "ADMIN",
-  PETROPHYSICIST: "PETROPHYSICIST",
-  DATA_ENGINEER: "DATA_ENGINEER",
-  GEOSCIENTIST: "GEOSCIENTIST",
-  VIEWER: "VIEWER",
+  USER: "USER",
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 

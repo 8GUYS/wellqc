@@ -52,8 +52,12 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     name = Column(String, nullable=False)
     passwordHash = Column(String, nullable=False)
-    role = Column(String, default="PETROPHYSICIST", nullable=False)
+    role = Column(String, default="USER", nullable=False)
     department = Column(String, default="Subsurface Analytics", nullable=True)
+
+    @property
+    def normalized_role(self) -> str:
+        return "ADMIN" if (self.role or "").strip().upper() == "ADMIN" else "USER"
     avatarUrl = Column(String, nullable=True)
     ndaAcceptedAt = Column(DateTime, nullable=True)
     isEmailVerified = Column(Boolean, default=False, nullable=False)
@@ -237,7 +241,7 @@ class ActivityLog(Base):
     id = Column(String, primary_key=True, default=gen_uuid)
     userId = Column(String, ForeignKey("User.id", ondelete="SET NULL"), nullable=True)
     userName = Column(String, default="System Agent", nullable=False)
-    userRole = Column(String, default="PETROPHYSICIST", nullable=False)
+    userRole = Column(String, default="USER", nullable=False)
     action = Column(String, nullable=False)
     targetType = Column(String, nullable=True)
     targetId = Column(String, nullable=True)

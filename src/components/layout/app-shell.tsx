@@ -8,7 +8,7 @@ import { Header } from "@/components/ui/header";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [currentRole, setCurrentRole] = useState("PETROPHYSICIST");
+  const [currentRole, setCurrentRole] = useState("USER");
   const [currentUser, setCurrentUser] = useState<{
     name: string;
     email: string;
@@ -53,12 +53,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         const resolvedAvatar = user.avatarUrl || "";
 
-        setCurrentRole(user.role || "PETROPHYSICIST");
+        setCurrentRole(user.role || "USER");
         setCurrentUser({
           name: user.name,
           email: user.email,
           department: user.department || "Subsurface Analytics",
-          role: user.role || "PETROPHYSICIST",
+          role: user.role || "USER",
           tier: user.tier || "FREE",
           avatarUrl: resolvedAvatar,
           freeChecksUsed: user.freeChecksUsed ?? 0,

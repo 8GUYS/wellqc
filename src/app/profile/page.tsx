@@ -76,7 +76,7 @@ export default function UserProfilePage() {
           ...prev,
           name: data.user.name || "",
           department: data.user.department || "Subsurface Analytics",
-          role: data.user.role || "PETROPHYSICIST",
+          role: data.user.role || "USER",
           avatarUrl: resolvedAvatar,
         }));
       }
@@ -287,7 +287,7 @@ export default function UserProfilePage() {
 
                 <div className="mt-2.5 flex items-center space-x-2">
                   <span className="text-[11px] font-mono text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 px-2 py-0.5 rounded-md">
-                    ROLE: {profile?.role || "PETROPHYSICIST"}
+                    ROLE: {profile?.role || "USER"}
                   </span>
                   <span className="text-[11px] font-mono text-slate-400 bg-wellqc-panel border border-wellqc-border px-2 py-0.5 rounded-md flex items-center space-x-1">
                     <Calendar className="w-3 h-3 text-slate-400" />
@@ -492,30 +492,6 @@ export default function UserProfilePage() {
                       className="w-full bg-wellqc-panel border border-wellqc-border rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
                     />
                   </div>
-
-                  {/* <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">
-                      Platform Access Role
-                    </label>
-                    <select
-                      value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                      className="w-full bg-wellqc-panel border border-wellqc-border rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-medium"
-                    >
-                      <option value="PETROPHYSICIST">Petrophysicist (Default)</option>
-                      <option value="DATA_ENGINEER">Data Engineer</option>
-                      <option value="GEOSCIENTIST">Geoscientist</option>
-                      <option value="VIEWER">Auditor / Viewer</option>
-                      {profile?.role === "ADMIN" && (
-                        <option value="ADMIN">System Administrator (ADMIN)</option>
-                      )}
-                    </select>
-                    {profile?.role !== "ADMIN" && (
-                      <p className="text-[10px] text-wellqc-muted mt-1 font-mono">
-                        * Note: Self-assignment of Administrator (ADMIN) role is restricted.
-                      </p>
-                    )}
-                  </div> */}
                 </div>
 
                 <div className="border-t border-wellqc-border pt-4 mt-6">
@@ -598,7 +574,7 @@ export default function UserProfilePage() {
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-400">Organization Role</span>
-                    <span className="font-mono font-bold text-cyan-300">{profile?.role || "PETROPHYSICIST"}</span>
+                    <span className="font-mono font-bold text-cyan-300">{profile?.role || "USER"}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-400">Subsurface License</span>

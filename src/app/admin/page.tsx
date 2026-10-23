@@ -25,6 +25,7 @@ import {
   Radio,
   History,
   Shield,
+  Sparkles,
 } from "lucide-react";
 
 interface UserRecord {
@@ -58,11 +59,12 @@ interface WebhookItem {
   createdAt: string;
 }
 
-const ROLES = ["ADMIN", "PETROPHYSICIST", "DATA_ENGINEER", "GEOSCIENTIST", "VIEWER"] as const;
+const ROLES = ["ADMIN", "USER"] as const;
 type Role = (typeof ROLES)[number];
 
-const ROLE_COLORS: Record<Role, string> = {
+const ROLE_COLORS: Record<string, string> = {
   ADMIN: "bg-rose-500/10 text-rose-300 border-rose-500/30",
+  USER: "bg-cyan-500/10 text-cyan-300 border-cyan-500/30",
   PETROPHYSICIST: "bg-purple-500/10 text-purple-300 border-purple-500/30",
   DATA_ENGINEER: "bg-cyan-500/10 text-cyan-300 border-cyan-500/30",
   GEOSCIENTIST: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
@@ -72,64 +74,139 @@ const ROLE_COLORS: Record<Role, string> = {
 interface PermissionDef {
   category: string;
   name: string;
+  scope: "WORKSPACE" | "GLOBAL";
   description: string;
   roles: Record<Role, boolean>;
 }
 
+const CATEGORY_FILTERS = [
+  "ALL",
+  "Ingestion & Raw Logs",
+  "Standardisation & Dictionaries",
+  "Quality Engine & Repair",
+  "Database & Asset Governance",
+  "System & Administration",
+] as const;
+
 const PERMISSION_MATRIX: PermissionDef[] = [
   {
     category: "Ingestion & Raw Logs",
-    name: "LAS Ingestion & Parse",
-    description: "Upload raw LAS 2.0 / 3.0 files and execute pre-check validation",
-    roles: { ADMIN: true, PETROPHYSICIST: true, DATA_ENGINEER: true, GEOSCIENTIST: true, VIEWER: false },
+    name: "LAS Ingestion & Telemetry Parse (CWLS 2.0 / 3.0)",
+    scope: "WORKSPACE",
+    description: "Upload raw wireline/LWD log files, execute pre-check validation, and parse depth/time channels.",
+    roles: { ADMIN: true, USER: true },
   },
   {
     category: "Ingestion & Raw Logs",
-    name: "Header Editing & Overrides",
-    description: "Modify well metadata, API/UWI, operator, and elevation fields",
-    roles: { ADMIN: true, PETROPHYSICIST: true, DATA_ENGINEER: true, GEOSCIENTIST: false, VIEWER: false },
+    name: "Header Metadata & Telemetry Overrides",
+    scope: "WORKSPACE",
+    description: "Modify well header metadata, API/UWI identifiers, operator name, surface coordinates, and KB elevation.",
+    roles: { ADMIN: true, USER: true },
+  },
+  {
+    category: "Ingestion & Raw Logs",
+    name: "Batch Multi-Log Processing",
+    scope: "WORKSPACE",
+    description: "Queue and process multiple LAS log files concurrently with automated channel alignment.",
+    roles: { ADMIN: true, USER: true },
+  },
+  {
+    category: "Standardisation & Dictionaries",
+    name: "Curve Standardisation (API RP 66)",
+    scope: "WORKSPACE",
+    description: "Map vendor mnemonics to standard families (GR, RES, DEN, NEU, SON, CALI) using deterministic rule chains.",
+    roles: { ADMIN: true, USER: true },
+  },
+  {
+    category: "Standardisation & Dictionaries",
+    name: "Custom Mnemonic Aliases & Mapping",
+    scope: "WORKSPACE",
+    description: "Register and maintain custom vendor curve aliases for proprietary logging tools and service companies.",
+    roles: { ADMIN: true, USER: true },
   },
   {
     category: "Quality Engine & Repair",
-    name: "Rule Threshold Configuration",
-    description: "Adjust null percentage, spike sigma, and flatline limits in QA Engine",
-    roles: { ADMIN: true, PETROPHYSICIST: true, DATA_ENGINEER: false, GEOSCIENTIST: false, VIEWER: false },
+    name: "Automated Diagnostic Anomaly Auditing",
+    scope: "WORKSPACE",
+    description: "Execute QA anomaly detection routines: null intervals, sensor flatlines, spike sigma, and casing boundary jumps.",
+    roles: { ADMIN: true, USER: true },
   },
   {
     category: "Quality Engine & Repair",
-    name: "Automated Reconstruction & ML Imputation",
-    description: "Run KNN, Spline, Random Forest, and Gradient Boosting curve imputation",
-    roles: { ADMIN: true, PETROPHYSICIST: true, DATA_ENGINEER: true, GEOSCIENTIST: false, VIEWER: false },
+    name: "Algorithmic Repair & ML Imputation",
+    scope: "WORKSPACE",
+    description: "Execute KNN, Cubic Spline, Random Forest, and Gradient Boosting curve repair on degraded logging intervals.",
+    roles: { ADMIN: true, USER: true },
   },
   {
     category: "Quality Engine & Repair",
-    name: "QA Report Sign-off & Verification",
-    description: "Sign off on cleaned logs and export verification certificate",
-    roles: { ADMIN: true, PETROPHYSICIST: true, DATA_ENGINEER: false, GEOSCIENTIST: false, VIEWER: false },
+    name: "QA Engine Rule & Threshold Tuning",
+    scope: "WORKSPACE",
+    description: "Configure null gap percentages, flatline depth limits, and standard deviation sensitivity parameters.",
+    roles: { ADMIN: true, USER: true },
+  },
+  {
+    category: "Quality Engine & Repair",
+    name: "Cryptographic Audit Certificate Sign-Off",
+    scope: "WORKSPACE",
+    description: "Formally verify cleaned subsurface logs, append digital signatures, and export official QA compliance certificates.",
+    roles: { ADMIN: true, USER: true },
+  },
+  {
+    category: "Database & Asset Governance",
+    name: "Personal Well Asset Management",
+    scope: "WORKSPACE",
+    description: "View, search, edit, and organize owned well master assets, curves, and attached logging runs.",
+    roles: { ADMIN: true, USER: true },
   },
   {
     category: "Database & Asset Governance",
     name: "Commit Well to Production Database",
-    description: "Write and update production wells in PostgreSQL repository",
-    roles: { ADMIN: true, PETROPHYSICIST: true, DATA_ENGINEER: true, GEOSCIENTIST: false, VIEWER: false },
+    scope: "WORKSPACE",
+    description: "Write verified well logs and QC metadata to persistent PostgreSQL storage repository.",
+    roles: { ADMIN: true, USER: true },
   },
   {
     category: "Database & Asset Governance",
-    name: "Delete Well Records & Curves",
-    description: "Permanently delete well records, curves, and attached LAS logs",
-    roles: { ADMIN: true, PETROPHYSICIST: false, DATA_ENGINEER: false, GEOSCIENTIST: false, VIEWER: false },
+    name: "Personal Well Asset Deletion",
+    scope: "WORKSPACE",
+    description: "Delete personally owned well assets, curves, reports, and associated LAS files.",
+    roles: { ADMIN: true, USER: true },
+  },
+  {
+    category: "Database & Asset Governance",
+    name: "Global Cross-Tenant Well Governance",
+    scope: "GLOBAL",
+    description: "View, inspect, audit, and permanently delete well assets across all user and organization accounts.",
+    roles: { ADMIN: true, USER: false },
   },
   {
     category: "System & Administration",
-    name: "User & Role Management",
-    description: "Assign RBAC roles, invite, and delete tenant user accounts",
-    roles: { ADMIN: true, PETROPHYSICIST: false, DATA_ENGINEER: false, GEOSCIENTIST: false, VIEWER: false },
+    name: "User Provisioning & Role Management",
+    scope: "GLOBAL",
+    description: "Manage user accounts, assign ADMIN or USER roles, promote/demote administrators, and suspend access.",
+    roles: { ADMIN: true, USER: false },
   },
   {
     category: "System & Administration",
-    name: "API Token & Webhook Provisioning",
-    description: "Generate automation tokens and configure webhook endpoints",
-    roles: { ADMIN: true, PETROPHYSICIST: false, DATA_ENGINEER: true, GEOSCIENTIST: false, VIEWER: false },
+    name: "Real-Time System Audit Trail Streaming",
+    scope: "GLOBAL",
+    description: "Monitor live WebSocket audit feed of all security events, data modifications, and authentication attempts.",
+    roles: { ADMIN: true, USER: false },
+  },
+  {
+    category: "System & Administration",
+    name: "Email & Transactional Dispatch Settings",
+    scope: "GLOBAL",
+    description: "Configure SMTP, Resend, and EmailJS credentials, and enforce or bypass email verification requirements.",
+    roles: { ADMIN: true, USER: false },
+  },
+  {
+    category: "System & Administration",
+    name: "API Automation Tokens & Webhooks",
+    scope: "GLOBAL",
+    description: "Generate automated system integration tokens and configure outbound webhook HTTP triggers.",
+    roles: { ADMIN: true, USER: false },
   },
 ];
 
@@ -150,6 +227,10 @@ export default function AdminPanelPage() {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState("");
+
+  // Capability Matrix Tab State
+  const [matrixFilter, setMatrixFilter] = useState<string>("ALL");
+  const [matrixSearchQuery, setMatrixSearchQuery] = useState("");
 
   // Audit Streaming State
   const [activities, setActivities] = useState<ActivityListItem[]>([]);
@@ -909,68 +990,245 @@ export default function AdminPanelPage() {
         )}
 
         {/* ── TAB 2: ROLE PERMISSION MATRIX ─────────────────────────────────── */}
-        {activeTab === "MATRIX" && (
-          <div className="space-y-4 font-mono">
-            <div className="bg-wellqc-panel border border-wellqc-border p-4 rounded space-y-2">
-              <div className="flex items-center space-x-2">
-                <Shield className="w-4 h-4 text-purple-400" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Role-Based Access Control (RBAC) Capability Matrix
-                </h3>
-              </div>
-              <p className="text-xs text-slate-400">
-                Authoritative entitlement definitions enforced across Next.js API route handlers, database mutations, and workstation capabilities.
-              </p>
-            </div>
+        {activeTab === "MATRIX" && (() => {
+          const filteredMatrix = PERMISSION_MATRIX.filter((perm) => {
+            const matchesCategory = matrixFilter === "ALL" || perm.category === matrixFilter;
+            const q = matrixSearchQuery.trim().toLowerCase();
+            const matchesSearch =
+              !q ||
+              perm.name.toLowerCase().includes(q) ||
+              perm.description.toLowerCase().includes(q) ||
+              perm.category.toLowerCase().includes(q) ||
+              perm.scope.toLowerCase().includes(q);
+            return matchesCategory && matchesSearch;
+          });
 
-            <div className="bg-wellqc-panel border border-wellqc-border rounded overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-950/80 border-b border-wellqc-border text-slate-400 text-[10px] uppercase">
-                    <tr>
-                      <th className="p-3 w-56">Capability &amp; Domain</th>
-                      <th className="p-3">Description</th>
-                      {ROLES.map((role) => (
-                        <th key={role} className="p-3 text-center w-28">
-                          <span className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${ROLE_COLORS[role]}`}>
-                            {role}
-                          </span>
+          return (
+            <div className="space-y-4 font-mono">
+              {/* Executive Architecture Banner */}
+              <div className="bg-wellqc-panel border border-wellqc-border p-5 rounded-2xl relative overflow-hidden space-y-4 shadow-xl">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-500/10 text-purple-300 border border-purple-500/30 flex items-center gap-1.5">
+                        <Shield className="w-3 h-3 text-purple-400" />
+                        <span>Security &amp; Authorization Model</span>
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                        Binary RBAC (ADMIN | USER)
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-black text-white tracking-tight">
+                      Authoritative Capability &amp; Entitlement Matrix
+                    </h3>
+                    <p className="text-xs text-slate-400 max-w-3xl">
+                      Separation of concerns between security boundaries (Roles) and professional disciplines (Departments/Titles).
+                      Enforced across FastAPI route dependencies, Next.js proxy route guards, and PostgreSQL row-level tenancy.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Separation of Concerns Callout */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-wellqc-border/60">
+                  <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                    <div className="flex items-center space-x-2 text-xs font-bold text-white">
+                      <ShieldCheck className="w-4 h-4 text-rose-400" />
+                      <span>Security Roles (Authorization)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      <strong className="text-slate-200">ADMIN:</strong> Global governance, tenant user provisioning, cross-account inspection, email config, webhooks, and system audit trails.<br/>
+                      <strong className="text-slate-200">USER:</strong> Full subsurface workstation autonomy—ingestion, standardisation, QA anomaly repair, and personal well asset management.
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                    <div className="flex items-center space-x-2 text-xs font-bold text-white">
+                      <Sparkles className="w-4 h-4 text-cyan-400" />
+                      <span>Professional Identity (Domain Titles)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Subsurface domain professions (<span className="text-cyan-300 font-semibold">Lead Petrophysicist</span>, <span className="text-cyan-300 font-semibold">Subsurface Geoscientist</span>, <span className="text-cyan-300 font-semibold">Petroleum Data Engineer</span>) are preserved in the user profile <code className="text-slate-200">department</code> field, displaying on certificates and signatures without creating security silos.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Metrics Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-xl space-y-1">
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Total Platform Capabilities</div>
+                  <div className="text-xl font-black text-white">{PERMISSION_MATRIX.length}</div>
+                  <div className="text-[10px] text-slate-400">Across 5 subsurface domains</div>
+                </div>
+                <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-xl space-y-1">
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Standard User (USER)</div>
+                  <div className="text-xl font-black text-cyan-400">
+                    {PERMISSION_MATRIX.filter((p) => p.roles.USER).length} / {PERMISSION_MATRIX.length}
+                  </div>
+                  <div className="text-[10px] text-emerald-400">Full subsurface autonomy</div>
+                </div>
+                <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-xl space-y-1">
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Admin Governance (ADMIN)</div>
+                  <div className="text-xl font-black text-rose-400">
+                    {PERMISSION_MATRIX.filter((p) => p.roles.ADMIN).length} / {PERMISSION_MATRIX.length}
+                  </div>
+                  <div className="text-[10px] text-rose-300">Global custodian access</div>
+                </div>
+                <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-xl space-y-1">
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Restricted to Admin</div>
+                  <div className="text-xl font-black text-amber-400">
+                    {PERMISSION_MATRIX.filter((p) => !p.roles.USER).length}
+                  </div>
+                  <div className="text-[10px] text-amber-400/80">Security &amp; provisioning</div>
+                </div>
+              </div>
+
+              {/* Filter & Search Toolbar */}
+              <div className="bg-wellqc-panel border border-wellqc-border p-3 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-slate-500 mr-1 text-[11px] font-bold">Domain:</span>
+                  {CATEGORY_FILTERS.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setMatrixFilter(cat)}
+                      className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-colors ${
+                        matrixFilter === cat
+                          ? "bg-purple-950/80 text-purple-300 border-purple-500/60"
+                          : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative min-w-[240px]">
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search capabilities or scope..."
+                    value={matrixSearchQuery}
+                    onChange={(e) => setMatrixSearchQuery(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 pl-8 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                  />
+                  {matrixSearchQuery && (
+                    <button
+                      onClick={() => setMatrixSearchQuery("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Matrix Table */}
+              <div className="bg-wellqc-panel border border-wellqc-border rounded-xl overflow-hidden shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-950/90 border-b border-wellqc-border text-slate-400 text-[10px] uppercase">
+                      <tr>
+                        <th className="p-3.5 w-72">Capability &amp; Domain</th>
+                        <th className="p-3.5 w-28 text-center">Scope</th>
+                        <th className="p-3.5">Enforcement &amp; Description</th>
+                        <th className="p-3.5 text-center w-36">
+                          <div className="flex flex-col items-center">
+                            <span className="px-2 py-0.5 rounded border text-[9px] font-bold bg-rose-500/10 text-rose-300 border-rose-500/30">
+                              ADMIN
+                            </span>
+                            <span className="text-[9px] text-slate-500 font-normal mt-0.5">Global Admin</span>
+                          </div>
                         </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-wellqc-border text-slate-300">
-                    {PERMISSION_MATRIX.map((perm, idx) => (
-                      <tr key={idx} className="hover:bg-slate-900/40 transition-colors">
-                        <td className="p-3">
-                          <div className="font-bold text-white">{perm.name}</div>
-                          <div className="text-[10px] text-slate-500">{perm.category}</div>
-                        </td>
-                        <td className="p-3 text-slate-400 text-[11px]">{perm.description}</td>
-                        {ROLES.map((role) => {
-                          const allowed = perm.roles[role];
-                          return (
-                            <td key={role} className="p-3 text-center">
-                              {allowed ? (
-                                <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 text-xs">
-                                  ✓
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-slate-900 border border-slate-800 text-slate-600 text-xs">
-                                  –
-                                </span>
-                              )}
-                            </td>
-                          );
-                        })}
+                        <th className="p-3.5 text-center w-36">
+                          <div className="flex flex-col items-center">
+                            <span className="px-2 py-0.5 rounded border text-[9px] font-bold bg-cyan-500/10 text-cyan-300 border-cyan-500/30">
+                              USER
+                            </span>
+                            <span className="text-[9px] text-slate-500 font-normal mt-0.5">Subsurface Specialist</span>
+                          </div>
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-wellqc-border text-slate-300">
+                      {filteredMatrix.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-8 text-center text-slate-500">
+                            No capabilities match &quot;{matrixSearchQuery}&quot; under &quot;{matrixFilter}&quot;.
+                            <div className="mt-2">
+                              <button
+                                onClick={() => {
+                                  setMatrixFilter("ALL");
+                                  setMatrixSearchQuery("");
+                                }}
+                                className="text-cyan-400 hover:underline text-xs"
+                              >
+                                Reset filters
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredMatrix.map((perm, idx) => {
+                          const adminAllowed = perm.roles.ADMIN;
+                          const userAllowed = perm.roles.USER;
+                          return (
+                            <tr key={idx} className="hover:bg-slate-900/50 transition-colors group">
+                              <td className="p-3.5 align-top">
+                                <div className="font-bold text-white group-hover:text-cyan-300 transition-colors">
+                                  {perm.name}
+                                </div>
+                                <div className="text-[10px] text-slate-500 mt-0.5 font-medium">
+                                  {perm.category}
+                                </div>
+                              </td>
+                              <td className="p-3.5 align-top text-center">
+                                {perm.scope === "GLOBAL" ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                                    GLOBAL
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                                    WORKSPACE
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3.5 align-top text-slate-400 text-[11px] leading-relaxed">
+                                {perm.description}
+                              </td>
+                              <td className="p-3.5 align-top text-center">
+                                {adminAllowed ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 text-[11px] font-bold shadow-sm">
+                                    <Check className="w-3 h-3" />
+                                    <span>Granted</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-slate-600 text-[11px]">
+                                    –
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3.5 align-top text-center">
+                                {userAllowed ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 text-[11px] font-bold shadow-sm">
+                                    <Check className="w-3 h-3" />
+                                    <span>Granted</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-900/90 border border-slate-800/80 text-slate-500 text-[10px]">
+                                    <span>Restricted</span>
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── TAB 3: REAL-TIME AUDIT STREAMING ───────────────────────────────── */}
         {activeTab === "AUDIT" && (

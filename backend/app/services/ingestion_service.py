@@ -3,6 +3,7 @@ import json
 import math
 from typing import Any, Dict, List
 from sqlalchemy.orm import Session
+from backend.app.core.security import normalize_role
 from backend.app.models.models import (
     ActivityLog,
     Anomaly,
@@ -220,7 +221,7 @@ def commit_las_file_transaction(
     # Activity log
     log = ActivityLog(
         userName=user.name,
-        userRole=user.role,
+        userRole=normalize_role(user.role),
         userId=user.id,
         action="UPLOAD_LAS",
         targetType="WELL",

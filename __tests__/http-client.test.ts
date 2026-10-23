@@ -68,4 +68,22 @@ describe("HTTP Client Resilience (safeReadJson)", () => {
     expect(result.status).toBe(500);
     expect(result.error).toBe("Socket connection dropped");
   });
+
+  it("appends fallbackMessage when receiving plain-text Internal Server Error (e.g. backend down proxy error)", async () => {
+    const mockResponse = new Response("Internal Server Error", {
+      status: 500,
+      statusText: "Internal Server Error",
+      headers: { "Content-Type": "text/plain" },
+    });
+
+    const result = await safeReadJson(
+      mockResponse,
+      "Unable to communicate with the authentication server. Please ensure the backend is running."
+    );
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(500);
+    expect(result.error).toBe(
+      "Server returned HTTP 500: Internal Server Error. Unable to communicate with the authentication server. Please ensure the backend is running."
+    );
+  });
 });

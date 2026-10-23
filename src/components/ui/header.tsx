@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ActivityListItem } from "@/lib/api-types";
 import { safeReadJson } from "@/lib/http-client";
-import { Search, Bell, LogOut, Menu, Radio, User } from "lucide-react";
+import { Bell, LogOut, Menu, Radio, User } from "lucide-react";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 
 interface HeaderProps {
@@ -60,8 +60,8 @@ export function Header({
 
   return (
     <header className="h-12 bg-wellqc-panel border-b border-wellqc-border px-3 md:px-4 flex items-center justify-between sticky top-0 z-20 select-none">
-      {/* Left section: Mobile toggle + Compact Workstation Search */}
-      <div className="flex items-center space-x-2.5 flex-1 max-w-xl">
+      {/* Left section: Mobile toggle */}
+      <div className="flex items-center space-x-2.5">
         <button
           onClick={onToggleMobileNav}
           className="md:hidden p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700 focus:outline-none"
@@ -69,20 +69,6 @@ export function Header({
         >
           <Menu className="w-4 h-4" />
         </button>
-
-        <div className="relative w-full max-w-md">
-          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search wells, API / UWI numbers, operators, curves..."
-            className="w-full bg-slate-950/70 border border-slate-800 rounded-lg pl-8 pr-16 py-1 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-colors font-mono"
-          />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden sm:flex items-center space-x-0.5 text-[9px] font-mono text-slate-500 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">
-            <span>Ctrl</span>
-            <span>+</span>
-            <span>K</span>
-          </div>
-        </div>
       </div>
 
       {/* Right section: System telemetry + Notifications + User context */}

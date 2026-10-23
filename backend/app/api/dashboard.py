@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
 import json
-from typing import Any, Dict, List
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from typing import Any, Dict, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func, or_, desc
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
@@ -56,6 +56,7 @@ def _relative_time(dt: datetime) -> str:
 
 @router.get("")
 def get_dashboard(
+    scope: str = Query("ALL", description="Filter scope: ALL, COMMITTED, or ATTENTION/FLAGGED"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -64,9 +65,34 @@ def get_dashboard(
         start_of_today = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
         seven_days_ago = start_of_today - timedelta(days=6)
 
-        user_wells = db.query(Well).filter(Well.ownerId == current_user.id).all()
-        well_ids = [w.id for w in user_wells]
+        all_user_wells = (
+            db.query(Well)
+            .options(
+                selectinload(Well.lasFiles),
+                selectinload(Well.reports).selectinload(QualityReport.anomalies),
+            )
+            .filter(Well.ownerId == current_user.id)
+            .all()
+        )
 
+        committed_wells = [w for w in all_user_wells if len(w.lasFiles) > 0]
+        flagged_wells = [
+            w for w in all_user_wells
+            if w.qualityScore < 75
+            or w.qualityGrade in ("POOR", "CRITICAL")
+            or (w.reports and any(r.anomalyCount > 0 for r in w.reports))
+        ]
+
+        normalized_scope = (scope or "ALL").upper()
+        if normalized_scope == "COMMITTED":
+            user_wells = committed_wells
+        elif normalized_scope in ("ATTENTION", "FLAGGED"):
+            user_wells = flagged_wells
+        else:
+            normalized_scope = "ALL"
+            user_wells = all_user_wells
+
+        well_ids = [w.id for w in user_wells]
         total_wells = len(user_wells)
 
         las_files_uploaded = (
@@ -246,6 +272,73 @@ def get_dashboard(
             for a in recent_activity_records
         ]
 
+        # Scope Wells list for quick contextual feed on the dashboard
+        scope_wells = []
+        for w in user_wells:
+            latest_report = None
+            if w.reports:
+                sorted_reports = sorted(
+                    w.reports,
+                    key=lambda r: r.createdAt or datetime.min.replace(tzinfo=timezone.utc),
+                    reverse=True,
+                )
+                latest_report = sorted_reports[0]
+
+            latest_las = None
+            if w.lasFiles:
+                sorted_las = sorted(
+                    w.lasFiles,
+                    key=lambda lf: lf.createdAt or datetime.min.replace(tzinfo=timezone.utc),
+                    reverse=True,
+                )
+                latest_las = sorted_las[0]
+
+            primary_issue = None
+            if latest_report and latest_report.anomalies:
+                critical_anoms = [a for a in latest_report.anomalies if a.severity == "CRITICAL"]
+                if critical_anoms:
+                    primary_issue = f"Critical: {critical_anoms[0].description}"
+                else:
+                    primary_issue = f"Warning: {latest_report.anomalies[0].description}"
+            elif w.qualityScore < 75 and w.qualityScore > 0:
+                primary_issue = "Quality score is below the accepted 75 benchmark."
+            elif w.qualityScore == 0:
+                primary_issue = "Pre-registered well shell: pending initial LAS ingestion."
+
+            scope_wells.append({
+                "id": w.id,
+                "name": w.name,
+                "apiNo": w.apiNo,
+                "operatorName": w.operatorName,
+                "fieldName": w.fieldName,
+                "qualityScore": w.qualityScore,
+                "qualityGrade": w.qualityGrade,
+                "status": w.status,
+                "curveCount": latest_las.curveCount if latest_las else 0,
+                "pointCount": latest_las.pointCount if latest_las else 0,
+                "anomalyCount": latest_report.anomalyCount if latest_report else 0,
+                "criticalCount": (
+                    len([a for a in latest_report.anomalies if a.severity == "CRITICAL"])
+                    if (latest_report and latest_report.anomalies)
+                    else 0
+                ),
+                "warningCount": (
+                    len([a for a in latest_report.anomalies if a.severity == "WARNING"])
+                    if (latest_report and latest_report.anomalies)
+                    else 0
+                ),
+                "latestLasFileName": latest_las.originalName if latest_las else None,
+                "latestLasFileId": latest_las.id if latest_las else None,
+                "primaryIssue": primary_issue,
+                "updatedAt": (w.updatedAt or w.createdAt).isoformat() if (w.updatedAt or w.createdAt) else None,
+            })
+
+        counts = {
+            "totalAll": len(all_user_wells),
+            "totalCommitted": len(committed_wells),
+            "totalFlagged": len(flagged_wells),
+        }
+
         return {
             "totalWells": total_wells,
             "lasFilesUploaded": las_files_uploaded,
@@ -261,6 +354,9 @@ def get_dashboard(
             "fieldPerformance": field_performance[:6],
             "problemWells": prob_wells_res,
             "recentActivity": recent_activity,
+            "activeScope": normalized_scope,
+            "counts": counts,
+            "scopeWells": scope_wells,
         }
     except Exception as e:
         raise HTTPException(

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import Link from "next/link";
-import { DashboardSummary } from "@/lib/api-types";
+import { DashboardScopeWell, DashboardSummary } from "@/lib/api-types";
 import { safeReadJson } from "@/lib/http-client";
 import {
   Award,
@@ -14,6 +14,7 @@ import {
   Plus,
   Settings,
   ShieldAlert,
+  ShieldCheck,
   ArrowRight,
 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -38,6 +39,13 @@ const EMPTY_SUMMARY: DashboardSummary = {
   fieldPerformance: [],
   problemWells: [],
   recentActivity: [],
+  activeScope: "ALL",
+  counts: {
+    totalAll: 0,
+    totalCommitted: 0,
+    totalFlagged: 0,
+  },
+  scopeWells: [],
 };
 
 export default function DashboardPage() {
@@ -89,35 +97,21 @@ export default function DashboardPage() {
     }
   };
 
-  const loadDashboard = useCallback(async (showRefreshingSpinner = false) => {
-    if (showRefreshingSpinner) setIsRefreshing(true);
-    try {
-      const response = await fetch("/api/dashboard", { cache: "no-store" });
-      const res = await safeReadJson<DashboardSummary>(response, "Unable to load dashboard data.");
-
-      if (!res.ok || !res.data) {
-        throw new Error(res.error || "Unable to load dashboard data.");
-      }
-
-      setSummary(res.data);
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load dashboard data.");
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    async function initDashboard() {
+  const loadDashboard = useCallback(
+    async (
+      targetScope: "ALL" | "COMMITTED" | "ATTENTION" = filterScope,
+      showRefreshingSpinner = false
+    ) => {
+      if (showRefreshingSpinner) setIsRefreshing(true);
       try {
-        const response = await fetch("/api/dashboard", { cache: "no-store" });
-        const res = await safeReadJson<DashboardSummary>(response, "Unable to load dashboard data.");
+        const response = await fetch(`/api/dashboard?scope=${targetScope}`, {
+          cache: "no-store",
+        });
+        const res = await safeReadJson<DashboardSummary>(
+          response,
+          "Unable to load dashboard data."
+        );
 
-        if (!active) return;
         if (!res.ok || !res.data) {
           throw new Error(res.error || "Unable to load dashboard data.");
         }
@@ -125,21 +119,22 @@ export default function DashboardPage() {
         setSummary(res.data);
         setError("");
       } catch (err) {
-        if (!active) return;
         setError(err instanceof Error ? err.message : "Unable to load dashboard data.");
       } finally {
-        if (active) {
-          setIsLoading(false);
-          setIsRefreshing(false);
-        }
+        setIsLoading(false);
+        setIsRefreshing(false);
       }
-    }
+    },
+    [filterScope]
+  );
 
-    initDashboard();
+  const handleScopeChange = (newScope: "ALL" | "COMMITTED" | "ATTENTION") => {
+    setFilterScope(newScope);
+    loadDashboard(newScope, true);
+  };
 
-    return () => {
-      active = false;
-    };
+  useEffect(() => {
+    loadDashboard("ALL");
   }, []);
 
   const trendData = summary.trend.length > 0 ? summary.trend : EMPTY_SUMMARY.trend;
@@ -223,24 +218,72 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center flex-wrap gap-2.5 text-[11px] text-slate-500 dark:text-slate-400">
-            <div className="flex items-center space-x-1 bg-slate-100 dark:bg-slate-900/90 border border-slate-300 dark:border-slate-800 rounded-xl p-1">
+            <div className="flex items-center space-x-1 bg-slate-100 dark:bg-slate-900/90 border border-slate-300 dark:border-slate-800 rounded-xl p-1 shadow-inner">
               <button
-                onClick={() => setFilterScope("ALL")}
-                className={`px-2.5 py-1 rounded-lg transition-colors ${filterScope === "ALL" ? "bg-[#0071e3] text-white font-bold shadow-sm" : "hover:text-slate-900 dark:hover:text-white"}`}
+                onClick={() => handleScopeChange("ALL")}
+                className={`px-3 py-1 rounded-lg transition-all flex items-center space-x-1.5 ${
+                  filterScope === "ALL"
+                    ? "bg-[#0071e3] text-white font-bold shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+                title="View complete fleet assets catalog"
               >
-                All Wells
+                <span>All Wells</span>
+                {summary.counts?.totalAll !== undefined && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                      filterScope === "ALL"
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-200 dark:bg-slate-800 text-slate-500"
+                    }`}
+                  >
+                    {summary.counts.totalAll}
+                  </span>
+                )}
               </button>
               <button
-                onClick={() => setFilterScope("COMMITTED")}
-                className={`px-2.5 py-1 rounded-lg transition-colors ${filterScope === "COMMITTED" ? "bg-[#0071e3] text-white font-bold shadow-sm" : "hover:text-slate-900 dark:hover:text-white"}`}
+                onClick={() => handleScopeChange("COMMITTED")}
+                className={`px-3 py-1 rounded-lg transition-all flex items-center space-x-1.5 ${
+                  filterScope === "COMMITTED"
+                    ? "bg-[#0071e3] text-white font-bold shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+                title="View wells with verified committed LAS log suites"
               >
-                Committed
+                <span>Committed</span>
+                {summary.counts?.totalCommitted !== undefined && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                      filterScope === "COMMITTED"
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-200 dark:bg-slate-800 text-slate-500"
+                    }`}
+                  >
+                    {summary.counts.totalCommitted}
+                  </span>
+                )}
               </button>
               <button
-                onClick={() => setFilterScope("ATTENTION")}
-                className={`px-2.5 py-1 rounded-lg transition-colors ${filterScope === "ATTENTION" ? "bg-[#0071e3] text-white font-bold shadow-sm" : "hover:text-slate-900 dark:hover:text-white"}`}
+                onClick={() => handleScopeChange("ATTENTION")}
+                className={`px-3 py-1 rounded-lg transition-all flex items-center space-x-1.5 ${
+                  filterScope === "ATTENTION"
+                    ? "bg-rose-600 text-white font-bold shadow-sm"
+                    : "text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300"
+                }`}
+                title="View wells with quality score < 75 or critical anomalies"
               >
-                Flagged
+                <span>Flagged</span>
+                {summary.counts?.totalFlagged !== undefined && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                      filterScope === "ATTENTION"
+                        ? "bg-white/20 text-white"
+                        : "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+                    }`}
+                  >
+                    {summary.counts.totalFlagged}
+                  </span>
+                )}
               </button>
             </div>
 
@@ -260,7 +303,7 @@ export default function DashboardPage() {
                 <Plus className="w-4 h-4" />
               </Link>
               <button
-                onClick={() => loadDashboard(true)}
+                onClick={() => loadDashboard(filterScope, true)}
                 disabled={isRefreshing || isLoading}
                 title="Refresh Database Telemetry"
                 className="w-8 h-8 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center transition-colors shadow-sm"
@@ -340,19 +383,61 @@ export default function DashboardPage() {
           {/* Row 1: Discovery & Quality Index */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
             <EnterpriseKpiCard
-              label="Discovered Wells"
+              label={
+                filterScope === "COMMITTED"
+                  ? "Committed Wells"
+                  : filterScope === "ATTENTION"
+                  ? "Flagged Wells"
+                  : "Discovered Wells"
+              }
               value={summary.totalWells.toLocaleString()}
-              subtext="Catalogued Subsurface Assets"
-              accentColor="text-sky-600 dark:text-sky-400"
+              subtext={
+                filterScope === "COMMITTED"
+                  ? "Verified Subsurface Assets"
+                  : filterScope === "ATTENTION"
+                  ? "At-Risk / Require Remediation"
+                  : "Catalogued Subsurface Assets"
+              }
+              accentColor={
+                filterScope === "COMMITTED"
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : filterScope === "ATTENTION"
+                  ? "text-rose-600 dark:text-rose-400"
+                  : "text-sky-600 dark:text-sky-400"
+              }
             />
             <EnterpriseKpiCard
-              label="Committed LAS Logs"
+              label={
+                filterScope === "COMMITTED"
+                  ? "Verified LAS Files"
+                  : filterScope === "ATTENTION"
+                  ? "Problem Log Suites"
+                  : "Committed LAS Logs"
+              }
               value={summary.lasFilesUploaded.toLocaleString()}
-              subtext="Verified File Ingestions"
-              accentColor="text-cyan-600 dark:text-cyan-400"
+              subtext={
+                filterScope === "COMMITTED"
+                  ? "Production-Ready Ingestions"
+                  : filterScope === "ATTENTION"
+                  ? "Logs with Critical Flags"
+                  : "Verified File Ingestions"
+              }
+              accentColor={
+                filterScope === "COMMITTED"
+                  ? "text-cyan-600 dark:text-cyan-400"
+                  : filterScope === "ATTENTION"
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-cyan-600 dark:text-cyan-400"
+              }
             />
             <EnterpriseKpiCard
-              label="Composite QA Score"
+              label={
+                filterScope === "COMMITTED"
+                  ? "Committed Fleet Score"
+                  : filterScope === "ATTENTION"
+                  ? "Flagged Defect Score"
+                  : "Composite QA Score"
+              }
               value={summary.averageQualityScore > 0 ? `${summary.averageQualityScore}` : "0"}
               subtext={`Grade: ${summary.averageQualityGrade}`}
               badge={summary.averageQualityGrade}
@@ -407,24 +492,71 @@ export default function DashboardPage() {
 
           {/* Row 3: Priority Severity Alert Cards (High Impact Solid/Accented Blocks) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-            {/* Defect Ratio Card */}
+            {/* Defect Exposure / Fleet Pass Rate Card */}
             <div className="enterprise-kpi-card bg-wellqc-panel border border-wellqc-border p-4 rounded-2xl flex items-center justify-between shadow-sm hover:shadow-md transition-all">
               <div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold">
-                  Defect Exposure Ratio
+                  {filterScope === "ATTENTION"
+                    ? "Remediation Defect Rate"
+                    : filterScope === "COMMITTED"
+                    ? "Committed Log Readiness"
+                    : "Fleet QA Pass Rate"}
                 </div>
                 <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                  {summary.totalWells > 0
-                    ? `${Math.round((summary.problemWells.length / summary.totalWells) * 100)}%`
-                    : "0%"}
+                  {filterScope === "ATTENTION"
+                    ? `${summary.errorsDetected} Critical`
+                    : summary.totalWells > 0
+                    ? `${Math.max(
+                        0,
+                        Math.round(
+                          ((summary.totalWells - summary.problemWells.length) /
+                            summary.totalWells) *
+                            100
+                        )
+                      )}%`
+                    : "100%"}
                 </div>
                 <div className="text-[10px] text-slate-500 mt-0.5">
-                  <span className="text-rose-600 dark:text-rose-400 font-bold">{summary.errorsDetected}</span> Faults in{" "}
-                  <span className="text-slate-800 dark:text-white font-medium">{summary.curvesAnalysed}</span> Curves
+                  {filterScope === "ATTENTION" ? (
+                    <span>
+                      <strong className="text-rose-600 dark:text-rose-400 font-bold">
+                        {summary.totalWells}
+                      </strong>{" "}
+                      Wells require automated repair
+                    </span>
+                  ) : filterScope === "COMMITTED" ? (
+                    <span>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-bold">
+                        {summary.totalWells}
+                      </strong>{" "}
+                      Committed logs meet interpretation standard
+                    </span>
+                  ) : (
+                    <span>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-bold">
+                        {Math.max(0, summary.totalWells - summary.problemWells.length)}
+                      </strong>{" "}
+                      of{" "}
+                      <span className="text-slate-800 dark:text-white font-medium">
+                        {summary.totalWells}
+                      </span>{" "}
+                      wells production ready
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 flex items-center justify-center text-rose-600 dark:text-rose-400 shadow-sm">
-                <ShieldAlert className="w-5 h-5" />
+              <div
+                className={`w-10 h-10 rounded-2xl border flex items-center justify-center shadow-sm ${
+                  filterScope === "ATTENTION"
+                    ? "bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400"
+                    : "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400"
+                }`}
+              >
+                {filterScope === "ATTENTION" ? (
+                  <ShieldAlert className="w-5 h-5" />
+                ) : (
+                  <ShieldCheck className="w-5 h-5" />
+                )}
               </div>
             </div>
 
@@ -1056,6 +1188,13 @@ export default function DashboardPage() {
             </div>
           </>
         )}
+
+        {/* Dynamic Contextual Wells Feed based on Active Scope (All Wells / Committed / Flagged) */}
+        <DashboardScopeWellsSection
+          filterScope={filterScope}
+          wells={summary.scopeWells || []}
+          onSelectScope={handleScopeChange}
+        />
       </div>
     </AppShell>
   );
@@ -1090,6 +1229,227 @@ function EnterpriseKpiCard({
         {value}
       </div>
       <div className="text-[10px] text-slate-500 truncate">{subtext}</div>
+    </div>
+  );
+}
+
+function DashboardScopeWellsSection({
+  filterScope,
+  wells,
+  onSelectScope,
+}: {
+  filterScope: "ALL" | "COMMITTED" | "ATTENTION";
+  wells: DashboardScopeWell[];
+  onSelectScope: (scope: "ALL" | "COMMITTED" | "ATTENTION") => void;
+}) {
+  const getGradeBadge = (grade: string) => {
+    switch (grade) {
+      case "EXCELLENT":
+        return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30";
+      case "GOOD":
+        return "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30";
+      case "POOR":
+        return "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30";
+      case "CRITICAL":
+        return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30";
+      default:
+        return "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/30";
+    }
+  };
+
+  const getScoreColor = (val: number) => {
+    if (val >= 90) return "text-emerald-600 dark:text-emerald-400";
+    if (val >= 75) return "text-sky-600 dark:text-sky-400";
+    if (val >= 50) return "text-amber-600 dark:text-amber-400";
+    return "text-rose-600 dark:text-rose-400";
+  };
+
+  return (
+    <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-5 shadow-sm space-y-4 font-mono">
+      {/* Section Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-wellqc-border pb-3">
+        <div className="flex items-center space-x-2.5">
+          <div
+            className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs ${
+              filterScope === "ATTENTION"
+                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                : filterScope === "COMMITTED"
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                : "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20"
+            }`}
+          >
+            {filterScope === "ATTENTION" ? (
+              <ShieldAlert className="w-4 h-4" />
+            ) : filterScope === "COMMITTED" ? (
+              <CheckCircle2 className="w-4 h-4" />
+            ) : (
+              <Layers className="w-4 h-4" />
+            )}
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">
+                {filterScope === "ATTENTION"
+                  ? "Flagged Wells Requiring Remediation"
+                  : filterScope === "COMMITTED"
+                  ? "Verified Committed Wells Inventory"
+                  : "Active Subsurface Asset Catalog"}
+              </h3>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold">
+                {wells.length} {wells.length === 1 ? "Well" : "Wells"}
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+              {filterScope === "ATTENTION"
+                ? "Wells with QA scores below 75, critical non-monotonic depth steps, or excessive log nulls"
+                : filterScope === "COMMITTED"
+                ? "Verified subsurface wells with committed, production-grade LAS logs stored in database"
+                : "Complete fleet of catalogued wells across all fields and basins"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2 shrink-0">
+          <Link
+            href="/wells"
+            className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 transition-colors flex items-center space-x-1"
+          >
+            <span>Registry</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Scope Wells List */}
+      {wells.length === 0 ? (
+        <div className="py-8 text-center rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/80 space-y-2">
+          {filterScope === "ATTENTION" ? (
+            <div className="space-y-1">
+              <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto" />
+              <div className="text-xs font-bold text-slate-900 dark:text-white">
+                Zero Flagged Wells
+              </div>
+              <div className="text-[11px] text-slate-500">
+                Every well in your catalog currently passes quality standards and integrity rules.
+              </div>
+            </div>
+          ) : filterScope === "COMMITTED" ? (
+            <div className="space-y-1">
+              <Layers className="w-6 h-6 text-slate-400 mx-auto" />
+              <div className="text-xs font-bold text-slate-900 dark:text-white">
+                No Committed Wells Yet
+              </div>
+              <div className="text-[11px] text-slate-500">
+                Upload and commit your first LAS file to view verified logs here.
+              </div>
+              <Link
+                href="/upload"
+                className="inline-block mt-2 px-3 py-1 rounded-full btn-apple-primary text-white text-[11px] font-bold"
+              >
+                Upload LAS Log
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Layers className="w-6 h-6 text-slate-400 mx-auto" />
+              <div className="text-xs font-bold text-slate-900 dark:text-white">
+                No Wells Discovered
+              </div>
+              <div className="text-[11px] text-slate-500">
+                Get started by uploading a wireline LAS file.
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="divide-y divide-wellqc-border border border-wellqc-border rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/40">
+          {wells.map((well) => (
+            <div
+              key={well.id}
+              className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-100/70 dark:hover:bg-slate-900/80 transition-colors"
+            >
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center space-x-2 flex-wrap">
+                  <Link
+                    href={`/wells/${well.id}`}
+                    className="font-bold text-xs text-slate-900 dark:text-white hover:text-cyan-600 dark:hover:text-cyan-400 hover:underline truncate"
+                  >
+                    {well.name}
+                  </Link>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    API: {well.apiNo}
+                  </span>
+                  <span
+                    className={`text-[9px] px-2 py-0.2 rounded-full border font-bold uppercase tracking-wider ${getGradeBadge(
+                      well.qualityGrade
+                    )}`}
+                  >
+                    {well.qualityGrade}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-3 text-[10px] text-slate-500 flex-wrap">
+                  <span>
+                    Field: <strong className="text-slate-700 dark:text-slate-300">{well.fieldName}</strong>
+                  </span>
+                  <span>•</span>
+                  <span>
+                    Operator: <strong className="text-slate-700 dark:text-slate-300">{well.operatorName}</strong>
+                  </span>
+                  {well.curveCount > 0 && (
+                    <>
+                      <span>•</span>
+                      <span>
+                        <strong className="text-slate-700 dark:text-slate-300">{well.curveCount}</strong> Curves
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {well.primaryIssue && (
+                  <div
+                    className={`text-[10px] flex items-center space-x-1.5 pt-0.5 ${
+                      well.criticalCount > 0 || well.qualityScore < 75
+                        ? "text-rose-600 dark:text-rose-400"
+                        : "text-amber-600 dark:text-amber-400"
+                    }`}
+                  >
+                    <span className="font-bold">Issue:</span>
+                    <span className="truncate">{well.primaryIssue}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-3 shrink-0 self-end sm:self-center">
+                <div className="text-right">
+                  <div className={`text-base font-black ${getScoreColor(well.qualityScore)}`}>
+                    {well.qualityScore > 0 ? `${well.qualityScore}` : "—"}
+                  </div>
+                  <div className="text-[9px] text-slate-500 uppercase">QA Score</div>
+                </div>
+
+                {filterScope === "ATTENTION" ? (
+                  <Link
+                    href={`/qa-engine?wellId=${well.id}`}
+                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold shadow-sm transition-all flex items-center space-x-1 active:scale-95"
+                  >
+                    <span>Repair Faults</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/wells/${well.id}`}
+                    className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-[11px] font-semibold transition-all flex items-center space-x-1 active:scale-95"
+                  >
+                    <span>Inspect Log</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

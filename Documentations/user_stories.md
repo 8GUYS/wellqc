@@ -233,6 +233,22 @@ A story is accepted as done when:
     And falls back to received points length only if pointCount is missing or zero
   ```
 
+#### US-QCE-05: Direct Quality Engine Repair Navigation for Saved Well Assets
+- **As a** Petrophysicist inspecting a saved well log by ID (`/wells/[id]`) or from the Well Assets catalog (`/wells`),
+- **I want** a dedicated "Fix in QA Engine" action button,
+- **So that** I can seamlessly jump into the Quality Engine workstation with that specific database well pre-loaded and focused for anomaly remediation.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 6 · SE1 / SE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Launching QA Engine from Well Detail page
+    Given I am inspecting well "TUJA 1" on `/wells/<id>`
+    When I click the "Fix in QA Engine" button in the header or petrophysical summary
+    Then I am navigated to `/qa-engine?wellId=<id>`
+    And the Quality Engine automatically selects the DATABASE_WELL source
+    And loads all curve points and anomaly flags for "TUJA 1" ready for review and repair
+  ```
+
 ---
 
 ### 🔬 Epic 4: Petrophysical Diagnostics & Intelligent Imputation
@@ -420,14 +436,14 @@ A story is accepted as done when:
 
 #### US-SEC-01: Role-Based Access Control (RBAC)
 - **As a** Systems Administrator (PER-4),
-- **I want** distinct permissions for ADMIN, PETROPHYSICIST, DATA_ENGINEER, GEOSCIENTIST, and VIEWER,
-- **So that** sensitive field data and administrative actions are strictly safeguarded.
+- **I want** a clean binary authorization model separating security roles (`ADMIN` vs. `USER`) from domain professional titles (e.g., Petrophysicist, Geoscientist, Data Engineer in the user's `department`),
+- **So that** administrative custody is strictly protected while subsurface professionals work cross-functionally without friction.
 - **Priority:** Must Have
 - **Sprint / Owner:** Sprint 2 · SE2 / CE2
 - **Acceptance Criteria:**
   ```gherkin
   Scenario: Non-admin attempting administrative action
-    Given a user authenticated with role "PETROPHYSICIST"
+    Given a user authenticated with role "USER"
     When they attempt to update another user's role via POST /api/admin/users/{id}/role
     Then the server returns 403 Forbidden ("Administrative privileges required")
   ```
@@ -621,6 +637,7 @@ A story is accepted as done when:
 | **US-QCE-02** | 11 Anomaly Category Audits | Must Have | Sprint 4 | DA1 | `backend/app/services/quality_engine.py`, `cleaner.py` |
 | **US-QCE-03** | AI Natural Language Summary | Should Have | Sprint 3 | SE1 | `backend/app/api/wells.py`, `ai_analyzer.py` |
 | **US-QCE-04** | Ground-Truth Sample Count Display | Must Have | Sprint 6 | SE1 | `src/app/qa-engine/page.tsx`, `backend/app/api/wells.py` |
+| **US-QCE-05** | Direct Quality Engine Repair Navigation | Must Have | Sprint 6 | SE1 | `src/app/wells/[id]/page.tsx`, `src/app/qa-engine/page.tsx` |
 | **US-IMP-01** | Root-Cause Classifications | Should Have | Sprint 4 | DA2 | `src/lib/las/imputation-engine.ts`, `backend/app/api/las.py` |
 | **US-IMP-02** | Imputation Benchmarking | Should Have | Sprint 4 | DA2 | `imputation-benchmark-modal.tsx`, `imputation.py` |
 | **US-VIW-01** | 3-Track Wireline Presentation | Must Have | Sprint 4 | SE1 | `src/components/well-log/log-viewer.tsx` |

@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user, get_current_user_optional
+from backend.app.core.security import normalize_role
 from backend.app.models.models import (
     ActivityLog,
     Anomaly,
@@ -287,7 +288,7 @@ def apply_fixes(
     elif req.wellId not in ("upload-session", "benchmark-01"):
         db_well = db.query(Well).filter(Well.id == req.wellId).first()
         if db_well:
-            is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
+            is_admin = (normalize_role(current_user.role) == "ADMIN")
             is_owner = (db_well.ownerId == current_user.id)
             if not is_admin and not is_owner:
                 raise HTTPException(
@@ -379,7 +380,7 @@ def apply_fixes(
     # Activity log
     log = ActivityLog(
         userName=current_user.name,
-        userRole=current_user.role,
+        userRole=normalize_role(current_user.role),
         userId=current_user.id,
         action="RUN_QA",
         targetType="WELL",

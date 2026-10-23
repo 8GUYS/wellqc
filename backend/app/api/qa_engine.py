@@ -6,10 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 import numpy as np
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user_optional, get_current_user
+from backend.app.core.security import normalize_role
 from backend.app.models.models import ActivityLog, User, Well, QualityReport, Anomaly
 from backend.app.services.cleaner import clean_las_log_data, CleaningOptions, ApprovedFix
 from backend.app.services.imputation import recommend_for_gaps
@@ -103,60 +104,68 @@ def get_qa_engine_overview(
     total_wells = 0
     try:
         if current_user:
-            query = db.query(Well)
-            if current_user.role not in ("ADMIN", "SUPERVISOR"):
+            query = db.query(Well.id)
+            if normalize_role(current_user.role) != "ADMIN":
                 query = query.filter(Well.ownerId == current_user.id)
-            user_wells = query.all()
-            total_wells = len(user_wells)
+            user_well_ids = [w[0] for w in query.all()]
+            total_wells = len(user_well_ids)
 
-            # Count anomalies by type from latest reports
             anom_counts: Dict[str, int] = {
                 "DUPLICATE_DEPTH": 0,
                 "IMPOSSIBLE_VALUE": 0,
                 "EXTREME_SPIKE": 0,
                 "NULL_CLUSTER": 0,
             }
-            wells_affected: Dict[str, set] = {
-                "DUPLICATE_DEPTH": set(),
-                "IMPOSSIBLE_VALUE": set(),
-                "EXTREME_SPIKE": set(),
-                "NULL_CLUSTER": set(),
+            wells_affected: Dict[str, int] = {
+                "DUPLICATE_DEPTH": 0,
+                "IMPOSSIBLE_VALUE": 0,
+                "EXTREME_SPIKE": 0,
+                "NULL_CLUSTER": 0,
             }
 
-            for w in user_wells:
-                for rep in w.reports:
-                    for a in rep.anomalies:
-                        t = a.anomalyType or ""
-                        if t in anom_counts:
-                            anom_counts[t] += 1
-                            wells_affected[t].add(w.id)
+            if user_well_ids:
+                agg = (
+                    db.query(
+                        Anomaly.anomalyType,
+                        func.count(Anomaly.id),
+                        func.count(func.distinct(QualityReport.wellId)),
+                    )
+                    .join(QualityReport, Anomaly.qualityReportId == QualityReport.id)
+                    .filter(QualityReport.wellId.in_(user_well_ids))
+                    .group_by(Anomaly.anomalyType)
+                    .all()
+                )
+                for anom_type, total_anoms, wells_aff in agg:
+                    if anom_type in anom_counts:
+                        anom_counts[anom_type] = total_anoms
+                        wells_affected[anom_type] = wells_aff
 
             eval_results = [
                 {
                     "ruleId": "RULE_DUPLICATE_DEPTH",
                     "ruleName": "Duplicate Depth Index Rows",
-                    "wellsAffected": len(wells_affected["DUPLICATE_DEPTH"]),
+                    "wellsAffected": wells_affected["DUPLICATE_DEPTH"],
                     "anomaliesRaised": anom_counts["DUPLICATE_DEPTH"],
                     "severity": "CRITICAL",
                 },
                 {
                     "ruleId": "RULE_IMPOSSIBLE_VALUE",
                     "ruleName": "Physical Boundary Limits",
-                    "wellsAffected": len(wells_affected["IMPOSSIBLE_VALUE"]),
+                    "wellsAffected": wells_affected["IMPOSSIBLE_VALUE"],
                     "anomaliesRaised": anom_counts["IMPOSSIBLE_VALUE"],
                     "severity": "CRITICAL",
                 },
                 {
                     "ruleId": "RULE_EXTREME_SPIKE",
                     "ruleName": "Extreme Sensor Spikes",
-                    "wellsAffected": len(wells_affected["EXTREME_SPIKE"]),
+                    "wellsAffected": wells_affected["EXTREME_SPIKE"],
                     "anomaliesRaised": anom_counts["EXTREME_SPIKE"],
                     "severity": "WARNING",
                 },
                 {
                     "ruleId": "RULE_NULL_CLUSTER",
                     "ruleName": "Contiguous Missing Data Runs",
-                    "wellsAffected": len(wells_affected["NULL_CLUSTER"]),
+                    "wellsAffected": wells_affected["NULL_CLUSTER"],
                     "anomaliesRaised": anom_counts["NULL_CLUSTER"],
                     "severity": "WARNING",
                 },
@@ -197,7 +206,7 @@ def _resolve_target_las(
             )
         db_well = db.query(Well).filter(Well.id == well_id).first()
         if db_well:
-            is_admin = current_user.role in ("ADMIN", "SUPERVISOR")
+            is_admin = (normalize_role(current_user.role) == "ADMIN")
             is_owner = (db_well.ownerId == current_user.id)
             if not is_admin and not is_owner:
                 raise HTTPException(
@@ -497,8 +506,8 @@ def repair_anomalies(
     )
 
     report = clean_result.verificationReport
-    user_name = current_user.name if current_user else "Lead Petrophysicist"
-    user_role = current_user.role if current_user else "PETROPHYSICIST"
+    user_name = current_user.name if current_user else "Subsurface Engineer"
+    user_role = normalize_role(current_user.role) if current_user else "USER"
     user_id = current_user.id if current_user else None
 
     # Construct precise audit description with real counts

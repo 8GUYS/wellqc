@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_admin_user
+from backend.app.core.security import normalize_role
 from backend.app.models.models import (
     User,
     ActivityLog,
@@ -22,7 +23,7 @@ logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
-VALID_ROLES = ["ADMIN", "PETROPHYSICIST", "DATA_ENGINEER", "GEOSCIENTIST", "VIEWER"]
+VALID_ROLES = ["ADMIN", "USER"]
 
 class UpdateRoleRequest(BaseModel):
     userId: str
@@ -46,7 +47,7 @@ def list_admin_users(
                 "id": u.id,
                 "name": u.name,
                 "email": u.email,
-                "role": u.role,
+                "role": normalize_role(u.role),
                 "department": u.department or "Workspace",
                 "status": "ACTIVE",
                 "createdAt": u.createdAt.isoformat() if u.createdAt else "",
@@ -92,7 +93,7 @@ def update_user_role(
             "id": target_user.id,
             "name": target_user.name,
             "email": target_user.email,
-            "role": target_user.role,
+            "role": normalize_role(target_user.role),
             "department": target_user.department or "Workspace",
             "status": "ACTIVE",
         }
@@ -349,30 +350,16 @@ def update_email_settings(
             detail="Provider must be EMAILJS, RESEND, or DEV_LOGGER.",
         )
 
-    # Merge secrets: retain existing secret if empty or masked string is supplied
-    priv_key = payload.emailjs_private_key
-    if priv_key is None or priv_key.strip() == "" or "..." in priv_key or "****" in priv_key:
-        priv_key = existing.get("emailjs_private_key", "")
-    else:
-        priv_key = priv_key.strip()
-
-    resend_key = payload.resend_api_key
-    if resend_key is None or resend_key.strip() == "" or "..." in resend_key or "****" in resend_key:
-        resend_key = existing.get("resend_api_key", "")
-    else:
-        resend_key = resend_key.strip()
-
     frontend_url_clean = (payload.frontend_url or existing.get("frontend_url") or "https://wellqc.vercel.app").strip().rstrip("/")
 
+    # Security: Provider keys and secrets must NOT be written to the database.
+    # Secrets stay exclusively in environment variables to prevent duplication across database branches.
     data_to_store = {
         "provider": provider_clean,
         "frontend_url": frontend_url_clean,
         "emailjs_service_id": (payload.emailjs_service_id or "").strip(),
         "emailjs_template_id": (payload.emailjs_template_id or "").strip(),
         "emailjs_reset_template_id": (payload.emailjs_reset_template_id or "").strip(),
-        "emailjs_public_key": (payload.emailjs_public_key or "").strip(),
-        "emailjs_private_key": priv_key,
-        "resend_api_key": resend_key,
         "resend_from_email": (payload.resend_from_email or "WellQC <onboarding@resend.dev>").strip(),
     }
 

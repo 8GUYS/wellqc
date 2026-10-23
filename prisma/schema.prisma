@@ -12,7 +12,7 @@ model User {
   email                 String        @unique
   name                  String
   passwordHash          String
-  role                  String        @default("PETROPHYSICIST") // ADMIN, PETROPHYSICIST, DATA_ENGINEER, GEOSCIENTIST, VIEWER
+  role                  String        @default("USER") // ADMIN, USER
   department            String?       @default("Subsurface Analytics")
   avatarUrl             String?
   ndaAcceptedAt         DateTime?
@@ -201,7 +201,7 @@ model ActivityLog {
   userId     String?
   user       User?    @relation(fields: [userId], references: [id])
   userName   String   @default("System Agent")
-  userRole   String   @default("PETROPHYSICIST")
+  userRole   String   @default("USER")
   action     String   // LOGIN, UPLOAD_LAS, STANDARDISE_CURVE, RUN_QA, EXPORT_REPORT, ADMIN_CHANGE
   targetType String?  // WELL, LAS_FILE, CURVE, REPORT, USER
   targetId   String?

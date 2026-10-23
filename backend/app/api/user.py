@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
-from backend.app.core.security import hash_password, verify_password, create_session_token
+from backend.app.core.security import hash_password, verify_password, create_session_token, normalize_role
 from backend.app.core.config import settings
 from backend.app.models.models import ActivityLog, User
 
@@ -62,7 +62,7 @@ def get_profile(
             "id": current_user.id,
             "name": current_user.name,
             "email": current_user.email,
-            "role": current_user.role,
+            "role": normalize_role(current_user.role),
             "department": current_user.department or "Subsurface Analytics",
             "avatarUrl": current_user.avatarUrl or "",
             "tier": current_user.tier or "FREE",
@@ -102,13 +102,13 @@ def update_profile(
 
     if req.role is not None and req.role.strip():
         requested_role = req.role.strip().upper()
-        valid_roles = ["PETROPHYSICIST", "DATA_ENGINEER", "GEOSCIENTIST", "VIEWER", "ADMIN"]
+        valid_roles = ["USER", "ADMIN"]
         if requested_role not in valid_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid role specified.",
+                detail="Invalid role specified. Must be USER or ADMIN.",
             )
-        if requested_role == "ADMIN" and (current_user.role or "").strip().upper() != "ADMIN":
+        if requested_role == "ADMIN" and normalize_role(current_user.role) != "ADMIN":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Privilege escalation restricted: Users cannot self-assign the Administrator (ADMIN) role.",
@@ -142,7 +142,7 @@ def update_profile(
         "id": current_user.id,
         "name": current_user.name,
         "email": current_user.email,
-        "role": current_user.role,
+        "role": normalize_role(current_user.role),
         "department": current_user.department or "",
         "avatarUrl": current_user.avatarUrl or "",
         "tier": current_user.tier or "FREE",

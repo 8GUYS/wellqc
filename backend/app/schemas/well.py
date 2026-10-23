@@ -49,6 +49,10 @@ class WellListItem(BaseModel):
     pointCount: int = 0
     anomalyCount: int = 0
     curveSummaries: List[Dict[str, Any]] = []
+    ownerId: Optional[str] = None
+    uploaderName: Optional[str] = None
+    uploaderEmail: Optional[str] = None
+    latestLasFileCreatedAt: Optional[str] = None
     createdAt: str
     updatedAt: str
 

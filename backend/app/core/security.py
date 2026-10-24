@@ -1,11 +1,13 @@
 import base64
 import hashlib
+import html
 import hmac
 import json
 import os
+import re
 import secrets
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from backend.app.core.config import settings
 
 def _b64url_encode(data: bytes) -> str:
@@ -254,5 +256,121 @@ def read_password_reset_token(token: Optional[str]) -> Optional[Dict[str, Any]]:
         return parsed
     except Exception:
         return None
+
+
+# ===========================================================================
+# SQL Injection (SQLi) Defense & Form Protection Utilities
+# ===========================================================================
+
+# Comprehensive SQL Injection (SQLi) attack signatures
+SQL_INJECTION_PATTERNS = [
+    # Tautology / Boolean-based SQLi: ' OR '1'='1, " OR 1=1, ' OR true, " OR 'a'='a'
+    re.compile(r"(['\"]\s*(OR|AND)\s+['\"]?(\d+|true|'[^']*'|\"[^\"]*\")(\s*=\s*['\"]?(\d+|true|'[^']*'|\"[^\"]*\"))?)", re.IGNORECASE),
+    re.compile(r"(\b(OR|AND)\b\s+['\"]?(\d+|true|'[^']*'|\"[^\"]*\")\s*=\s*['\"]?(\d+|true|'[^']*'|\"[^\"]*\"))", re.IGNORECASE),
+    # Union-based SQLi: UNION SELECT, UNION ALL SELECT
+    re.compile(r"(\bUNION\s+(ALL\s+)?SELECT\b)", re.IGNORECASE),
+    # Stacked commands / DDL / DML injection: ; DROP TABLE, ; TRUNCATE, ; DELETE FROM, ; ALTER TABLE
+    re.compile(r"(;\s*(DROP|ALTER|TRUNCATE|DELETE\s+FROM|INSERT\s+INTO|UPDATE|CREATE)\s+)", re.IGNORECASE),
+    # Time-based blind SQLi: pg_sleep, sleep(), waitfor delay, benchmark()
+    re.compile(r"(\b(pg_sleep\s*\(|sleep\s*\(|waitfor\s+delay|benchmark\s*\())", re.IGNORECASE),
+    # SQL comment injection at end of string with quotes or keywords: ' --, " --, /* ... */
+    re.compile(r"(['\"][^'\"]*(--|\/\*))", re.IGNORECASE),
+    # System execution / privilege escalation SQLi: xp_cmdshell, exec(), sp_executesql
+    re.compile(r"(\b(xp_cmdshell|exec\s*\(|sp_executesql)\b)", re.IGNORECASE),
+    # Information schema harvesting: FROM information_schema
+    re.compile(r"(\bFROM\s+information_schema\b)", re.IGNORECASE),
+]
+
+# Unsafe HTML / script patterns for form inputs (XSS prevention)
+HTML_TAG_PATTERN = re.compile(r"<[^>]*>", re.IGNORECASE)
+DANGEROUS_SCRIPT_PATTERN = re.compile(
+    r"(<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>|javascript:|data:text\/html|on\w+\s*=)",
+    re.IGNORECASE,
+)
+
+
+def detect_sql_injection(data: Any, path: str = "root") -> Optional[str]:
+    """
+    Recursively scans incoming request data (strings, dicts, lists) for SQL injection signatures.
+    Returns a description of the detected threat if found, or None if the payload is clean.
+    """
+    if data is None:
+        return None
+
+    if isinstance(data, str):
+        # Null bytes can exploit C-string terminators or bypass filters
+        if "\x00" in data:
+            return f"Null byte injection detected at '{path}'"
+
+        # Check against SQL injection regex signatures
+        for pattern in SQL_INJECTION_PATTERNS:
+            match = pattern.search(data)
+            if match:
+                return f"SQL injection signature matched at '{path}': {match.group(0)}"
+        return None
+
+    if isinstance(data, dict):
+        for k, v in data.items():
+            # Check key itself
+            if isinstance(k, str):
+                key_threat = detect_sql_injection(k, f"{path}.key[{k}]")
+                if key_threat:
+                    return key_threat
+            # Check value
+            val_threat = detect_sql_injection(v, f"{path}.{k}")
+            if val_threat:
+                return val_threat
+        return None
+
+    if isinstance(data, list):
+        for idx, item in enumerate(data):
+            threat = detect_sql_injection(item, f"{path}[{idx}]")
+            if threat:
+                return threat
+        return None
+
+    return None
+
+
+def sanitize_text(val: Optional[str], max_length: int = 255) -> str:
+    """
+    Sanitizes user input from form fields:
+    - Strips leading and trailing whitespace
+    - Removes null bytes
+    - Strips dangerous script tags and inline handlers
+    - Escapes HTML entities to prevent Stored XSS
+    - Enforces maximum length constraint
+    """
+    if not val:
+        return ""
+    # Remove null bytes
+    clean = val.replace("\x00", "").strip()
+    # Remove dangerous script tags / event handlers
+    clean = DANGEROUS_SCRIPT_PATTERN.sub("", clean)
+    # Escape HTML to prevent Stored XSS
+    clean = html.escape(clean, quote=True)
+    # Truncate to maximum length
+    return clean[:max_length]
+
+
+def validate_safe_identifier(val: str, field_name: str = "Identifier", max_len: int = 100) -> str:
+    """
+    Validates that a string is a safe identifier (e.g. well name, API number, alias, mnemonic).
+    Allows letters, digits, spaces, hyphens, underscores, dots, and slashes.
+    Disallows quotes, semicolons, comments, angle brackets, and control characters.
+    """
+    if not val:
+        return ""
+    clean = val.replace("\x00", "").strip()
+    if len(clean) > max_len:
+        raise ValueError(f"{field_name} must not exceed {max_len} characters.")
+
+    # Reject dangerous SQL / HTML characters
+    unsafe_chars = ["'", '"', ";", "--", "/*", "*/", "<", ">", "\\"]
+    for char in unsafe_chars:
+        if char in clean:
+            raise ValueError(f"{field_name} contains prohibited character or sequence '{char}'.")
+    return clean
+
 
 

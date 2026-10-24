@@ -2,24 +2,49 @@ from datetime import datetime, timezone
 import re
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
-from backend.app.core.security import hash_password, verify_password, create_session_token, normalize_role
+from backend.app.core.security import (
+    hash_password,
+    verify_password,
+    create_session_token,
+    normalize_role,
+    detect_sql_injection,
+    sanitize_text,
+)
+from backend.app.core.rate_limit import RateLimitDependency
 from backend.app.core.config import settings
 from backend.app.models.models import ActivityLog, User
 
 router = APIRouter(prefix="/api/user", tags=["user"])
 
 class UpdateProfileRequest(BaseModel):
-    name: Optional[str] = None
-    department: Optional[str] = None
-    role: Optional[str] = None
-    avatarUrl: Optional[str] = None
-    currentPassword: Optional[str] = None
-    newPassword: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=100)
+    department: Optional[str] = Field(None, max_length=100)
+    role: Optional[str] = Field(None, max_length=20)
+    avatarUrl: Optional[str] = Field(None, max_length=500000)
+    currentPassword: Optional[str] = Field(None, max_length=128)
+    newPassword: Optional[str] = Field(None, max_length=128)
+
+    @field_validator("name", "department")
+    @classmethod
+    def sanitize_profile_text(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        threat = detect_sql_injection(v, "profile_field")
+        if threat:
+            raise ValueError(f"Malicious input detected: {threat}")
+        return sanitize_text(v, max_length=100)
+
+    @field_validator("currentPassword", "newPassword")
+    @classmethod
+    def validate_password_chars(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and "\x00" in v:
+            raise ValueError("Password contains prohibited null bytes.")
+        return v
 
 
 @router.get("/profile")
@@ -86,7 +111,7 @@ def get_profile(
     }
 
 
-@router.put("/profile")
+@router.put("/profile", dependencies=[Depends(RateLimitDependency(max_requests=20, window_seconds=60, action="update_profile"))])
 def update_profile(
     req: UpdateProfileRequest,
     response: Response,

@@ -92,6 +92,7 @@ export default function ForgotPasswordPage() {
                 <input
                   required
                   type="email"
+                  maxLength={255}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="analyst@energy-corp.com"

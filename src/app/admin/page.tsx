@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useDeferredValue, useMemo } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { safeReadJson } from "@/lib/http-client";
 import { ActivityListItem } from "@/lib/api-types";
@@ -25,7 +25,6 @@ import {
   Radio,
   History,
   Shield,
-  Sparkles,
 } from "lucide-react";
 
 interface UserRecord {
@@ -227,16 +226,19 @@ export default function AdminPanelPage() {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState("");
+  const deferredUserSearchQuery = useDeferredValue(userSearchQuery);
 
   // Capability Matrix Tab State
   const [matrixFilter, setMatrixFilter] = useState<string>("ALL");
   const [matrixSearchQuery, setMatrixSearchQuery] = useState("");
+  const deferredMatrixSearchQuery = useDeferredValue(matrixSearchQuery);
 
   // Audit Streaming State
   const [activities, setActivities] = useState<ActivityListItem[]>([]);
   const [isLoadingAudit, setIsLoadingAudit] = useState(false);
   const [auditFilter, setAuditFilter] = useState<string>("ALL");
   const [auditSearchQuery, setAuditSearchQuery] = useState("");
+  const deferredAuditSearchQuery = useDeferredValue(auditSearchQuery);
 
   // Email & Notifications Settings State
   const [emailConfig, setEmailConfig] = useState<{
@@ -270,8 +272,7 @@ export default function AdminPanelPage() {
   const [testRecipient, setTestRecipient] = useState("");
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [showEmailJsSecret, setShowEmailJsSecret] = useState(false);
-  const [showResendSecret, setShowResendSecret] = useState(false);
-
+ 
   // Token Management State
   const [tokens, setTokens] = useState<TokenItem[]>([]);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
@@ -287,7 +288,7 @@ export default function AdminPanelPage() {
   const [showCreateWebhookModal, setShowCreateWebhookModal] = useState(false);
   const [newWebhookName, setNewWebhookName] = useState("");
   const [newWebhookUrl, setNewWebhookUrl] = useState("");
-  const [newWebhookEvents, setNewWebhookEvents] = useState<string[]>([
+  const [newWebhookEvents] = useState<string[]>([
     "WELL_INGESTED",
     "QA_REPORT_GENERATED",
   ]);
@@ -572,36 +573,39 @@ export default function AdminPanelPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const filteredUsers = users.filter((u) => {
-    if (!userSearchQuery) return true;
-    const q = userSearchQuery.toLowerCase();
-    return (
-      u.name.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      u.role.toLowerCase().includes(q) ||
-      u.department.toLowerCase().includes(q)
+  const filteredUsers = useMemo(() => {
+    if (!deferredUserSearchQuery) return users;
+    const q = deferredUserSearchQuery.toLowerCase();
+    return users.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        u.role.toLowerCase().includes(q) ||
+        u.department.toLowerCase().includes(q)
     );
-  });
+  }, [users, deferredUserSearchQuery]);
 
-  const filteredAuditActivities = activities.filter((act) => {
-    if (auditFilter !== "ALL") {
-      const actionUpper = act.action.toUpperCase();
-      if (auditFilter === "WELL" && !actionUpper.includes("WELL")) return false;
-      if (auditFilter === "QA" && !actionUpper.includes("QA") && !actionUpper.includes("ANOMALY")) return false;
-      if (auditFilter === "INGEST" && !actionUpper.includes("INGEST") && !actionUpper.includes("LAS")) return false;
-      if (auditFilter === "USER" && !actionUpper.includes("USER") && !actionUpper.includes("AUTH")) return false;
-      if (auditFilter === "SECURITY" && !actionUpper.includes("TOKEN") && !actionUpper.includes("WEBHOOK")) return false;
-    }
-    if (!auditSearchQuery) return true;
-    const q = auditSearchQuery.toLowerCase();
-    return (
-      act.userName.toLowerCase().includes(q) ||
-      act.userRole.toLowerCase().includes(q) ||
-      act.action.toLowerCase().includes(q) ||
-      act.target.toLowerCase().includes(q) ||
-      act.details.toLowerCase().includes(q)
-    );
-  });
+  const filteredAuditActivities = useMemo(() => {
+    return activities.filter((act) => {
+      if (auditFilter !== "ALL") {
+        const actionUpper = act.action.toUpperCase();
+        if (auditFilter === "WELL" && !actionUpper.includes("WELL")) return false;
+        if (auditFilter === "QA" && !actionUpper.includes("QA") && !actionUpper.includes("ANOMALY")) return false;
+        if (auditFilter === "INGEST" && !actionUpper.includes("INGEST") && !actionUpper.includes("LAS")) return false;
+        if (auditFilter === "USER" && !actionUpper.includes("USER") && !actionUpper.includes("AUTH")) return false;
+        if (auditFilter === "SECURITY" && !actionUpper.includes("TOKEN") && !actionUpper.includes("WEBHOOK")) return false;
+      }
+      if (!deferredAuditSearchQuery) return true;
+      const q = deferredAuditSearchQuery.toLowerCase();
+      return (
+        act.userName.toLowerCase().includes(q) ||
+        act.userRole.toLowerCase().includes(q) ||
+        act.action.toLowerCase().includes(q) ||
+        act.target.toLowerCase().includes(q) ||
+        act.details.toLowerCase().includes(q)
+      );
+    });
+  }, [activities, auditFilter, deferredAuditSearchQuery]);
 
   const deletableUsers = filteredUsers.filter((u) => u.id !== currentUserId);
   const isAllSelected = deletableUsers.length > 0 && deletableUsers.every((u) => selectedUserIds.includes(u.id));
@@ -993,7 +997,7 @@ export default function AdminPanelPage() {
         {activeTab === "MATRIX" && (() => {
           const filteredMatrix = PERMISSION_MATRIX.filter((perm) => {
             const matchesCategory = matrixFilter === "ALL" || perm.category === matrixFilter;
-            const q = matrixSearchQuery.trim().toLowerCase();
+            const q = deferredMatrixSearchQuery.trim().toLowerCase();
             const matchesSearch =
               !q ||
               perm.name.toLowerCase().includes(q) ||
@@ -1006,8 +1010,8 @@ export default function AdminPanelPage() {
           return (
             <div className="space-y-4 font-mono">
               {/* Executive Architecture Banner */}
-              <div className="bg-wellqc-panel border border-wellqc-border p-5 rounded-2xl relative overflow-hidden space-y-4 shadow-xl">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              {/* <div className="bg-wellqc-panel border border-wellqc-border p-5 rounded-2xl relative overflow-hidden space-y-4 shadow-xl"> */}
+                {/* <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-500/10 text-purple-300 border border-purple-500/30 flex items-center gap-1.5">
@@ -1026,10 +1030,10 @@ export default function AdminPanelPage() {
                       Enforced across FastAPI route dependencies, Next.js proxy route guards, and PostgreSQL row-level tenancy.
                     </p>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Separation of Concerns Callout */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-wellqc-border/60">
+                {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-wellqc-border/60">
                   <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
                     <div className="flex items-center space-x-2 text-xs font-bold text-white">
                       <ShieldCheck className="w-4 h-4 text-rose-400" />
@@ -1049,8 +1053,8 @@ export default function AdminPanelPage() {
                       Subsurface domain professions (<span className="text-cyan-300 font-semibold">Lead Petrophysicist</span>, <span className="text-cyan-300 font-semibold">Subsurface Geoscientist</span>, <span className="text-cyan-300 font-semibold">Petroleum Data Engineer</span>) are preserved in the user profile <code className="text-slate-200">department</code> field, displaying on certificates and signatures without creating security silos.
                     </p>
                   </div>
-                </div>
-              </div>
+                </div> */}
+              {/* </div> */}
 
               {/* Quick Metrics Bar */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">

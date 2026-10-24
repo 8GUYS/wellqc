@@ -9,6 +9,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Database,
+  Download,
 } from "lucide-react";
 import { standardiseMnemonic } from "@/lib/las/standardiser";
 
@@ -43,7 +44,7 @@ export function WellLogDataTable({
   selectedDepth = null,
   onDepthSelect,
 }: LogDataTableProps) {
-  const depthArr = curvesData.depth || [];
+  const depthArr = useMemo(() => curvesData.depth || [], [curvesData.depth]);
   const totalRows = depthArr.length;
   const curveKeys = useMemo(() => Object.keys(curvesData.curves || {}), [curvesData.curves]);
 
@@ -224,6 +225,17 @@ export function WellLogDataTable({
               Jump
             </button>
           </form>
+
+          {/* Export CSV Button */}
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg font-bold transition-colors flex items-center space-x-1"
+            title="Download entire log spreadsheet as CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>CSV</span>
+          </button>
 
           {/* Filter Mode Selector */}
           <div className="flex items-center bg-wellqc-card border border-wellqc-border rounded-lg p-0.5">

@@ -39,7 +39,6 @@ interface AuditReportItem {
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<AuditReportItem[]>([]);
-  const [cleanedLASSession, setCleanedLASSession] = useState<string | null>(null);
   const [activeWellName, setActiveWellName] = useState<string>("Active Well");
   const [activeAuditData, setActiveAuditData] = useState<AuditCertificateData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -50,8 +49,8 @@ export default function ReportsPage() {
 
   useEffect(() => {
     // 1. Check if there's an active upload / QA session in localStorage
-    function loadLocalSession() {
-      if (typeof window === "undefined") return;
+    function loadLocalSession(): boolean {
+      if (typeof window === "undefined") return false;
       try {
         const activeUserId = localStorage.getItem("wellqc_active_user_id");
         const uploadData = localStorage.getItem("wellqc_upload_workspace");
@@ -59,7 +58,7 @@ export default function ReportsPage() {
           const parsed = JSON.parse(uploadData);
           // Multi-tenant check: never display an old account's session to a different account
           if (parsed && parsed.userId && activeUserId && parsed.userId !== activeUserId) {
-            return;
+            return false;
           }
           if (parsed && parsed.parsedLAS) {
             const rawWn = parsed.parsedLAS.wellInfo?.wellName || "";
@@ -109,14 +108,16 @@ export default function ReportsPage() {
                 cleanedLASAvailable: true,
               },
             ]);
+            return true;
           }
         }
       } catch (e) {
         console.warn("Could not load local session in reports", e);
       }
+      return false;
     }
 
-    loadLocalSession();
+    const hasLocalSession = loadLocalSession();
 
     // 2. Fetch wells from database
     fetch("/api/wells")
@@ -139,7 +140,7 @@ export default function ReportsPage() {
           });
 
           // If no active local session, initialize active audit data with the first DB well
-          if (!activeAuditData && res.data.wells.length > 0) {
+          if (!hasLocalSession && res.data.wells.length > 0) {
             const first = res.data.wells[0];
             setActiveWellName(first.name);
           }

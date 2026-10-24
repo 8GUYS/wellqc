@@ -19,6 +19,7 @@ const eslintConfig = defineConfig([
           caughtErrors: "none",
         },
       ],
+      "@next/next/no-img-element": "off",
     },
   },
   // Override default ignores of eslint-config-next.
@@ -28,6 +29,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    ".venv/**",
+    "backend/**",
   ]),
 ]);
 

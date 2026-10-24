@@ -175,6 +175,7 @@ function ResetPasswordContent() {
                 <input
                   required
                   type={showPassword ? "text" : "password"}
+                  maxLength={128}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
@@ -221,6 +222,7 @@ function ResetPasswordContent() {
                 <input
                   required
                   type={showConfirmPassword ? "text" : "password"}
+                  maxLength={128}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   autoComplete="new-password"

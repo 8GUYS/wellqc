@@ -87,6 +87,18 @@ def test_dashboard_with_auth():
     assert "totalWells" in data
     assert "lasFilesUploaded" in data
     assert "recentActivity" in data
+    assert "counts" in data
+    assert "scopeWells" in data
+    assert data.get("activeScope") == "ALL"
+
+    # Test filtering by scope
+    resp_comm = client.get("/api/dashboard?scope=COMMITTED")
+    assert resp_comm.status_code == 200
+    assert resp_comm.json().get("activeScope") == "COMMITTED"
+
+    resp_att = client.get("/api/dashboard?scope=ATTENTION")
+    assert resp_att.status_code == 200
+    assert resp_att.json().get("activeScope") == "ATTENTION"
 
 def test_wells_api_with_auth():
     client, _, _ = _get_auth_client()

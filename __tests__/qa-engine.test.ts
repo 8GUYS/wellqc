@@ -1,7 +1,7 @@
 import { QARepairRequestPayload } from "@/lib/las/api";
 
 describe("Petrophysical QA Engine Deliverables & Anomaly Filters", () => {
-  const TARGET_ANOMALY_TYPES = [
+  const _TARGET_ANOMALY_TYPES = [
     "DUPLICATE_DEPTH",
     "IMPOSSIBLE_VALUE",
     "NULL_CLUSTER",

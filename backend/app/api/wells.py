@@ -8,6 +8,7 @@ from sqlalchemy import desc, asc, or_
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
 from backend.app.core.security import normalize_role
+from backend.app.core.rate_limit import RateLimitDependency
 from backend.app.models.models import (
     ActivityLog,
     Anomaly,
@@ -205,7 +206,7 @@ def list_wells(
         return {"wells": [], "error": f"Database error: {str(e)}"}
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(RateLimitDependency(max_requests=30, window_seconds=60, action="create_well"))])
 def create_well(
     req: CreateWellRequest,
     current_user: User = Depends(get_current_user),

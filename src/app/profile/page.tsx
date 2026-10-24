@@ -222,9 +222,18 @@ export default function UserProfilePage() {
     }
   }
 
+  if (loading && !profile) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="w-8 h-8 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
-
       <div className="space-y-6 max-w-6xl mx-auto pb-12">
         {/* Profile Header Summary Banner */}
         <div className="bg-gradient-to-r from-wellqc-panel via-wellqc-card to-blue-950/40 border border-wellqc-border rounded-2xl p-6 relative overflow-hidden shadow-2xl">
@@ -459,6 +468,7 @@ export default function UserProfilePage() {
                     </label>
                     <input
                       type="text"
+                      maxLength={100}
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
@@ -486,6 +496,7 @@ export default function UserProfilePage() {
                     </label>
                     <input
                       type="text"
+                      maxLength={100}
                       value={formData.department}
                       onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                       placeholder="e.g. Subsurface Analytics, Petrophysics, Exploration"
@@ -505,6 +516,7 @@ export default function UserProfilePage() {
                       <label className="block text-[11px] text-slate-400 mb-1">Current Password</label>
                       <input
                         type="password"
+                        maxLength={128}
                         value={formData.currentPassword}
                         onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
                         placeholder="••••••••"
@@ -517,6 +529,7 @@ export default function UserProfilePage() {
                         <label className="block text-[11px] text-slate-400 mb-1">New Password</label>
                         <input
                           type="password"
+                          maxLength={128}
                           value={formData.newPassword}
                           onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
                           placeholder="At least 6 characters"
@@ -528,6 +541,7 @@ export default function UserProfilePage() {
                         <label className="block text-[11px] text-slate-400 mb-1">Confirm New Password</label>
                         <input
                           type="password"
+                          maxLength={128}
                           value={formData.confirmPassword}
                           onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                           placeholder="Re-enter new password"

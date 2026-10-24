@@ -93,6 +93,7 @@ export function ContactSection() {
                     <input
                       type="text"
                       required
+                      maxLength={100}
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="Dr. Samuel Williams"
@@ -110,6 +111,7 @@ export function ContactSection() {
                     <input
                       type="email"
                       required
+                      maxLength={255}
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="s.williams@energycorp.com"
@@ -126,6 +128,7 @@ export function ContactSection() {
                     <Building className="w-4 h-4 text-wellqc-muted absolute left-3 top-3.5" />
                     <input
                       type="text"
+                      maxLength={100}
                       value={formData.company}
                       onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                       placeholder="Subsurface Energy Ltd"
@@ -141,6 +144,7 @@ export function ContactSection() {
                   <textarea
                     required
                     rows={4}
+                    maxLength={2000}
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                     placeholder="Tell us about your LAS file processing needs or questions..."

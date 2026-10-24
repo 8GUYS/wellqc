@@ -47,11 +47,26 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     setSaving(true);
     setError("");
     setResendStatus("");
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
+
+    if (isRegister && (!cleanName || cleanName.length > 100)) {
+      setError("Please enter a valid full name (max 100 characters).");
+      setSaving(false);
+      return;
+    }
+    if (!cleanEmail || cleanEmail.length > 255 || !/^\S+@\S+\.\S+$/.test(cleanEmail)) {
+      setError("Please enter a valid email address.");
+      setSaving(false);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/auth/${mode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role: "USER", acceptedNda }),
+        body: JSON.stringify({ name: cleanName, email: cleanEmail, password, role: "USER", acceptedNda }),
       });
       const res = await safeReadJson<{
         user?: unknown;
@@ -209,6 +224,7 @@ function Field({
         <input
           required
           minLength={isPasswordField ? 8 : undefined}
+          maxLength={isPasswordField ? 128 : (type === "email" ? 255 : 100)}
           type={inputType}
           value={value}
           onChange={(event) => onChange(event.target.value)}

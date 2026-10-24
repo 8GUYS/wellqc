@@ -77,6 +77,26 @@ export interface ActivityListItem {
   ip: string;
 }
 
+export interface DashboardScopeWell {
+  id: string;
+  name: string;
+  apiNo: string;
+  operatorName: string;
+  fieldName: string;
+  qualityScore: number;
+  qualityGrade: string;
+  status: string;
+  curveCount: number;
+  pointCount: number;
+  anomalyCount: number;
+  criticalCount: number;
+  warningCount: number;
+  latestLasFileName?: string | null;
+  latestLasFileId?: string | null;
+  primaryIssue?: string | null;
+  updatedAt?: string | null;
+}
+
 export interface DashboardSummary {
   totalWells: number;
   lasFilesUploaded: number;
@@ -109,6 +129,13 @@ export interface DashboardSummary {
     issue: string;
   }>;
   recentActivity: ActivityListItem[];
+  activeScope?: "ALL" | "COMMITTED" | "ATTENTION";
+  counts?: {
+    totalAll: number;
+    totalCommitted: number;
+    totalFlagged: number;
+  };
+  scopeWells?: DashboardScopeWell[];
 }
 
 export interface WellDetailResponse {

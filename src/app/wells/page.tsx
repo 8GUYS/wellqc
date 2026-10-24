@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useMemo, useState, useSyncExternalStore, useDeferredValue } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import Link from "next/link";
 import { WellListItem } from "@/lib/api-types";
@@ -60,6 +60,7 @@ export default function WellManagementPage() {
     return null;
   });
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [custodianFilter, setCustodianFilter] = useState<"ALL" | "USER_UPLOADED" | "SYSTEM">("ALL");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -133,22 +134,25 @@ export default function WellManagementPage() {
     setExpandedWellId((current) => (current === wellId ? null : wellId));
   };
 
-  const filteredWells = wells.filter((well) => {
-    const needle = searchQuery.toLowerCase();
-    const matchesSearch =
-      well.name.toLowerCase().includes(needle) ||
-      well.apiNo.toLowerCase().includes(needle) ||
-      well.operatorName.toLowerCase().includes(needle) ||
-      well.fieldName.toLowerCase().includes(needle) ||
-      (well.uploaderName && well.uploaderName.toLowerCase().includes(needle)) ||
-      (well.uploaderEmail && well.uploaderEmail.toLowerCase().includes(needle));
-    const matchesStatus = statusFilter === "ALL" || well.status === statusFilter;
-    const matchesCustodian =
-      custodianFilter === "ALL" ||
-      (custodianFilter === "USER_UPLOADED" && (Boolean(well.uploaderName) || Boolean(well.uploaderEmail))) ||
-      (custodianFilter === "SYSTEM" && !well.uploaderName && !well.uploaderEmail);
-    return matchesSearch && matchesStatus && matchesCustodian;
-  });
+  const filteredWells = useMemo(() => {
+    const needle = deferredSearchQuery.trim().toLowerCase();
+    return wells.filter((well) => {
+      const matchesSearch =
+        !needle ||
+        well.name.toLowerCase().includes(needle) ||
+        well.apiNo.toLowerCase().includes(needle) ||
+        well.operatorName.toLowerCase().includes(needle) ||
+        well.fieldName.toLowerCase().includes(needle) ||
+        (well.uploaderName && well.uploaderName.toLowerCase().includes(needle)) ||
+        (well.uploaderEmail && well.uploaderEmail.toLowerCase().includes(needle));
+      const matchesStatus = statusFilter === "ALL" || well.status === statusFilter;
+      const matchesCustodian =
+        custodianFilter === "ALL" ||
+        (custodianFilter === "USER_UPLOADED" && (Boolean(well.uploaderName) || Boolean(well.uploaderEmail))) ||
+        (custodianFilter === "SYSTEM" && !well.uploaderName && !well.uploaderEmail);
+      return matchesSearch && matchesStatus && matchesCustodian;
+    });
+  }, [wells, deferredSearchQuery, statusFilter, custodianFilter]);
 
   // Bulk selection computations & handlers
   const isAllFilteredSelected =
@@ -233,17 +237,32 @@ export default function WellManagementPage() {
     setIsSaving(true);
     setError("");
 
+    const cleanName = newWellName.trim();
+    const cleanApi = newApiNo.trim();
+
+    if (!cleanName || !cleanApi) {
+      setError("Well name and API/UWI number are required.");
+      setIsSaving(false);
+      return;
+    }
+
+    if (/['";<>\\]|--|\/\*/.test(cleanName) || /['";<>\\]|--|\/\*/.test(cleanApi)) {
+      setError("Prohibited characters detected in well name or API number.");
+      setIsSaving(false);
+      return;
+    }
+
     try {
       const response = await fetch("/api/wells", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: newWellName,
-          apiNo: newApiNo,
-          operatorName: newOperator,
-          fieldName: newField,
-          basin: newBasin,
-          country: newCountry,
+          name: cleanName,
+          apiNo: cleanApi,
+          operatorName: newOperator.trim(),
+          fieldName: newField.trim(),
+          basin: newBasin.trim(),
+          country: newCountry.trim(),
           tdFt: parseFloat(newTd) || 0,
         }),
       });
@@ -1091,6 +1110,7 @@ function FormInput({
   placeholder,
   required = false,
   type = "text",
+  maxLength = 120,
 }: {
   label: string;
   value: string;
@@ -1098,6 +1118,7 @@ function FormInput({
   placeholder: string;
   required?: boolean;
   type?: string;
+  maxLength?: number;
 }) {
   return (
     <div>
@@ -1105,6 +1126,8 @@ function FormInput({
       <input
         type={type}
         required={required}
+        maxLength={maxLength}
+        autoComplete="off"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

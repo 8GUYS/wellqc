@@ -25,7 +25,6 @@ import {
   Radio,
   History,
   Shield,
-  Sparkles,
 } from "lucide-react";
 
 interface UserRecord {
@@ -273,8 +272,7 @@ export default function AdminPanelPage() {
   const [testRecipient, setTestRecipient] = useState("");
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [showEmailJsSecret, setShowEmailJsSecret] = useState(false);
-  const [showResendSecret, setShowResendSecret] = useState(false);
-
+ 
   // Token Management State
   const [tokens, setTokens] = useState<TokenItem[]>([]);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
@@ -290,7 +288,7 @@ export default function AdminPanelPage() {
   const [showCreateWebhookModal, setShowCreateWebhookModal] = useState(false);
   const [newWebhookName, setNewWebhookName] = useState("");
   const [newWebhookUrl, setNewWebhookUrl] = useState("");
-  const [newWebhookEvents, setNewWebhookEvents] = useState<string[]>([
+  const [newWebhookEvents] = useState<string[]>([
     "WELL_INGESTED",
     "QA_REPORT_GENERATED",
   ]);

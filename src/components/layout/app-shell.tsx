@@ -80,7 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       active = false;
       window.removeEventListener("wellqc_user_updated", handleUserUpdated);
     };
-  }, [router]);
+  }, [router, pathname]);
 
   const handleLogout = async () => {
     try {

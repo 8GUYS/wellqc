@@ -360,6 +360,7 @@ function generatePrintableHTML(data: AuditCertificateData): string {
       <!-- Meta Bar -->
       <div class="cert-meta-bar" style="background: #f0fdf4; border-color: #047857; color: #065f46;">
         <span>CERTIFICATE ID: <strong>${certId}</strong></span>
+        <span>DATE: <strong>${timestamp}</strong></span>
         <span>FORM: <strong>NUPRC-WQC-08-A</strong></span>
         <span>SHA-256 SEAL: <strong style="font-family: monospace;">${sig.shortHash}</strong></span>
         <span>STATUS: <strong style="color: #047857;">VERIFIED AUDIT ✓</strong></span>

@@ -222,9 +222,18 @@ export default function UserProfilePage() {
     }
   }
 
+  if (loading && !profile) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="w-8 h-8 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
-
       <div className="space-y-6 max-w-6xl mx-auto pb-12">
         {/* Profile Header Summary Banner */}
         <div className="bg-gradient-to-r from-wellqc-panel via-wellqc-card to-blue-950/40 border border-wellqc-border rounded-2xl p-6 relative overflow-hidden shadow-2xl">

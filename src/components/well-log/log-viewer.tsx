@@ -99,45 +99,56 @@ export function WellLogViewer({
     onLayoutModeChange?.(mode);
   };
 
-  const depthArr = curvesData.depth || [];
+  const depthArr = useMemo(() => curvesData.depth || [], [curvesData.depth]);
   const totalPoints = depthArr.length;
 
-  const grValues = curvesData.curves["GR"] || curvesData.curves["GAMMA"] || [];
-  const rtValues = curvesData.curves["RT"] || curvesData.curves["RES"] || curvesData.curves["ILD"] || [];
-  const dtValues = curvesData.curves["DT"] || curvesData.curves["SONIC"] || [];
-  const rhobValues = curvesData.curves["RHOB"] || [];
+  const grValues = useMemo(
+    () => curvesData.curves["GR"] || curvesData.curves["GAMMA"] || [],
+    [curvesData.curves]
+  );
+  const rtValues = useMemo(
+    () => curvesData.curves["RT"] || curvesData.curves["RES"] || curvesData.curves["ILD"] || [],
+    [curvesData.curves]
+  );
+  const dtValues = useMemo(
+    () => curvesData.curves["DT"] || curvesData.curves["SONIC"] || [],
+    [curvesData.curves]
+  );
 
   // Calculate missing gap intervals for each track
-  const getMissingGaps = (series: number[]) => {
-    const gaps: { startIdx: number; endIdx: number; startDepth: number; endDepth: number }[] = [];
-    let inGap = false;
-    let startIdx = -1;
+  const getMissingGaps = useCallback(
+    (series: number[]) => {
+      const gaps: { startIdx: number; endIdx: number; startDepth: number; endDepth: number }[] = [];
+      let inGap = false;
+      let startIdx = -1;
 
-    for (let i = 0; i <= series.length; i++) {
-      const val = series[i];
-      const isNull = i === series.length || val === -999.25 || val === -9999 || isNaN(val) || val === null || val === undefined;
+      for (let i = 0; i <= series.length; i++) {
+        const val = series[i];
+        const isNull = i === series.length || val === -999.25 || val === -9999 || isNaN(val) || val === null || val === undefined;
 
-      if (isNull && !inGap && i < series.length) {
-        inGap = true;
-        startIdx = i;
-      } else if (!isNull && inGap) {
-        inGap = false;
-        if (i - startIdx >= 5) {
-          gaps.push({
-            startIdx,
-            endIdx: i - 1,
-            startDepth: depthArr[startIdx],
-            endDepth: depthArr[i - 1],
-          });
+        if (isNull && !inGap && i < series.length) {
+          inGap = true;
+          startIdx = i;
+        } else if (!isNull && inGap) {
+          inGap = false;
+          if (i - startIdx >= 5) {
+            gaps.push({
+              startIdx,
+              endIdx: i - 1,
+              startDepth: depthArr[startIdx],
+              endDepth: depthArr[i - 1],
+            });
+          }
         }
       }
-    }
-    return gaps;
-  };
+      return gaps;
+    },
+    [depthArr]
+  );
 
-  const grGapsAll = useMemo(() => getMissingGaps(grValues), [grValues, depthArr]);
-  const rtGapsAll = useMemo(() => getMissingGaps(rtValues), [rtValues, depthArr]);
-  const dtGapsAll = useMemo(() => getMissingGaps(dtValues), [dtValues, depthArr]);
+  const grGapsAll = useMemo(() => getMissingGaps(grValues), [grValues, getMissingGaps]);
+  const rtGapsAll = useMemo(() => getMissingGaps(rtValues), [rtValues, getMissingGaps]);
+  const dtGapsAll = useMemo(() => getMissingGaps(dtValues), [dtValues, getMissingGaps]);
 
   // Helper to map curve values to SVG X coordinates (0 to 100% of track width)
   const mapValueToX = (
@@ -165,9 +176,12 @@ export function WellLogViewer({
   const maxDepth = depthArr[depthArr.length - 1] || stopDepth;
   const depthSpan = maxDepth - minDepth || 1;
 
-  const mapDepthToY = (d: number) => {
-    return ((d - minDepth) / depthSpan) * (svgHeight - 60) + 30;
-  };
+  const mapDepthToY = useCallback(
+    (d: number) => {
+      return ((d - minDepth) / depthSpan) * (svgHeight - 60) + 30;
+    },
+    [minDepth, depthSpan, svgHeight]
+  );
 
   const mapYToDepth = (y: number) => {
     return minDepth + ((y - 30) / (svgHeight - 60)) * depthSpan;
@@ -192,29 +206,35 @@ export function WellLogViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollTop, svgHeight, depthArr, minDepth, depthSpan]);
 
-  const overlapsVisible = (aStart: number, aEnd: number) => aEnd >= visStartDepth && aStart <= visEndDepth;
+  const overlapsVisible = useCallback(
+    (aStart: number, aEnd: number) => aEnd >= visStartDepth && aStart <= visEndDepth,
+    [visStartDepth, visEndDepth]
+  );
 
   // Render SVG polyline points for a curve, restricted to [startIdx, endIdx].
-  const renderSvgCurve = (
-    series: number[],
-    minVal: number,
-    maxVal: number,
-    trackWidth: number,
-    isLogScale: boolean,
-    startIdx: number,
-    endIdx: number
-  ) => {
-    const points: string[] = [];
-    for (let idx = startIdx; idx <= endIdx && idx < series.length; idx++) {
-      const val = series[idx];
-      if (val !== -999.25 && val !== -9999 && !isNaN(val) && val !== null && val !== undefined) {
-        const x = mapValueToX(val, minVal, maxVal, trackWidth, isLogScale);
-        const y = mapDepthToY(depthArr[idx]);
-        points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+  const renderSvgCurve = useCallback(
+    (
+      series: number[],
+      minVal: number,
+      maxVal: number,
+      trackWidth: number,
+      isLogScale: boolean,
+      startIdx: number,
+      endIdx: number
+    ) => {
+      const points: string[] = [];
+      for (let idx = startIdx; idx <= endIdx && idx < series.length; idx++) {
+        const val = series[idx];
+        if (val !== -999.25 && val !== -9999 && !isNaN(val) && val !== null && val !== undefined) {
+          const x = mapValueToX(val, minVal, maxVal, trackWidth, isLogScale);
+          const y = mapDepthToY(depthArr[idx]);
+          points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+        }
       }
-    }
-    return points.join(" ");
-  };
+      return points.join(" ");
+    },
+    [depthArr, mapDepthToY]
+  );
 
   // Only the active theme's curves are computed — previously both Classic
   // and Dark variants were memoized on every zoom change even though just
@@ -229,15 +249,15 @@ export function WellLogViewer({
 
   const grPoints = useMemo(
     () => renderSvgCurve(grValues, 0, 150, grTrackWidth, false, visStartIdx, visEndIdx),
-    [grValues, depthArr, zoomLevel, visStartIdx, visEndIdx, grTrackWidth]
+    [renderSvgCurve, grValues, grTrackWidth, visStartIdx, visEndIdx]
   );
   const rtPoints = useMemo(
     () => renderSvgCurve(rtValues, 0.2, 2000, rtTrackWidth, true, visStartIdx, visEndIdx),
-    [rtValues, depthArr, zoomLevel, visStartIdx, visEndIdx, rtTrackWidth]
+    [renderSvgCurve, rtValues, rtTrackWidth, visStartIdx, visEndIdx]
   );
   const dtPoints = useMemo(
     () => renderSvgCurve(dtValues, 40, 240, dtTrackWidth, false, visStartIdx, visEndIdx),
-    [dtValues, depthArr, zoomLevel, visStartIdx, visEndIdx, dtTrackWidth]
+    [renderSvgCurve, dtValues, dtTrackWidth, visStartIdx, visEndIdx]
   );
 
   // Generate depth tick marks (every 50 ft/m), filtered to the visible window
@@ -252,15 +272,15 @@ export function WellLogViewer({
 
   const grGaps = useMemo(
     () => grGapsAll.filter((g) => overlapsVisible(g.startDepth, g.endDepth)),
-    [grGapsAll, visStartDepth, visEndDepth]
+    [grGapsAll, overlapsVisible]
   );
   const rtGaps = useMemo(
     () => rtGapsAll.filter((g) => overlapsVisible(g.startDepth, g.endDepth)),
-    [rtGapsAll, visStartDepth, visEndDepth]
+    [rtGapsAll, overlapsVisible]
   );
   const dtGaps = useMemo(
     () => dtGapsAll.filter((g) => overlapsVisible(g.startDepth, g.endDepth)),
-    [dtGapsAll, visStartDepth, visEndDepth]
+    [dtGapsAll, overlapsVisible]
   );
 
   const visibleSpikeAnomalies = useMemo(
@@ -270,7 +290,7 @@ export function WellLogViewer({
           (a.anomalyType === "EXTREME_SPIKE" || a.anomalyType === "IMPOSSIBLE_VALUE") &&
           overlapsVisible(a.depthStart, a.depthEnd ?? a.depthStart)
       ),
-    [anomalies, visStartDepth, visEndDepth]
+    [anomalies, overlapsVisible]
   );
 
   // Graphical Log Rendering

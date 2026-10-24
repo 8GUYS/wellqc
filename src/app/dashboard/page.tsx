@@ -98,11 +98,7 @@ export default function DashboardPage() {
   };
 
   const loadDashboard = useCallback(
-    async (
-      targetScope: "ALL" | "COMMITTED" | "ATTENTION" = filterScope,
-      showRefreshingSpinner = false
-    ) => {
-      if (showRefreshingSpinner) setIsRefreshing(true);
+    async (targetScope: "ALL" | "COMMITTED" | "ATTENTION") => {
       try {
         const response = await fetch(`/api/dashboard?scope=${targetScope}`, {
           cache: "no-store",
@@ -125,17 +121,19 @@ export default function DashboardPage() {
         setIsRefreshing(false);
       }
     },
-    [filterScope]
+    []
   );
 
   const handleScopeChange = (newScope: "ALL" | "COMMITTED" | "ATTENTION") => {
     setFilterScope(newScope);
-    loadDashboard(newScope, true);
+    setIsRefreshing(true);
+    void loadDashboard(newScope);
   };
 
   useEffect(() => {
-    loadDashboard("ALL");
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadDashboard("ALL");
+  }, [loadDashboard]);
 
   const trendData = summary.trend.length > 0 ? summary.trend : EMPTY_SUMMARY.trend;
 
@@ -158,7 +156,6 @@ export default function DashboardPage() {
 
   // Score arc calculation for Radial Gauge
   const score = Math.max(0, Math.min(100, Math.round(summary.averageQualityScore)));
-  const gaugeAngle = (score / 100) * 180 - 90; // -90 deg to +90 deg
 
   const getScoreColor = (val: number) => {
     if (val >= 90) return "#10b981"; // emerald
@@ -303,7 +300,10 @@ export default function DashboardPage() {
                 <Plus className="w-4 h-4" />
               </Link>
               <button
-                onClick={() => loadDashboard(filterScope, true)}
+                onClick={() => {
+                  setIsRefreshing(true);
+                  void loadDashboard(filterScope);
+                }}
                 disabled={isRefreshing || isLoading}
                 title="Refresh Database Telemetry"
                 className="w-8 h-8 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center transition-colors shadow-sm"
@@ -1193,7 +1193,6 @@ export default function DashboardPage() {
         <DashboardScopeWellsSection
           filterScope={filterScope}
           wells={summary.scopeWells || []}
-          onSelectScope={handleScopeChange}
         />
       </div>
     </AppShell>
@@ -1236,11 +1235,9 @@ function EnterpriseKpiCard({
 function DashboardScopeWellsSection({
   filterScope,
   wells,
-  onSelectScope,
 }: {
   filterScope: "ALL" | "COMMITTED" | "ATTENTION";
   wells: DashboardScopeWell[];
-  onSelectScope: (scope: "ALL" | "COMMITTED" | "ATTENTION") => void;
 }) {
   const getGradeBadge = (grade: string) => {
     switch (grade) {

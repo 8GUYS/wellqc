@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { ParsedLAS } from "@/lib/las/parser";
 import {
   ZoomIn,
@@ -78,102 +78,105 @@ export function CleanedLogViewer({
   const depthSpan = maxDepth - minDepth || 1;
 
   // Determine scaling parameters for a curve mnemonic
-  const getTrackConfig = (mnemonic: string, defaultColor: string): TrackConfig => {
-    const upper = mnemonic.toUpperCase();
-    const meta = rawLas?.curves?.find((c) => c.mnemonic.toUpperCase() === upper);
-    const unit = meta?.unit || "";
+  const getTrackConfig = useCallback(
+    (mnemonic: string, defaultColor: string): TrackConfig => {
+      const upper = mnemonic.toUpperCase();
+      const meta = rawLas?.curves?.find((c) => c.mnemonic.toUpperCase() === upper);
+      const unit = meta?.unit || "";
 
-    // 1. Resistivity -> STRICTLY LOGARITHMIC SCALE (0.2 to 2000 ohm.m)
-    if (/^(RT|RES|ILD|ILM|LLD|LLS|AHT\d*|AT\d*|RHO|RD)/i.test(upper)) {
+      // 1. Resistivity -> STRICTLY LOGARITHMIC SCALE (0.2 to 2000 ohm.m)
+      if (/^(RT|RES|ILD|ILM|LLD|LLS|AHT\d*|AT\d*|RHO|RD)/i.test(upper)) {
+        return {
+          mnemonic,
+          min: 0.2,
+          max: 2000,
+          unit: unit || "ohm.m",
+          isLogScale: true,
+          color: defaultColor,
+        };
+      }
+
+      // 2. Gamma Ray -> STRICTLY LINEAR SCALE (0 to 150 GAPI)
+      if (/^(GR|GAMMA|CGR|SGR)/i.test(upper)) {
+        return {
+          mnemonic,
+          min: 0,
+          max: 150,
+          unit: unit || "GAPI",
+          isLogScale: false,
+          color: defaultColor,
+        };
+      }
+
+      // 3. Sonic -> STRICTLY LINEAR SCALE (40 to 240 us/ft)
+      if (/^(DT|SONIC|DTC|DTS|AC)/i.test(upper)) {
+        return {
+          mnemonic,
+          min: 40,
+          max: 240,
+          unit: unit || "us/ft",
+          isLogScale: false,
+          color: defaultColor,
+        };
+      }
+
+      // 4. Density
+      if (/^(RHOB|DEN|RHOZ)/i.test(upper)) {
+        return {
+          mnemonic,
+          min: 1.95,
+          max: 2.95,
+          unit: unit || "g/cc",
+          isLogScale: false,
+          color: defaultColor,
+        };
+      }
+
+      // 5. Neutron Porosity
+      if (/^(NPHI|NEU|TNPH)/i.test(upper)) {
+        return {
+          mnemonic,
+          min: -0.05,
+          max: 0.45,
+          unit: unit || "v/v",
+          isLogScale: false,
+          color: defaultColor,
+        };
+      }
+
+      // 6. Caliper
+      if (/^(CALI|CAL)/i.test(upper)) {
+        return {
+          mnemonic,
+          min: 6,
+          max: 16,
+          unit: unit || "in",
+          isLogScale: false,
+          color: defaultColor,
+        };
+      }
+
+      // Default dynamic linear bounds
+      const rawVals = (rawLas?.data.curves[mnemonic] || []).filter(
+        (v) => v !== -999.25 && v !== -9999 && Number.isFinite(v),
+      );
+      const minVal = rawVals.length > 0 ? Math.min(...rawVals) : 0;
+      const maxVal = rawVals.length > 0 ? Math.max(...rawVals) : 100;
       return {
         mnemonic,
-        min: 0.2,
-        max: 2000,
-        unit: unit || "ohm.m",
-        isLogScale: true,
-        color: defaultColor,
-      };
-    }
-
-    // 2. Gamma Ray -> STRICTLY LINEAR SCALE (0 to 150 GAPI)
-    if (/^(GR|GAMMA|CGR|SGR)/i.test(upper)) {
-      return {
-        mnemonic,
-        min: 0,
-        max: 150,
-        unit: unit || "GAPI",
+        min: Math.floor(minVal),
+        max: Math.ceil(maxVal || 100),
+        unit: unit || "-",
         isLogScale: false,
         color: defaultColor,
       };
-    }
+    },
+    [rawLas],
+  );
 
-    // 3. Sonic -> STRICTLY LINEAR SCALE (40 to 240 us/ft)
-    if (/^(DT|SONIC|DTC|DTS|AC)/i.test(upper)) {
-      return {
-        mnemonic,
-        min: 40,
-        max: 240,
-        unit: unit || "us/ft",
-        isLogScale: false,
-        color: defaultColor,
-      };
-    }
-
-    // 4. Density
-    if (/^(RHOB|DEN|RHOZ)/i.test(upper)) {
-      return {
-        mnemonic,
-        min: 1.95,
-        max: 2.95,
-        unit: unit || "g/cc",
-        isLogScale: false,
-        color: defaultColor,
-      };
-    }
-
-    // 5. Neutron Porosity
-    if (/^(NPHI|NEU|TNPH)/i.test(upper)) {
-      return {
-        mnemonic,
-        min: -0.05,
-        max: 0.45,
-        unit: unit || "v/v",
-        isLogScale: false,
-        color: defaultColor,
-      };
-    }
-
-    // 6. Caliper
-    if (/^(CALI|CAL)/i.test(upper)) {
-      return {
-        mnemonic,
-        min: 6,
-        max: 16,
-        unit: unit || "in",
-        isLogScale: false,
-        color: defaultColor,
-      };
-    }
-
-    // Default dynamic linear bounds
-    const rawVals = (rawLas?.data.curves[mnemonic] || []).filter(
-      (v) => v !== -999.25 && v !== -9999 && Number.isFinite(v),
-    );
-    const minVal = rawVals.length > 0 ? Math.min(...rawVals) : 0;
-    const maxVal = rawVals.length > 0 ? Math.max(...rawVals) : 100;
-    return {
-      mnemonic,
-      min: Math.floor(minVal),
-      max: Math.ceil(maxVal || 100),
-      unit: unit || "-",
-      isLogScale: false,
-      color: defaultColor,
-    };
-  };
-
-  const track1Config = useMemo(() => getTrackConfig(track1Mnemonic, "#15803d"), [track1Mnemonic, rawLas]);
-  const track2Config = useMemo(() => getTrackConfig(track2Mnemonic, "#dc2626"), [track2Mnemonic, rawLas]);
-  const track3Config = useMemo(() => getTrackConfig(track3Mnemonic, "#2563eb"), [track3Mnemonic, rawLas]);
+  const track1Config = useMemo(() => getTrackConfig(track1Mnemonic, "#15803d"), [track1Mnemonic, getTrackConfig]);
+  const track2Config = useMemo(() => getTrackConfig(track2Mnemonic, "#dc2626"), [track2Mnemonic, getTrackConfig]);
+  const track3Config = useMemo(() => getTrackConfig(track3Mnemonic, "#2563eb"), [track3Mnemonic, getTrackConfig]);
 
   // Coordinate mapping
   const svgHeight = Math.max(950, totalPoints * 6.5) * zoomLevel;

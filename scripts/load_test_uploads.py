@@ -54,7 +54,7 @@ def main():
     results = [None] * args.count
 
     def worker(i):
-        with httpx.Client(base_url=BASE, cookies=cookies, timeout=180) as c:
+        with httpx.Client(base_url=BASE, cookies=cookies, timeout=300) as c:
             barrier.wait()  # release all uploads at the same moment
             t0 = time.perf_counter()
             try:

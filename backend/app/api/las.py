@@ -5,6 +5,7 @@ import math
 import re
 import secrets
 import uuid
+import threading
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
@@ -136,8 +137,34 @@ def rerun_qa_endpoint(
     qa = analyze_well_log_quality(req.parsed, server_aliases)
     return qa.model_dump()
 
+MAX_RUNNING = 2    # uploads worked on at the same time
+MAX_IN_LINE = 15   # running plus waiting; more than this get "busy"
 
-@router.post("")
+_running = threading.BoundedSemaphore(MAX_RUNNING)
+_count_lock = threading.Lock()
+_in_line = 0
+
+
+def upload_gate():
+    global _in_line
+    with _count_lock:
+        if _in_line >= MAX_IN_LINE:
+            raise HTTPException(
+                status_code=503,
+                detail="Server busy, try again in 30 seconds",
+                headers={"Retry-After": "30"},
+            )
+        _in_line += 1
+    try:
+        _running.acquire()
+        try:
+            yield
+        finally:
+            _running.release()
+    finally:
+        with _count_lock:
+            _in_line -= 1
+@router.post("", dependencies=[Depends(upload_gate)])
 def handle_las(
     req: CommitLASRequest,
     action: Optional[str] = Query(None),

@@ -11,6 +11,9 @@ import httpx
 STAGING_HOST = "wellqc-api.onrender.com"
 BASE = f"https://{STAGING_HOST}"
 
+OK_CODES = (200, 201)
+BUSY_CODE = 503  # the upload gate's "Server busy" reply (expected when over the limit)
+
 
 def warm_up(timeout_s=120):
     """The free instance sleeps; wake it so uploads measure real speed."""
@@ -28,6 +31,13 @@ def warm_up(timeout_s=120):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--count", type=int, default=20)
+    ap.add_argument(
+        "--expect-ok",
+        type=int,
+        default=15,
+        help="How many uploads the server should accept (the gate's MAX_IN_LINE). "
+             "Uploads beyond this are expected to get 503 busy.",
+    )
     ap.add_argument("--file", default=r"C:\Users\Wanaemi Watson\Downloads\TUJA 01.txt")
     args = ap.parse_args()
 
@@ -63,7 +73,7 @@ def main():
                     "fileName": f"loadtest-{stamp}-{i:02d}.las",
                 })
                 results[i] = (r.status_code, time.perf_counter() - t0,
-                              "" if r.status_code in (200, 201) else r.text[:120])
+                              "" if r.status_code in OK_CODES else r.text[:120])
             except Exception as e:  # noqa: BLE001
                 results[i] = ("ERR", time.perf_counter() - t0, type(e).__name__)
 
@@ -78,17 +88,37 @@ def main():
     statuses = {}
     for s, _, _ in results:
         statuses[s] = statuses.get(s, 0) + 1
-    times = sorted(t for _, t, _ in results)
-    ok = sum(1 for s, _, _ in results if s in (200, 201))
 
-    print(f"\nUploads: {args.count}   OK: {ok}   Status counts: {statuses}")
-    print(f"Seconds  min {times[0]:.1f}  median {statistics.median(times):.1f}  "
-          f"p95 {times[int(0.95 * (len(times) - 1))]:.1f}  max {times[-1]:.1f}  total {wall:.1f}")
+    ok = sum(1 for s, _, _ in results if s in OK_CODES)
+    busy = sum(1 for s, _, _ in results if s == BUSY_CODE)
+
+    print(f"\nUploads: {args.count}   OK: {ok}   Busy (503): {busy}   Status counts: {statuses}")
+
+    # Timing uses successful uploads only, so busy replies and timeouts don't skew it.
+    ok_times = sorted(t for s, t, _ in results if s in OK_CODES)
+    if ok_times:
+        p95 = ok_times[int(0.95 * (len(ok_times) - 1))]
+        print(f"Seconds (successful uploads only)  min {ok_times[0]:.1f}  "
+              f"median {statistics.median(ok_times):.1f}  p95 {p95:.1f}  "
+              f"max {ok_times[-1]:.1f}  total run {wall:.1f}")
+    else:
+        print(f"Seconds: no successful uploads to time  total run {wall:.1f}")
+
+    # Show the first unexpected failure (anything that is not OK and not a busy reply).
     for s, _, msg in results:
-        if msg:
-            print(f"  failure sample: {s} {msg}")
+        if s not in OK_CODES and s != BUSY_CODE:
+            print(f"  unexpected failure sample: {s} {msg}")
             break
-    print("RESULT:", "PASS" if ok == args.count else "FAIL")
+
+    # Pass rule: exactly --expect-ok uploads succeed, the rest get 503 busy, nothing else.
+    expected_ok = min(args.count, args.expect_ok)
+    expected_busy = args.count - expected_ok
+    passed = ok == expected_ok and busy == expected_busy
+    expectation = f"{expected_ok} OK" + (f" + {expected_busy} busy" if expected_busy else "")
+    if passed:
+        print(f"RESULT: PASS (as expected: {expectation})")
+    else:
+        print(f"RESULT: FAIL (expected {expectation}, got {ok} OK + {busy} busy)")
 
 
 if __name__ == "__main__":

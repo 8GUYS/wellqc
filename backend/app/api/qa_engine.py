@@ -12,7 +12,7 @@ from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user_optional, get_current_user
 from backend.app.core.security import normalize_role
 from backend.app.models.models import ActivityLog, User, Well, QualityReport, Anomaly
-from backend.app.services.cleaner import clean_las_log_data, CleaningOptions, ApprovedFix
+from backend.app.services.cleaner import clean_las_log_data, CleaningOptions, ApprovedFix, NullMarkerMissingError
 from backend.app.services.imputation import recommend_for_gaps
 from backend.app.services.parser import parse_las_content, ParsedLAS, LASParseError
 from backend.app.services.quality_engine import analyze_well_log_quality
@@ -272,7 +272,7 @@ def _resolve_target_las(
                                 startDepth=latest.startDepth or (depth_vals[0] if depth_vals else 0.0),
                                 stopDepth=latest.stopDepth or (depth_vals[-1] if depth_vals else 0.0),
                                 step=latest.step or 0.5,
-                                nullValue=-999.25,
+                                nullValue=latest.nullValue,
                                 depthUnit=latest.depthUnit or db_well.depthUnit or "FT",
                             ),
                             curves=[],
@@ -300,7 +300,7 @@ def _is_null_val(v: Any, null_val: float) -> bool:
         fv = float(v)
         if np.isnan(fv):
             return True
-        return abs(fv - null_val) < 1e-4 or abs(fv - (-999.25)) < 1e-4
+        return abs(fv - null_val) < 1e-4
     except (ValueError, TypeError):
         return True
 
@@ -315,7 +315,7 @@ def _build_change_report(
     rows_before = len(orig_depths)
     rows_after = len(cleaned_depths)
 
-    null_val = orig_las.wellInfo.nullValue if orig_las.wellInfo.nullValue is not None else -999.25
+    null_val = orig_las.wellInfo.nullValue
     step = abs(orig_las.wellInfo.step) if orig_las.wellInfo.step else 0.5
     half_step = 0.5 * step if step > 0 else 1e-4
 
@@ -467,7 +467,7 @@ def repair_anomalies(
     Executes user-approved automated anomaly repair actions:
     - Despiking (two-point neighbour mean replacement on sonic DT)
     - Physical boundary handling (REMOVE to null, CLIP to limit, or DELETE_ROW)
-    - Duplicate-depth repairs (REMOVE_SECOND or COMPARE_ROWS)
+    - Duplicate-depth repairs (REMOVE_SECOND, COMPARE_ROWS or KEEP_LAST)
     - Null cluster imputation (LINEAR, SPLINE, RANDOM_FOREST, GRADIENT_BOOSTING, KNN, AUTO)
     Persists an immutable audit log entry for transparency and returns verified cleaned data.
     """
@@ -487,7 +487,7 @@ def repair_anomalies(
         despiking=bool(req.despiking),
         outlierClipping=bool(req.outlierClipping),
         duplicateDepthPruning=bool(req.duplicateDepthPruning),
-        duplicateAction=req.duplicateAction if req.duplicateAction in ("REMOVE_SECOND", "COMPARE_ROWS") else "REMOVE_SECOND",
+        duplicateAction=req.duplicateAction if req.duplicateAction in ("REMOVE_SECOND", "COMPARE_ROWS", "KEEP_LAST") else "REMOVE_SECOND",
         impossibleAction=req.impossibleAction if req.impossibleAction in ("REMOVE", "CLIP", "DELETE_ROW") else "REMOVE",
         approvedFixes=req.approvedFixes,
         flatlineHandling=False,
@@ -498,12 +498,15 @@ def repair_anomalies(
 
     initial_qa = analyze_well_log_quality(target_las, custom_aliases=server_aliases)
 
-    clean_result = clean_las_log_data(
-        target_las,
-        initial_qa=initial_qa,
-        options=options,
-        custom_aliases=server_aliases,
-    )
+    try:
+        clean_result = clean_las_log_data(
+            target_las,
+            initial_qa=initial_qa,
+            options=options,
+            custom_aliases=server_aliases,
+        )
+    except NullMarkerMissingError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     report = clean_result.verificationReport
     user_name = current_user.name if current_user else "Subsurface Engineer"
@@ -609,7 +612,9 @@ def rank_gaps_for_clusters(
 
     step = abs(target_las.wellInfo.step) if target_las.wellInfo.step else 0.5
     tol = step * 0.5 if step > 0 else 1e-4
-    null_val = target_las.wellInfo.nullValue if target_las.wellInfo.nullValue is not None else -999.25
+    null_val = target_las.wellInfo.nullValue
+    if null_val is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(NullMarkerMissingError()))
 
     gaps_to_run: List[Tuple[str, int, int, float, float]] = []
     for g in req.gaps:
@@ -644,4 +649,3 @@ def rank_gaps_for_clusters(
         })
 
     return {"recommendations": recommendations}
-

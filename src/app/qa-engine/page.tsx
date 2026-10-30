@@ -47,11 +47,53 @@ export type TargetProblemType =
   | "NULL_CLUSTER"
   | "EXTREME_SPIKE";
 
+type MethodGroup = "single" | "multi" | "auto";
+
 interface CleaningMethod {
   id: string;
   name: string;
   description: string;
   recommended: boolean;
+  group?: MethodGroup;
+}
+
+const METHOD_GROUP_ORDER: MethodGroup[] = ["single", "multi", "auto"];
+
+const METHOD_GROUP_LABELS: Record<MethodGroup, string> = {
+  single: "Single-curve (uses only this curve)",
+  multi: "Multi-curve (uses the other logs)",
+  auto: "Automatic",
+};
+
+function MethodOptions({ methods }: { methods: CleaningMethod[] }) {
+  if (!methods.some((m) => m.group)) {
+    return (
+      <>
+        {methods.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.name}
+          </option>
+        ))}
+      </>
+    );
+  }
+  return (
+    <>
+      {METHOD_GROUP_ORDER.map((g) => {
+        const inGroup = methods.filter((m) => m.group === g);
+        if (inGroup.length === 0) return null;
+        return (
+          <optgroup key={g} label={METHOD_GROUP_LABELS[g]}>
+            {inGroup.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </optgroup>
+        );
+      })}
+    </>
+  );
 }
 
 // Cleaning methods dictionary per problem type
@@ -62,36 +104,42 @@ const CLEANING_METHODS: Record<TargetProblemType, CleaningMethod[]> = {
       name: "Linear",
       description: "Interpolates linearly across continuous null gaps",
       recommended: false,
+      group: "single",
     },
     {
       id: "SPLINE",
       name: "Spline",
       description: "Cubic spline interpolation preserving log curvature",
       recommended: false,
-    },
-    {
-      id: "RANDOM_FOREST",
-      name: "Random Forest",
-      description: "Predicts missing samples using multi-variate Random Forest ensemble",
-      recommended: false,
-    },
-    {
-      id: "GRADIENT_BOOSTING",
-      name: "Gradient Boosting",
-      description: "Predicts missing samples using Gradient Boosted decision trees",
-      recommended: false,
+      group: "single",
     },
     {
       id: "KNN",
       name: "K-Nearest Neighbours",
       description: "Predicts missing samples based on multi-variate curve correlation",
       recommended: false,
+      group: "multi",
+    },
+    {
+      id: "RANDOM_FOREST",
+      name: "Random Forest (machine learning)",
+      description: "Predicts missing samples using multi-variate Random Forest ensemble",
+      recommended: false,
+      group: "multi",
+    },
+    {
+      id: "GRADIENT_BOOSTING",
+      name: "Gradient Boosting (machine learning)",
+      description: "Predicts missing samples using Gradient Boosted decision trees",
+      recommended: false,
+      group: "multi",
     },
     {
       id: "AUTO",
       name: "AUTO",
       description: "Benchmarks candidate algorithms and selects the best method for this gap",
       recommended: false,
+      group: "auto",
     },
   ],
   DUPLICATE_DEPTH: [
@@ -105,6 +153,12 @@ const CLEANING_METHODS: Record<TargetProblemType, CleaningMethod[]> = {
       id: "COMPARE_ROWS",
       name: "Compare rows",
       description: "Compares records and keeps the row with more valid readings (keeps first if equal)",
+      recommended: false,
+    },
+    {
+      id: "KEEP_LAST",
+      name: "Keep last",
+      description: "Keeps the last duplicate depth record and removes the earlier ones",
       recommended: false,
     },
   ],
@@ -279,7 +333,9 @@ function getAnomalyChangeDetails(
     if (isApproved) {
       valAfter = dec.methodId === "COMPARE_ROWS"
         ? "Kept row with more valid readings"
-        : "Second row removed (kept first)";
+        : dec.methodId === "KEEP_LAST"
+          ? "Earlier rows removed (kept last)"
+          : "Second row removed (kept first)";
     } else {
       valAfter = "Duplicate kept";
     }
@@ -1357,11 +1413,7 @@ export default function QAEngineWorkspace() {
                   disabled={isRankingGaps}
                   className="bg-wellqc-dark border border-cyan-500/50 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none"
                 >
-                  {CLEANING_METHODS[batchActiveType].map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
+                  <MethodOptions methods={CLEANING_METHODS[batchActiveType]} />
                 </select>
 
                 <button
@@ -1569,7 +1621,7 @@ export default function QAEngineWorkspace() {
                               <span>AUTO Benchmark Winner: {autoRec.bestMethod}</span>
                             </div>
                             <p className="text-[11px] text-slate-300 leading-relaxed">
-                              {autoRec.reason} (Bucket: {autoRec.bucket} samples)
+                              {autoRec.reason} (Gap size: {autoRec.bucket} samples)
                             </p>
                             {autoRec.ranking && autoRec.ranking.length > 0 && (
                               <div className="text-[10px] text-slate-400 flex flex-wrap gap-2 pt-1 border-t border-cyan-500/20">
@@ -1585,11 +1637,16 @@ export default function QAEngineWorkspace() {
                         )}
 
                         <div className="space-y-2">
-                          {CLEANING_METHODS[pType].map((m) => {
+                          {CLEANING_METHODS[pType].map((m, mi) => {
                             const isChosen = (selectedMethodPerRow[a.id!] || CLEANING_METHODS[pType][0].id) === m.id;
                             const isRecommended = (pType === "NULL_CLUSTER" && autoRec?.bestMethod === m.id);
                             return (
                               <div key={m.id} className="space-y-1.5">
+                                {m.group && m.group !== CLEANING_METHODS[pType][mi - 1]?.group && (
+                                  <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500 pt-1">
+                                    {METHOD_GROUP_LABELS[m.group]}
+                                  </p>
+                                )}
                                 <label
                                   className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${isChosen
                                     ? "bg-cyan-500/10 border-cyan-500/50 text-white"

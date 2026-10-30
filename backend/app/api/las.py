@@ -40,7 +40,7 @@ from backend.app.schemas.imputation import (
     MissingValueDiagnostic,
 )
 from backend.app.services.ai_analyzer import generate_ai_analysis
-from backend.app.services.cleaner import clean_las_log_data, CleaningOptions
+from backend.app.services.cleaner import clean_las_log_data, CleaningOptions, NullMarkerMissingError
 from backend.app.services.diagnostics import diagnose_missing_value_causes
 from backend.app.services.imputation import (
     benchmark_imputation_methods,
@@ -245,12 +245,15 @@ def clean_las(
     server_aliases = _get_user_aliases(db, current_user)
     parsed = _parse_or_400(content, server_aliases)
     initial_qa = analyze_well_log_quality(parsed, custom_aliases=server_aliases)
-    result = clean_las_log_data(
-        parsed,
-        initial_qa,
-        req.options or CleaningOptions(),
-        custom_aliases=server_aliases,
-    )
+    try:
+        result = clean_las_log_data(
+            parsed,
+            initial_qa,
+            req.options or CleaningOptions(),
+            custom_aliases=server_aliases,
+        )
+    except NullMarkerMissingError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     return {
         "success": True,
@@ -337,11 +340,9 @@ def apply_fixes(
             opt_unitStandardization = True
         elif op in ("KNN_IMPUTATION", "NULLIFY_AND_KNN_IMPUTE"):
             imputation_strategy = "KNN"
-        elif op in ("LINEAR_INTERPOLATION", "NULLIFY_FOR_IMPUTATION", "INTERPOLATE_STUCK_INTERVAL"):
+        elif op in ("LINEAR_INTERPOLATION", "NULLIFY_FOR_IMPUTATION", "INTERPOLATE_STUCK_INTERVAL", "MEDIAN_IMPUTATION"):
             if imputation_strategy == "NONE":
                 imputation_strategy = "LINEAR"
-        elif op in ("MEDIAN_IMPUTATION",):
-            imputation_strategy = "MEDIAN"
         elif op == "AUTO_RECOMMENDED_FIX":
             if anom_type == "DUPLICATE_DEPTH":
                 opt_duplicateDepthPruning = True
@@ -371,11 +372,14 @@ def apply_fixes(
         imputationStrategy=imputation_strategy,
     )
 
-    clean_result = clean_las_log_data(
-        target_las,
-        options=cleaning_options,
-        custom_aliases=server_aliases,
-    )
+    try:
+        clean_result = clean_las_log_data(
+            target_las,
+            options=cleaning_options,
+            custom_aliases=server_aliases,
+        )
+    except NullMarkerMissingError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     # Activity log
     log = ActivityLog(

@@ -318,14 +318,16 @@ def update_email_settings(
 
     frontend_url_clean = (payload.frontend_url or existing.get("frontend_url") or "https://wellqc.vercel.app").strip().rstrip("/")
 
-    # Security: Provider keys and secrets must NOT be written to the database.
+    # Security: Provider secrets (private keys) must NOT be written to the database.
     # Secrets stay exclusively in environment variables to prevent duplication across database branches.
+    # Public keys and service/template IDs can safely be stored in the database.
     data_to_store = {
         "provider": provider_clean,
         "frontend_url": frontend_url_clean,
         "emailjs_service_id": (payload.emailjs_service_id or "").strip(),
         "emailjs_template_id": (payload.emailjs_template_id or "").strip(),
         "emailjs_reset_template_id": (payload.emailjs_reset_template_id or "").strip(),
+        "emailjs_public_key": (payload.emailjs_public_key or "").strip(),
         "resend_from_email": (payload.resend_from_email or "WellQC <onboarding@resend.dev>").strip(),
     }
 

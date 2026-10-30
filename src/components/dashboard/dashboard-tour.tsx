@@ -15,6 +15,8 @@ import {
   BarChart3,
   TrendingUp,
   PlusCircle,
+  GitCompare,
+  PieChart,
 } from "lucide-react";
 
 export interface TourStep {
@@ -35,18 +37,18 @@ const TOUR_STEPS: TourStep[] = [
     badge: "Getting Started",
     icon: <Sparkles className="w-5 h-5 text-cyan-400" />,
     description:
-      "WellQC automates petrophysical LAS log quality assurance, standardises curve mnemonics, detects sensor anomalies, and produces interpretation-ready well datasets. Let's take a quick 1-minute tour of your dashboard!",
+      "WellQC automates petrophysical LAS log quality assurance, standardises curve mnemonics, detects sensor anomalies, and produces interpretation-ready well datasets. Let's take a quick 1-minute guided tour of your command centre!",
     preferredPlacement: "center",
   },
   {
     id: "dashboard-mode",
     targetId: "tour-dashboard-mode",
     title: "1. Tailor Your Telemetry View",
-    badge: "Display Themes",
+    badge: "Display Modes",
     icon: <Sliders className="w-5 h-5 text-cyan-400" />,
     description:
       "Switch between 3 specialised operational views: Executive (Calm) for C-suite KPIs and risk summaries, Operational for fleet distributions, and Full Telemetry for all 18 engineering metrics and scan tables.",
-    tips: "Your preferred mode is automatically remembered on your device.",
+    tips: "Try clicking the mode buttons below to preview each layout live!",
     preferredPlacement: "bottom",
   },
   {
@@ -56,7 +58,8 @@ const TOUR_STEPS: TourStep[] = [
     badge: "Asset Scopes",
     icon: <Filter className="w-5 h-5 text-cyan-400" />,
     description:
-      "Filter your subsurface portfolio in one click: All Wells for the entire catalog, Uploaded for verified production-ready logs, and Flagged for assets requiring automated remediation.",
+      "Filter your subsurface portfolio by verification health: All Wells for the complete catalog, Uploaded Wells for production-ready datasets, and Flagged Wells for assets requiring automated remediation.",
+    tips: "Toggle between asset scopes below to see your KPI cards adapt dynamically.",
     preferredPlacement: "bottom",
   },
   {
@@ -86,7 +89,7 @@ const TOUR_STEPS: TourStep[] = [
     badge: "Actions & Tools",
     icon: <PlusCircle className="w-5 h-5 text-cyan-400" />,
     description:
-      "Click '+' to upload and inspect raw LAS files, test curves against physical limits, preview wireline tracks, and upload validated datasets into your database.",
+      "Click '+' to upload and inspect raw LAS files, test curves against physical limits, preview multi-curve wireline tracks, and upload validated datasets into your database.",
     preferredPlacement: "bottom",
   },
   {
@@ -95,7 +98,7 @@ const TOUR_STEPS: TourStep[] = [
     badge: "Tour Complete",
     icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" />,
     description:
-      "You now know your way around the platform. You can relaunch this tour at any time by clicking the 'Tour Guide' button in the dashboard header.",
+      "You now know your way around the platform. You can relaunch this walkthrough anytime by clicking the 'Tour Guide' button in the dashboard header.",
     preferredPlacement: "center",
   },
 ];
@@ -137,11 +140,23 @@ interface DashboardTourProps {
   isOpen: boolean;
   onClose: () => void;
   onStart?: () => void;
+  currentMode?: "executive" | "workstation" | "telemetry";
+  onSelectMode?: (mode: "executive" | "workstation" | "telemetry") => void;
+  currentScope?: "ALL" | "COMMITTED" | "ATTENTION";
+  onSelectScope?: (scope: "ALL" | "COMMITTED" | "ATTENTION") => void;
 }
 
-export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
+export function DashboardTour({
+  isOpen,
+  onClose,
+  currentMode,
+  onSelectMode,
+  currentScope,
+  onSelectScope,
+}: DashboardTourProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [effectivePlacement, setEffectivePlacement] = useState<"top" | "bottom" | "center">("bottom");
   const cardRef = useRef<HTMLDivElement>(null);
 
   const currentStep = TOUR_STEPS[currentStepIndex] || TOUR_STEPS[0];
@@ -152,6 +167,7 @@ export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
   const updateTargetRect = useCallback(() => {
     if (!currentStep.targetId) {
       setTargetRect(null);
+      setEffectivePlacement("center");
       return;
     }
 
@@ -164,10 +180,25 @@ export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
       const rect = el.getBoundingClientRect();
       setTargetRect(rect);
       el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      // Determine smart auto-flip placement
+      const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800;
+      const estimatedCardHeight = 340;
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      let placement = currentStep.preferredPlacement || "bottom";
+      if (placement === "bottom" && spaceBelow < estimatedCardHeight + 20 && spaceAbove > spaceBelow) {
+        placement = "top";
+      } else if (placement === "top" && spaceAbove < estimatedCardHeight + 20 && spaceBelow > spaceAbove) {
+        placement = "bottom";
+      }
+      setEffectivePlacement(placement);
     } else {
       setTargetRect(null);
+      setEffectivePlacement("center");
     }
-  }, [currentStep.targetId]);
+  }, [currentStep.targetId, currentStep.preferredPlacement]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -225,22 +256,31 @@ export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         handleDismiss();
-      } else if (e.key === "ArrowRight") {
-        if (!isLastStep) setCurrentStepIndex((prev) => prev + 1);
+      } else if (e.key === "ArrowRight" || e.key === " ") {
+        if (!isLastStep) {
+          e.preventDefault();
+          setCurrentStepIndex((prev) => prev + 1);
+        } else if (e.key === " ") {
+          e.preventDefault();
+          handleComplete();
+        }
       } else if (e.key === "ArrowLeft") {
-        if (!isFirstStep) setCurrentStepIndex((prev) => prev - 1);
+        if (!isFirstStep) {
+          e.preventDefault();
+          setCurrentStepIndex((prev) => prev - 1);
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isFirstStep, isLastStep, handleDismiss]);
+  }, [isOpen, isFirstStep, isLastStep, handleDismiss, handleComplete]);
 
   if (!isOpen) return null;
 
   // Compute tooltip card position relative to target or viewport center
   const getCardPositionStyle = (): React.CSSProperties => {
-    if (!targetRect || currentStep.preferredPlacement === "center") {
+    if (!targetRect || effectivePlacement === "center") {
       return {
         top: "50%",
         left: "50%",
@@ -249,20 +289,34 @@ export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
       };
     }
 
-    const cardWidth = 420;
-    const padding = 16;
     const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1200;
     const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800;
+
+    // Mobile layout: dock nicely at bottom as a floating sheet
+    if (viewportWidth < 640) {
+      return {
+        bottom: "16px",
+        left: "12px",
+        right: "12px",
+        position: "fixed",
+        width: "auto",
+        maxWidth: "none",
+      };
+    }
+
+    const cardWidth = 440;
+    const estimatedHeight = 330;
+    const padding = 16;
 
     let left = targetRect.left + targetRect.width / 2 - cardWidth / 2;
     // Keep inside horizontal viewport
     left = Math.max(padding, Math.min(left, viewportWidth - cardWidth - padding));
 
     let top = 0;
-    if (currentStep.preferredPlacement === "top") {
-      top = Math.max(padding, targetRect.top - 240);
+    if (effectivePlacement === "top") {
+      top = Math.max(padding, targetRect.top - estimatedHeight - 16);
     } else {
-      top = Math.min(viewportHeight - 260, targetRect.bottom + 16);
+      top = Math.min(viewportHeight - estimatedHeight - padding, targetRect.bottom + 16);
     }
 
     return {
@@ -271,6 +325,8 @@ export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
       position: "fixed",
     };
   };
+
+  const progressPercentage = Math.round(((currentStepIndex + 1) / TOUR_STEPS.length) * 100);
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden font-sans select-none pointer-events-auto">
@@ -283,25 +339,41 @@ export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
       {/* Target Element Spotlight Cutout Ring */}
       {targetRect && (
         <div
-          className="fixed rounded-2xl border-2 border-cyan-400 pointer-events-none transition-all duration-300 z-50 shadow-[0_0_0_9999px_rgba(2,6,23,0.7),0_0_25px_rgba(6,182,212,0.4)]"
+          className="fixed rounded-2xl border-2 border-cyan-400 pointer-events-none transition-all duration-300 ease-out z-50 shadow-[0_0_0_9999px_rgba(2,6,23,0.72),0_0_30px_rgba(6,182,212,0.5)] ring-4 ring-cyan-500/20"
           style={{
             top: `${Math.max(0, targetRect.top - 6)}px`,
             left: `${Math.max(0, targetRect.left - 6)}px`,
             width: `${targetRect.width + 12}px`,
             height: `${targetRect.height + 12}px`,
           }}
-        />
+        >
+          {/* Subtle pulsing beacon pill */}
+          <span className="absolute -top-3 -right-2 flex h-5 w-5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-5 w-5 bg-cyan-500 border border-slate-900 text-[10px] text-slate-950 font-bold items-center justify-center font-mono">
+              {currentStepIndex}
+            </span>
+          </span>
+        </div>
       )}
 
       {/* Floating Tour Guide Dialog Card */}
       <div
         ref={cardRef}
         style={getCardPositionStyle()}
-        className="w-[92vw] sm:w-[420px] bg-slate-900/95 dark:bg-slate-900/95 border border-cyan-500/40 rounded-3xl shadow-2xl z-[60] overflow-hidden text-slate-100 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200"
+        className="w-[92vw] sm:w-[440px] bg-slate-900/95 dark:bg-slate-900/95 border border-cyan-500/40 rounded-3xl shadow-2xl z-[60] overflow-hidden text-slate-100 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200"
       >
+        {/* Animated Linear Progress Bar */}
+        <div className="h-1.5 w-full bg-slate-800/80 overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 transition-all duration-300 ease-out"
+            style={{ width: `${progressPercentage}%` }}
+          />
+        </div>
+
         {/* Top Header Strip */}
         <div className="p-4 bg-gradient-to-r from-cyan-950/40 via-slate-900 to-slate-900 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2.5">
             <span className="p-1.5 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
               {currentStep.icon || <Compass className="w-4 h-4" />}
             </span>
@@ -309,8 +381,8 @@ export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
               <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-cyan-400 block">
                 {currentStep.badge || "WellQC Walkthrough"}
               </span>
-              <span className="text-xs font-mono text-slate-400">
-                Step {currentStepIndex + 1} of {TOUR_STEPS.length}
+              <span className="text-xs font-mono text-slate-300 font-medium">
+                Step {currentStepIndex + 1} of {TOUR_STEPS.length} · {progressPercentage}%
               </span>
             </div>
           </div>
@@ -334,6 +406,96 @@ export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
             {currentStep.description}
           </p>
 
+          {/* Interactive Live Preview Controls for Step 1 (Dashboard Modes) */}
+          {currentStep.id === "dashboard-mode" && onSelectMode && (
+            <div className="pt-1 pb-1">
+              <div className="text-[10px] text-cyan-400 font-mono font-bold uppercase tracking-wider mb-1.5 flex items-center space-x-1">
+                <Sparkles className="w-3 h-3" />
+                <span>Interactive Preview — Try It Live:</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => onSelectMode("executive")}
+                  className={`px-2 py-1.5 rounded-lg border font-bold transition-all text-center ${
+                    currentMode === "executive"
+                      ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-sm"
+                      : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300"
+                  }`}
+                >
+                  Executive
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectMode("workstation")}
+                  className={`px-2 py-1.5 rounded-lg border font-bold transition-all text-center ${
+                    currentMode === "workstation"
+                      ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-sm"
+                      : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300"
+                  }`}
+                >
+                  Operational
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectMode("telemetry")}
+                  className={`px-2 py-1.5 rounded-lg border font-bold transition-all text-center ${
+                    currentMode === "telemetry"
+                      ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-sm"
+                      : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300"
+                  }`}
+                >
+                  Full Telemetry
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Interactive Live Preview Controls for Step 2 (Asset Filter Scopes) */}
+          {currentStep.id === "scope-filter" && onSelectScope && (
+            <div className="pt-1 pb-1">
+              <div className="text-[10px] text-cyan-400 font-mono font-bold uppercase tracking-wider mb-1.5 flex items-center space-x-1">
+                <Sparkles className="w-3 h-3" />
+                <span>Interactive Preview — Try It Live:</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => onSelectScope("ALL")}
+                  className={`px-2 py-1.5 rounded-lg border font-bold transition-all text-center ${
+                    currentScope === "ALL"
+                      ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-sm"
+                      : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300"
+                  }`}
+                >
+                  All Wells
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectScope("COMMITTED")}
+                  className={`px-2 py-1.5 rounded-lg border font-bold transition-all text-center ${
+                    currentScope === "COMMITTED"
+                      ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-sm"
+                      : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300"
+                  }`}
+                >
+                  Uploaded Wells
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectScope("ATTENTION")}
+                  className={`px-2 py-1.5 rounded-lg border font-bold transition-all text-center ${
+                    currentScope === "ATTENTION"
+                      ? "bg-rose-600 text-white border-rose-400 shadow-sm"
+                      : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300"
+                  }`}
+                >
+                  Flagged Wells
+                </button>
+              </div>
+            </div>
+          )}
+
           {currentStep.tips && (
             <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-[11px] text-cyan-300 font-mono flex items-start space-x-2">
               <span className="font-bold shrink-0">💡 Tip:</span>
@@ -349,15 +511,32 @@ export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
                 onClick={handleComplete}
                 className="p-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center justify-center space-x-1.5 transition-all shadow-md active:scale-95"
               >
+                <PlusCircle className="w-3.5 h-3.5" />
                 <span>Ingest First Log</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <Link
+                href="/comparison"
+                onClick={handleComplete}
+                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors border border-slate-700"
+              >
+                <GitCompare className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Well Comparison</span>
+              </Link>
+              <Link
+                href="/analytics"
+                onClick={handleComplete}
+                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors border border-slate-700"
+              >
+                <PieChart className="w-3.5 h-3.5 text-sky-400" />
+                <span>Basin Analytics</span>
               </Link>
               <Link
                 href="/wells"
                 onClick={handleComplete}
-                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors border border-slate-700"
+                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors border border-slate-700"
               >
                 <span>Well Registry</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           )}
@@ -365,15 +544,29 @@ export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
 
         {/* Navigation Controls Footer */}
         <div className="p-4 bg-slate-950/60 border-t border-slate-800/80 flex items-center justify-between">
+          {/* Keyboard Hotkeys Legend on Desktop, Dots on Mobile */}
+          <div className="hidden sm:flex items-center space-x-1.5 text-[10px] text-slate-400 font-mono">
+            <span className="flex items-center space-x-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">Esc</kbd>
+              <span>Exit</span>
+            </span>
+            <span className="text-slate-600">·</span>
+            <span className="flex items-center space-x-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">←</kbd>
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">→</kbd>
+              <span>Navigate</span>
+            </span>
+          </div>
+
           {/* Progress Dots */}
-          <div className="flex items-center space-x-1.5">
+          <div className="flex sm:hidden items-center space-x-1.5">
             {TOUR_STEPS.map((step, idx) => (
               <button
                 key={step.id}
                 onClick={() => setCurrentStepIndex(idx)}
                 className={`w-2 h-2 rounded-full transition-all ${
                   idx === currentStepIndex
-                    ? "w-5 bg-cyan-400"
+                    ? "w-4 bg-cyan-400"
                     : idx < currentStepIndex
                     ? "bg-cyan-700"
                     : "bg-slate-700 hover:bg-slate-600"

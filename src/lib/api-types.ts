@@ -134,6 +134,8 @@ export interface DashboardSummary {
     totalAll: number;
     totalCommitted: number;
     totalFlagged: number;
+    totalCommittedFiles?: number;
+    totalAllFiles?: number;
   };
   scopeWells?: DashboardScopeWell[];
 }

@@ -154,12 +154,12 @@ def get_effective_email_config(db: Optional[Any] = None, request: Optional[Any] 
             if record and record.value:
                 db_data = json.loads(record.value)
                 if isinstance(db_data, dict):
-                    # Provider keys and secrets must NOT be read from the database;
+                    # Provider secrets (private keys/tokens) must NOT be read from the database;
                     # they strictly originate from environment variables to prevent secret leakage across DB branches.
+                    # Note: emailjs_public_key is a non-secret user identifier and can be persisted in the DB.
                     excluded_db_keys = {
                         "emailjs_private_key",
                         "resend_api_key",
-                        "emailjs_public_key",
                     }
                     for k, v in db_data.items():
                         if k not in excluded_db_keys and v is not None and str(v).strip():

@@ -49,6 +49,8 @@ const EMPTY_SUMMARY: DashboardSummary = {
     totalAll: 0,
     totalCommitted: 0,
     totalFlagged: 0,
+    totalCommittedFiles: 0,
+    totalAllFiles: 0,
   },
   scopeWells: [],
 };
@@ -251,9 +253,9 @@ export default function DashboardPage() {
                     ? "bg-[#0071e3] text-white font-bold shadow-sm"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
-                title="View wells with verified uploaded LAS log suites"
+                title={`View ${summary.counts?.totalCommitted ?? summary.totalWells} uploaded wells containing ${summary.counts?.totalCommittedFiles ?? summary.lasFilesUploaded} verified LAS files`}
               >
-                <span>Uploaded</span>
+                <span>Uploaded Wells</span>
                 {summary.counts?.totalCommitted !== undefined && (
                   <span
                     className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
@@ -263,6 +265,18 @@ export default function DashboardPage() {
                     }`}
                   >
                     {summary.counts.totalCommitted}
+                  </span>
+                )}
+                {(summary.counts?.totalCommittedFiles !== undefined ? summary.counts.totalCommittedFiles : summary.lasFilesUploaded) > 0 && (
+                  <span
+                    className={`text-[9px] px-1 py-0.2 rounded font-mono ${
+                      filterScope === "COMMITTED"
+                        ? "bg-white/15 text-white/95"
+                        : "text-slate-500 dark:text-slate-400"
+                    }`}
+                    title={`${summary.counts?.totalCommittedFiles ?? summary.lasFilesUploaded} verified LAS log files across these wells`}
+                  >
+                    ({summary.counts?.totalCommittedFiles ?? summary.lasFilesUploaded} files)
                   </span>
                 )}
               </button>
@@ -275,7 +289,7 @@ export default function DashboardPage() {
                 }`}
                 title="View wells with quality score < 75 or critical anomalies"
               >
-                <span>Flagged</span>
+                <span>Flagged Wells</span>
                 {summary.counts?.totalFlagged !== undefined && (
                   <span
                     className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
@@ -1209,7 +1223,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Interactive Guided Onboarding Tour */}
-      <DashboardTour isOpen={isTourOpen} onClose={() => setIsTourOpen(false)} />
+      <DashboardTour
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+        currentMode={dashboardMode}
+        onSelectMode={handleModeChange}
+        currentScope={filterScope}
+        onSelectScope={handleScopeChange}
+      />
     </AppShell>
   );
 }

@@ -38,14 +38,14 @@ Implementation of Custom Mnemonic Aliases & Tenant Rule Management as part of We
 - [x] Feature implementation verified in active branch
 - [x] Peer review and code quality compliance
 - [x] Automated test suite coverage","Sprint 4: Advanced Visualisation, Imputation & Python Migration [100%]","Petrophysics,Completed",DA1,2026-09-08
-"[DA2] [Backend] Imputation Algorithm Benchmark (KNN, Spline, Iterative SVD) (✅)","**Task ID:** Task #28
+"[DA2] [Backend] Imputation Algorithm Benchmark (KNN, Spline, Random Forest, Gradient Boosting, Linear) (✅)","**Task ID:** Task #28
 **Sprint:** Sprint 4: Advanced Visualisation, Imputation & Python Migration
 **Assigned Team:** DA2
 **Duration:** 5d (2026-09-03 to 2026-09-09)
 **Completion Status:** 100%
 
 ### Description & Scope:
-Implementation of Imputation Algorithm Benchmark (KNN, Spline, Iterative SVD) as part of WellQC subsurface platform.
+Implementation of Imputation Algorithm Benchmark (KNN, Spline, Random Forest, Gradient Boosting, Linear) as part of WellQC subsurface platform.
 
 ### Acceptance Criteria:
 - [x] Feature implementation verified in active branch

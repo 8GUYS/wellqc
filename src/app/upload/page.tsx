@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { ParsedLAS } from "@/lib/las/parser";
 import { QualityAnalysisResult } from "@/lib/las/quality-engine";
@@ -78,23 +78,40 @@ function getInitialUploadWorkspace(): UploadWorkspaceState {
 }
 
 export default function LASUploadPage() {
-  const [initialWorkspace] = useState(getInitialUploadWorkspace);
+  const isHydratedRef = useRef(false);
 
-  const [rawText, setRawText] = useState<string>(initialWorkspace.rawText);
-  const [fileName, setFileName] = useState<string>(initialWorkspace.fileName);
-  const [parsedLAS, setParsedLAS] = useState<ParsedLAS | null>(initialWorkspace.parsedLAS);
-  const [qaResult, setQaResult] = useState<QualityAnalysisResult | null>(initialWorkspace.qaResult);
-  const [aiOutput, setAiOutput] = useState<AIAnalysisOutput | null>(initialWorkspace.aiOutput);
+  const [rawText, setRawText] = useState<string>("");
+  const [fileName, setFileName] = useState<string>("");
+  const [parsedLAS, setParsedLAS] = useState<ParsedLAS | null>(null);
+  const [qaResult, setQaResult] = useState<QualityAnalysisResult | null>(null);
+  const [aiOutput, setAiOutput] = useState<AIAnalysisOutput | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [savedSuccess, setSavedSuccess] = useState(initialWorkspace.savedSuccess);
+  const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const [savedWell, setSavedWell] = useState<{ id: string; name: string; qualityScore: number } | null>(
-    initialWorkspace.savedWell,
-  );
-  const [uploadQueue, setUploadQueue] = useState<QueuedLASFile[]>(initialWorkspace.uploadQueue);
-  const [restoredFromStorage, setRestoredFromStorage] = useState(initialWorkspace.restoredFromStorage);
+  const [savedWell, setSavedWell] = useState<{ id: string; name: string; qualityScore: number } | null>(null);
+  const [uploadQueue, setUploadQueue] = useState<QueuedLASFile[]>([]);
+  const [restoredFromStorage, setRestoredFromStorage] = useState(false);
   const [activeTab, setActiveTab] = useState<"curves" | "anomalies" | "headers" | "raw" | "viewer">("curves");
+
+  // Restore previous session from localStorage after initial client mount to guarantee 100% SSR hydration fidelity
+  useEffect(() => {
+    isHydratedRef.current = true;
+    const session = getInitialUploadWorkspace();
+    if (session && session.parsedLAS && session.qaResult) {
+      queueMicrotask(() => {
+        setFileName(session.fileName || "restored-well-log.las");
+        setRawText(session.rawText || "");
+        setParsedLAS(session.parsedLAS);
+        setQaResult(session.qaResult);
+        setAiOutput(session.aiOutput || null);
+        setSavedSuccess(Boolean(session.savedSuccess));
+        setSavedWell(session.savedWell || null);
+        setUploadQueue(session.uploadQueue || []);
+        setRestoredFromStorage(true);
+      });
+    }
+  }, []);
 
   // Persist complete un-downsampled raw LAS text to IndexedDB on file change only
   useEffect(() => {
@@ -105,7 +122,7 @@ export default function LASUploadPage() {
 
   // Persist state to localStorage on changes with quota protection
   useEffect(() => {
-    if (!parsedLAS || !qaResult) return;
+    if (!isHydratedRef.current || !parsedLAS || !qaResult) return;
 
     try {
       const activeUserId = localStorage.getItem("wellqc_active_user_id") || undefined;

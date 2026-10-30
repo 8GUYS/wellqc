@@ -337,6 +337,8 @@ def get_dashboard(
             "totalAll": len(all_user_wells),
             "totalCommitted": len(committed_wells),
             "totalFlagged": len(flagged_wells),
+            "totalCommittedFiles": sum(len(w.lasFiles) for w in committed_wells),
+            "totalAllFiles": sum(len(w.lasFiles) for w in all_user_wells),
         }
 
         return {

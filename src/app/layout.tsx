@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { PWAClient } from "@/components/pwa/pwa-client";
@@ -37,6 +36,48 @@ export const metadata: Metadata = {
   },
 };
 
+const THEME_INIT_SCRIPT = `
+(function() {
+  try {
+    var saved = localStorage.getItem('wellqc_theme') || 'slate';
+    document.documentElement.setAttribute('data-theme', saved);
+    if (saved === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+    }
+    if (saved === 'custom') {
+      var customRaw = localStorage.getItem('wellqc_custom_theme');
+      if (customRaw) {
+        var c = JSON.parse(customRaw);
+        var r = document.documentElement.style;
+        if (c.isGradient) {
+          r.setProperty('--wellqc-dark', 'linear-gradient(' + (c.bgAngle || '135deg') + ', ' + c.bgStart + ', ' + c.bgEnd + ')');
+        } else {
+          r.setProperty('--wellqc-dark', c.bgStart || '#090d16');
+        }
+        if (c.panel) r.setProperty('--wellqc-panel', c.panel);
+        if (c.card) r.setProperty('--wellqc-card', c.card);
+        if (c.border) r.setProperty('--wellqc-border', c.border);
+        if (c.accent) {
+          r.setProperty('--wellqc-accent', c.accent);
+          r.setProperty('--wellqc-cyan', c.accent);
+        }
+        if (c.isLight) {
+          document.documentElement.classList.remove('dark');
+          r.setProperty('--wellqc-text', '#1c1917');
+          r.setProperty('--wellqc-muted', '#78716c');
+        } else {
+          document.documentElement.classList.add('dark');
+          r.setProperty('--wellqc-text', '#f8fafc');
+          r.setProperty('--wellqc-muted', '#94a3b8');
+        }
+      }
+    }
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -59,55 +100,14 @@ export default function RootLayout({
           type="font/woff"
           crossOrigin="anonymous"
         />
-      </head>
-      <body className="bg-wellqc-dark text-wellqc-text min-h-screen font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
-        <Script
+        <script
           id="wellqc-theme-init"
-          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var saved = localStorage.getItem('wellqc_theme') || 'slate';
-                  document.documentElement.setAttribute('data-theme', saved);
-                  if (saved === 'light') {
-                    document.documentElement.classList.remove('dark');
-                  } else {
-                    document.documentElement.classList.add('dark');
-                  }
-                  if (saved === 'custom') {
-                    var customRaw = localStorage.getItem('wellqc_custom_theme');
-                    if (customRaw) {
-                      var c = JSON.parse(customRaw);
-                      var r = document.documentElement.style;
-                      if (c.isGradient) {
-                        r.setProperty('--wellqc-dark', 'linear-gradient(' + (c.bgAngle || '135deg') + ', ' + c.bgStart + ', ' + c.bgEnd + ')');
-                      } else {
-                        r.setProperty('--wellqc-dark', c.bgStart || '#090d16');
-                      }
-                      if (c.panel) r.setProperty('--wellqc-panel', c.panel);
-                      if (c.card) r.setProperty('--wellqc-card', c.card);
-                      if (c.border) r.setProperty('--wellqc-border', c.border);
-                      if (c.accent) {
-                        r.setProperty('--wellqc-accent', c.accent);
-                        r.setProperty('--wellqc-cyan', c.accent);
-                      }
-                      if (c.isLight) {
-                        document.documentElement.classList.remove('dark');
-                        r.setProperty('--wellqc-text', '#1c1917');
-                        r.setProperty('--wellqc-muted', '#78716c');
-                      } else {
-                        document.documentElement.classList.add('dark');
-                        r.setProperty('--wellqc-text', '#f8fafc');
-                        r.setProperty('--wellqc-muted', '#94a3b8');
-                      }
-                    }
-                  }
-                } catch (e) {}
-              })();
-            `,
+            __html: THEME_INIT_SCRIPT,
           }}
         />
+      </head>
+      <body className="bg-wellqc-dark text-wellqc-text min-h-screen font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
         <ThemeProvider>
           {children}
           <PWAClient />

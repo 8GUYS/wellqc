@@ -2,6 +2,17 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 
+// Suppress false-positive React 19 warning for SSR theme-init script
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  const originalError = console.error;
+  console.error = (...args: unknown[]) => {
+    if (typeof args[0] === "string" && args[0].includes("Encountered a script tag")) {
+      return;
+    }
+    originalError.apply(console, args);
+  };
+}
+
 export type ThemeId =
   | "slate"
   | "light"
@@ -287,18 +298,25 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [customTheme, setCustomThemeState] = useState<CustomThemeSettings>(() => getStoredCustomTheme());
-  const [theme, setThemeState] = useState<ThemeId>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("wellqc_theme") as ThemeId;
+  const [customTheme, setCustomThemeState] = useState<CustomThemeSettings>(DEFAULT_CUSTOM_THEME);
+  const [theme, setThemeState] = useState<ThemeId>("slate");
+
+  // Restore client theme from localStorage post-hydration to guarantee 100% SSR match
+  useEffect(() => {
+    try {
+      const storedCustom = getStoredCustomTheme();
+      const saved = localStorage.getItem("wellqc_theme") as ThemeId;
+      queueMicrotask(() => {
+        setCustomThemeState(storedCustom);
         if (saved && (saved === "custom" || THEMES.some((t) => t.id === saved))) {
-          return saved;
+          setThemeState(saved);
+          applyThemeToDOM(saved, storedCustom);
+        } else {
+          applyThemeToDOM("slate", storedCustom);
         }
-      } catch {}
-    }
-    return "slate";
-  });
+      });
+    } catch {}
+  }, []);
 
   useEffect(() => {
     applyThemeToDOM(theme, customTheme);

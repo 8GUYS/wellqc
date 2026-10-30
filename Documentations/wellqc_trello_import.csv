@@ -285,14 +285,14 @@ Implementation of Custom Mnemonic Aliases & Tenant Rule Management as part of We
 - [x] Feature implementation verified in active branch
 - [x] Peer review and code quality compliance
 - [x] Automated test suite coverage","Sprint 4: Advanced Visualisation, Imputation & Python Migration [100%]","Petrophysics,Completed",DA1,2026-09-08
-"[DA2] [Backend] Imputation Algorithm Benchmark (KNN, Spline, Iterative SVD) (✅)","**Task ID:** Task #28
+"[DA2] [Backend] Imputation Algorithm Benchmark (KNN, Spline, Random Forest, Gradient Boosting, Linear) (✅)","**Task ID:** Task #28
 **Sprint:** Sprint 4: Advanced Visualisation, Imputation & Python Migration
 **Assigned Team:** DA2
 **Duration:** 5d (2026-09-03 to 2026-09-09)
 **Completion Status:** 100%
 
 ### Description & Scope:
-Implementation of Imputation Algorithm Benchmark (KNN, Spline, Iterative SVD) as part of WellQC subsurface platform.
+Implementation of Imputation Algorithm Benchmark (KNN, Spline, Random Forest, Gradient Boosting, Linear) as part of WellQC subsurface platform.
 
 ### Acceptance Criteria:
 - [x] Feature implementation verified in active branch
@@ -376,14 +376,14 @@ Implementation of Admin Panel UI with Tabbed User Management & Tokens as part of
 - [x] Feature implementation verified in active branch
 - [x] Peer review and code quality compliance
 - [x] Automated test suite coverage","Sprint 5: Security Hardening, Default-to-Deny RBAC & Admin Tools [100%]","Security,Frontend,Completed",SE2,2026-09-24
-[DA4] [Security] Automated Security Test Suite (14 Tests in `test_admin_auth.py`) (✅),"**Task ID:** Task #36
+[DA4] [Security] Automated Security Test Suite (19 Tests in `test_admin_auth.py`) (✅),"**Task ID:** Task #36
 **Sprint:** Sprint 5: Security Hardening, Default-to-Deny RBAC & Admin Tools
 **Assigned Team:** DA4, CE1
 **Duration:** 5d (2026-09-21 to 2026-09-25)
 **Completion Status:** 100%
 
 ### Description & Scope:
-Implementation of Automated Security Test Suite (14 Tests in `test_admin_auth.py`) as part of WellQC subsurface platform.
+Implementation of Automated Security Test Suite (19 Tests in `test_admin_auth.py`) as part of WellQC subsurface platform.
 
 ### Acceptance Criteria:
 - [x] Feature implementation verified in active branch
@@ -545,19 +545,19 @@ Implementation of Cross-Well Workstation UI & Interactive SVG Overlaid Track (SE
 - [x] Feature implementation verified in active branch
 - [x] Peer review and code quality compliance
 - [x] Automated test suite coverage","Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements [100%]","Frontend,Completed",SE2,2026-10-19
-"[SE1] [Petrophysics] Unsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2) (✅)","**Task ID:** Task #51
+"[SE1] [Frontend] Stratigraphic Continuity Grading & Depth Shift Mathematics (SE1, DA2) (✅)","**Task ID:** Task #51
 **Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements
 **Assigned Team:** SE1, DA2
 **Duration:** 4d (2026-10-15 to 2026-10-20)
 **Completion Status:** 100%
 
 ### Description & Scope:
-Implementation of Unsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2) as part of WellQC subsurface platform.
+Implementation of Stratigraphic Continuity Grading & Depth Shift Mathematics (SE1, DA2) as part of WellQC subsurface platform.
 
 ### Acceptance Criteria:
 - [x] Feature implementation verified in active branch
 - [x] Peer review and code quality compliance
-- [x] Automated test suite coverage","Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements [100%]","Petrophysics,ML & Analytics,Completed","SE1, DA2",2026-10-20
+- [x] Automated test suite coverage","Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements [100%]","Frontend,Completed","SE1, DA2",2026-10-20
 "[SE2] [Compliance] NUPRC Compliance Report Template & Digital Signatures (SE2, DA4) (✅)","**Task ID:** Task #52
 **Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements
 **Assigned Team:** SE2, DA4
@@ -584,45 +584,45 @@ Implementation of Niger Delta Formation Cutoffs & Hybrid Markers DB Schema (DA1,
 - [x] Feature implementation verified in active branch
 - [x] Peer review and code quality compliance
 - [x] Automated test suite coverage","Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements [100%]","Petrophysics,Completed","DA1, CE2",2026-10-16
-[DA3] [Petrophysics] Offset Niger Delta Demonstration Well Package Curation (DA3) (✅),"**Task ID:** Task #54
+"[DA3] [Petrophysics] Petrophysical Anomaly Benchmark Validation & Test Log Curation (DA3, DA4) (✅)","**Task ID:** Task #54
 **Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements
-**Assigned Team:** DA3
+**Assigned Team:** DA3, DA4
 **Duration:** 5d (2026-10-13 to 2026-10-19)
 **Completion Status:** 100%
 
 ### Description & Scope:
-Implementation of Offset Niger Delta Demonstration Well Package Curation (DA3) as part of WellQC subsurface platform.
+Implementation of Petrophysical Anomaly Benchmark Validation & Test Log Curation (DA3, DA4) as part of WellQC subsurface platform.
 
 ### Acceptance Criteria:
 - [x] Feature implementation verified in active branch
 - [x] Peer review and code quality compliance
-- [x] Automated test suite coverage","Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements [100%]","Petrophysics,Completed",DA3,2026-10-19
-[CE1] [Completed] Asynchronous Batch Ingestion Background Workers & Live Progress (CE1) (✅),"**Task ID:** Task #55
+- [x] Automated test suite coverage","Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements [100%]","Petrophysics,ML & Analytics,Completed","DA3, DA4",2026-10-19
+"[CE1] [Frontend] Multi-File Batch Queue & Progress Ingestion UI (CE1, SE2) (✅)","**Task ID:** Task #55
 **Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements
-**Assigned Team:** CE1
+**Assigned Team:** CE1, SE2
 **Duration:** 6d (2026-10-14 to 2026-10-21)
 **Completion Status:** 100%
 
 ### Description & Scope:
-Implementation of Asynchronous Batch Ingestion Background Workers & Live Progress (CE1) as part of WellQC subsurface platform.
+Implementation of Multi-File Batch Queue & Progress Ingestion UI (CE1, SE2) as part of WellQC subsurface platform.
 
 ### Acceptance Criteria:
 - [x] Feature implementation verified in active branch
 - [x] Peer review and code quality compliance
-- [x] Automated test suite coverage","Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements [100%]",Completed,CE1,2026-10-21
-[CE2] [Backend] Outbound Webhook Event Dispatcher for Cloud Storage Sync (CE2) (✅),"**Task ID:** Task #56
+- [x] Automated test suite coverage","Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements [100%]","Frontend,Completed","CE1, SE2",2026-10-21
+[CE2] [Security] Enterprise Webhook Management Engine & Admin Integration (CE2) (✅),"**Task ID:** Task #56
 **Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements
 **Assigned Team:** CE2
 **Duration:** 6d (2026-10-15 to 2026-10-22)
 **Completion Status:** 100%
 
 ### Description & Scope:
-Implementation of Outbound Webhook Event Dispatcher for Cloud Storage Sync (CE2) as part of WellQC subsurface platform.
+Implementation of Enterprise Webhook Management Engine & Admin Integration (CE2) as part of WellQC subsurface platform.
 
 ### Acceptance Criteria:
 - [x] Feature implementation verified in active branch
 - [x] Peer review and code quality compliance
-- [x] Automated test suite coverage","Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements [100%]","Backend,DevOps & Cloud,Completed",CE2,2026-10-22
+- [x] Automated test suite coverage","Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements [100%]","Security,Backend,Completed",CE2,2026-10-22
 "[SE1] [Petrophysics] Dynamic Multi-Curve Wireline Log Viewer & Channel Selector (SE1, SE2) (✅)","**Task ID:** Task #57
 **Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements
 **Assigned Team:** SE1, SE2
@@ -662,14 +662,14 @@ Implementation of Subsurface Basin Analytics Engine & Real-Time Visualization AP
 - [x] Feature implementation verified in active branch
 - [x] Peer review and code quality compliance
 - [x] Automated test suite coverage","Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements [100%]","Backend,Completed","DA3, SE2",2026-10-28
-[SE1] [Frontend] End-to-End System Test Suite (125 Pytest + 38 Jest Passing) (All) (✅),"**Task ID:** Task #60
+[SE1] [Frontend] End-to-End System Test Suite (93 Pytest + 38 Jest Passing) (All) (✅),"**Task ID:** Task #60
 **Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements
 **Assigned Team:** SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4
 **Duration:** 5d (2026-10-24 to 2026-10-29)
 **Completion Status:** 100%
 
 ### Description & Scope:
-Implementation of End-to-End System Test Suite (125 Pytest + 38 Jest Passing) (All) as part of WellQC subsurface platform.
+Implementation of End-to-End System Test Suite (93 Pytest + 38 Jest Passing) (All) as part of WellQC subsurface platform.
 
 ### Acceptance Criteria:
 - [x] Feature implementation verified in active branch
@@ -727,7 +727,20 @@ Implementation of Real-Time Wellsite Telemetry Streaming Ingestion (WITSML / OPC
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
 - [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Backend,ML & Analytics,Upcoming","SE1, CE2",2026-11-11
-"[DA1] [Petrophysics] Advanced Reservoir Rock Physics Module (Sw, Permeability, Net-to-Gross) (DA1, DA2) (⏳ Upcoming)","**Task ID:** Task #66
+"[SE1] [Petrophysics] Unsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2) (⏳ Upcoming)","**Task ID:** Task #66
+**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
+**Assigned Team:** SE1, DA2
+**Duration:** 5d (2026-11-04 to 2026-11-09)
+**Completion Status:** 0%
+
+### Description & Scope:
+Implementation of Unsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2) as part of WellQC subsurface platform.
+
+### Acceptance Criteria:
+- [ ] Upcoming sprint planning and architectural review
+- [ ] Code review & staging testing
+- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Petrophysics,ML & Analytics,Upcoming","SE1, DA2",2026-11-09
+"[DA1] [Petrophysics] Advanced Reservoir Rock Physics Module (Sw, Permeability, Net-to-Gross) (DA1, DA2) (⏳ Upcoming)","**Task ID:** Task #67
 **Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
 **Assigned Team:** DA1, DA2
 **Duration:** 5d (2026-11-05 to 2026-11-11)
@@ -740,33 +753,59 @@ Implementation of Advanced Reservoir Rock Physics Module (Sw, Permeability, Net-
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
 - [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Petrophysics,Upcoming","DA1, DA2",2026-11-11
-"[CE2] [Security] Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Access Logs (CE2, SE2) (⏳ Upcoming)","**Task ID:** Task #67
+"[CE1] [DevOps & Cloud] Asynchronous Background Ingestion Task Workers & Cloud Queue (CE1, CE2) (⏳ Upcoming)","**Task ID:** Task #68
 **Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
-**Assigned Team:** CE2, SE2
+**Assigned Team:** CE1, CE2
+**Duration:** 5d (2026-11-05 to 2026-11-11)
+**Completion Status:** 0%
+
+### Description & Scope:
+Implementation of Asynchronous Background Ingestion Task Workers & Cloud Queue (CE1, CE2) as part of WellQC subsurface platform.
+
+### Acceptance Criteria:
+- [ ] Upcoming sprint planning and architectural review
+- [ ] Code review & staging testing
+- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","DevOps & Cloud,Upcoming","CE1, CE2",2026-11-11
+[CE2] [Backend] Outbound Webhook Cloud Storage Automated Sync Dispatcher (CE2) (⏳ Upcoming),"**Task ID:** Task #69
+**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
+**Assigned Team:** CE2
 **Duration:** 5d (2026-11-06 to 2026-11-12)
 **Completion Status:** 0%
 
 ### Description & Scope:
-Implementation of Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Access Logs (CE2, SE2) as part of WellQC subsurface platform.
+Implementation of Outbound Webhook Cloud Storage Automated Sync Dispatcher (CE2) as part of WellQC subsurface platform.
 
 ### Acceptance Criteria:
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
-- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Security,ML & Analytics,Compliance,Upcoming","CE2, SE2",2026-11-12
-"[DA3] [ML & Analytics] Offset Well Basin Correlation ML Enhancement (DA3, SE1) (⏳ Upcoming)","**Task ID:** Task #68
+- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Backend,DevOps & Cloud,Upcoming",CE2,2026-11-12
+[DA3] [Compliance] Curated In-App Demonstration Well Package for Operator Pilot (DA3) (⏳ Upcoming),"**Task ID:** Task #70
 **Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
-**Assigned Team:** DA3, SE1
+**Assigned Team:** DA3
+**Duration:** 4d (2026-11-06 to 2026-11-11)
+**Completion Status:** 0%
+
+### Description & Scope:
+Implementation of Curated In-App Demonstration Well Package for Operator Pilot (DA3) as part of WellQC subsurface platform.
+
+### Acceptance Criteria:
+- [ ] Upcoming sprint planning and architectural review
+- [ ] Code review & staging testing
+- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Compliance,Upcoming",DA3,2026-11-11
+"[CE2] [Security] Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Logs (CE2, SE2) (⏳ Upcoming)","**Task ID:** Task #71
+**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
+**Assigned Team:** CE2, SE2
 **Duration:** 5d (2026-11-09 to 2026-11-13)
 **Completion Status:** 0%
 
 ### Description & Scope:
-Implementation of Offset Well Basin Correlation ML Enhancement (DA3, SE1) as part of WellQC subsurface platform.
+Implementation of Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Logs (CE2, SE2) as part of WellQC subsurface platform.
 
 ### Acceptance Criteria:
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
-- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","ML & Analytics,Upcoming","DA3, SE1",2026-11-13
-[SE1] [Milestone] Milestone: Production Release & NUPRC Pilot Sign-off (All) (⏳ Upcoming),"**Task ID:** Task #69
+- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Security,ML & Analytics,Compliance,Upcoming","CE2, SE2",2026-11-13
+[SE1] [Milestone] Milestone: Production Release & NUPRC Pilot Sign-off (All) (⏳ Upcoming),"**Task ID:** Task #72
 **Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
 **Assigned Team:** SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4
 **Duration:** 0d (2026-11-13 to 2026-11-13)
@@ -779,7 +818,7 @@ Implementation of Milestone: Production Release & NUPRC Pilot Sign-off (All) as 
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
 - [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Milestone,Compliance,Upcoming","SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4",2026-11-13
-[CE2] [ML & Analytics] High-Availability Multi-AZ Database Clustering & Disaster Recovery (CE2) (⏳ Upcoming),"**Task ID:** Task #71
+[CE2] [ML & Analytics] High-Availability Multi-AZ Database Clustering & Disaster Recovery (CE2) (⏳ Upcoming),"**Task ID:** Task #74
 **Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff
 **Assigned Team:** CE2
 **Duration:** 5d (2026-11-16 to 2026-11-20)
@@ -792,7 +831,7 @@ Implementation of High-Availability Multi-AZ Database Clustering & Disaster Reco
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
 - [ ] End-to-end integration pass","Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff [0%]","ML & Analytics,DevOps & Cloud,Upcoming",CE2,2026-11-20
-"[SE1] [Petrophysics] Automated Periodic AI Model Drift Detection & Petrophysical Re-calibration (SE1, DA2) (⏳ Upcoming)","**Task ID:** Task #72
+"[SE1] [Petrophysics] Automated Periodic AI Model Drift Detection & Petrophysical Re-calibration (SE1, DA2) (⏳ Upcoming)","**Task ID:** Task #75
 **Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff
 **Assigned Team:** SE1, DA2
 **Duration:** 5d (2026-11-17 to 2026-11-23)
@@ -805,7 +844,7 @@ Implementation of Automated Periodic AI Model Drift Detection & Petrophysical Re
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
 - [ ] End-to-end integration pass","Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff [0%]","Petrophysics,ML & Analytics,Upcoming","SE1, DA2",2026-11-23
-"[CE1] [Backend] 24/7 SLI/SLO Telemetry Observability, Prometheus Metrics & Alerting (CE1) (⏳ Upcoming)","**Task ID:** Task #73
+"[CE1] [Backend] 24/7 SLI/SLO Telemetry Observability, Prometheus Metrics & Alerting (CE1) (⏳ Upcoming)","**Task ID:** Task #76
 **Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff
 **Assigned Team:** CE1
 **Duration:** 5d (2026-11-18 to 2026-11-24)
@@ -818,7 +857,7 @@ Implementation of 24/7 SLI/SLO Telemetry Observability, Prometheus Metrics & Ale
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
 - [ ] End-to-end integration pass","Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff [0%]","Backend,DevOps & Cloud,Upcoming",CE1,2026-11-24
-"[DA3] [Backend] Enterprise User Training Portal, API Knowledge Base & Interactive Video Guides (DA3, DA4, SE2) (⏳ Upcoming)","**Task ID:** Task #74
+"[DA3] [Backend] Enterprise User Training Portal, API Knowledge Base & Interactive Video Guides (DA3, DA4, SE2) (⏳ Upcoming)","**Task ID:** Task #77
 **Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff
 **Assigned Team:** DA3, DA4, SE2
 **Duration:** 6d (2026-11-19 to 2026-11-26)
@@ -831,7 +870,7 @@ Implementation of Enterprise User Training Portal, API Knowledge Base & Interact
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
 - [ ] End-to-end integration pass","Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff [0%]","Backend,Frontend,Upcoming","DA3, DA4, SE2",2026-11-26
-"[DA4] [Compliance] Client Acceptance Review & Regulatory Compliance Handoff (DA4, CE2) (⏳ Upcoming)","**Task ID:** Task #75
+"[DA4] [Compliance] Client Acceptance Review & Regulatory Compliance Handoff (DA4, CE2) (⏳ Upcoming)","**Task ID:** Task #78
 **Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff
 **Assigned Team:** DA4, CE2
 **Duration:** 5d (2026-11-23 to 2026-11-27)
@@ -844,7 +883,7 @@ Implementation of Client Acceptance Review & Regulatory Compliance Handoff (DA4,
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
 - [ ] End-to-end integration pass","Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff [0%]","Compliance,Upcoming","DA4, CE2",2026-11-27
-[SE1] [Milestone] Milestone: Enterprise General Availability (GA) & Steady-State SLAs (All) (⏳ Upcoming),"**Task ID:** Task #76
+[SE1] [Milestone] Milestone: Enterprise General Availability (GA) & Steady-State SLAs (All) (⏳ Upcoming),"**Task ID:** Task #79
 **Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff
 **Assigned Team:** SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4
 **Duration:** 0d (2026-11-27 to 2026-11-27)

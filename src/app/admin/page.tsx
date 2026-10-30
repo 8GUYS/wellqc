@@ -1364,6 +1364,17 @@ export default function AdminPanelPage() {
                 </div>
               ) : (
                 <form onSubmit={handleSaveEmailSettings} className="space-y-4">
+                  {/* Production & Cloud Environment Callout */}
+                  <div className="bg-slate-900/90 border border-cyan-500/30 rounded p-3 text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 text-cyan-300 font-bold">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Production Deployment & Environment Variables Guide:</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      Provider, Service ID, Template ID, and Public Key are saved directly to the database and take effect immediately.
+                      For cloud security, provider private access tokens (<code className="font-mono text-cyan-300 bg-slate-950 px-1 py-0.5 rounded">EMAILJS_PRIVATE_KEY</code> / <code className="font-mono text-cyan-300 bg-slate-950 px-1 py-0.5 rounded">RESEND_API_KEY</code>) must be configured in your cloud hosting environment variables (e.g. Render Dashboard or Vercel), as local <code className="font-mono text-slate-300 bg-slate-950 px-1 py-0.5 rounded">.env</code> files are git-ignored and never committed to production repositories.
+                    </p>
+                  </div>
                   {/* Provider Selection */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {/* EmailJS */}

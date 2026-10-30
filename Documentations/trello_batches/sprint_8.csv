@@ -38,7 +38,20 @@ Implementation of Real-Time Wellsite Telemetry Streaming Ingestion (WITSML / OPC
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
 - [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Backend,ML & Analytics,Upcoming","SE1, CE2",2026-11-11
-"[DA1] [Petrophysics] Advanced Reservoir Rock Physics Module (Sw, Permeability, Net-to-Gross) (DA1, DA2) (⏳ Upcoming)","**Task ID:** Task #66
+"[SE1] [Petrophysics] Unsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2) (⏳ Upcoming)","**Task ID:** Task #66
+**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
+**Assigned Team:** SE1, DA2
+**Duration:** 5d (2026-11-04 to 2026-11-09)
+**Completion Status:** 0%
+
+### Description & Scope:
+Implementation of Unsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2) as part of WellQC subsurface platform.
+
+### Acceptance Criteria:
+- [ ] Upcoming sprint planning and architectural review
+- [ ] Code review & staging testing
+- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Petrophysics,ML & Analytics,Upcoming","SE1, DA2",2026-11-09
+"[DA1] [Petrophysics] Advanced Reservoir Rock Physics Module (Sw, Permeability, Net-to-Gross) (DA1, DA2) (⏳ Upcoming)","**Task ID:** Task #67
 **Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
 **Assigned Team:** DA1, DA2
 **Duration:** 5d (2026-11-05 to 2026-11-11)
@@ -51,33 +64,59 @@ Implementation of Advanced Reservoir Rock Physics Module (Sw, Permeability, Net-
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
 - [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Petrophysics,Upcoming","DA1, DA2",2026-11-11
-"[CE2] [Security] Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Access Logs (CE2, SE2) (⏳ Upcoming)","**Task ID:** Task #67
+"[CE1] [DevOps & Cloud] Asynchronous Background Ingestion Task Workers & Cloud Queue (CE1, CE2) (⏳ Upcoming)","**Task ID:** Task #68
 **Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
-**Assigned Team:** CE2, SE2
+**Assigned Team:** CE1, CE2
+**Duration:** 5d (2026-11-05 to 2026-11-11)
+**Completion Status:** 0%
+
+### Description & Scope:
+Implementation of Asynchronous Background Ingestion Task Workers & Cloud Queue (CE1, CE2) as part of WellQC subsurface platform.
+
+### Acceptance Criteria:
+- [ ] Upcoming sprint planning and architectural review
+- [ ] Code review & staging testing
+- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","DevOps & Cloud,Upcoming","CE1, CE2",2026-11-11
+[CE2] [Backend] Outbound Webhook Cloud Storage Automated Sync Dispatcher (CE2) (⏳ Upcoming),"**Task ID:** Task #69
+**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
+**Assigned Team:** CE2
 **Duration:** 5d (2026-11-06 to 2026-11-12)
 **Completion Status:** 0%
 
 ### Description & Scope:
-Implementation of Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Access Logs (CE2, SE2) as part of WellQC subsurface platform.
+Implementation of Outbound Webhook Cloud Storage Automated Sync Dispatcher (CE2) as part of WellQC subsurface platform.
 
 ### Acceptance Criteria:
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
-- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Security,ML & Analytics,Compliance,Upcoming","CE2, SE2",2026-11-12
-"[DA3] [ML & Analytics] Offset Well Basin Correlation ML Enhancement (DA3, SE1) (⏳ Upcoming)","**Task ID:** Task #68
+- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Backend,DevOps & Cloud,Upcoming",CE2,2026-11-12
+[DA3] [Compliance] Curated In-App Demonstration Well Package for Operator Pilot (DA3) (⏳ Upcoming),"**Task ID:** Task #70
 **Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
-**Assigned Team:** DA3, SE1
+**Assigned Team:** DA3
+**Duration:** 4d (2026-11-06 to 2026-11-11)
+**Completion Status:** 0%
+
+### Description & Scope:
+Implementation of Curated In-App Demonstration Well Package for Operator Pilot (DA3) as part of WellQC subsurface platform.
+
+### Acceptance Criteria:
+- [ ] Upcoming sprint planning and architectural review
+- [ ] Code review & staging testing
+- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Compliance,Upcoming",DA3,2026-11-11
+"[CE2] [Security] Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Logs (CE2, SE2) (⏳ Upcoming)","**Task ID:** Task #71
+**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
+**Assigned Team:** CE2, SE2
 **Duration:** 5d (2026-11-09 to 2026-11-13)
 **Completion Status:** 0%
 
 ### Description & Scope:
-Implementation of Offset Well Basin Correlation ML Enhancement (DA3, SE1) as part of WellQC subsurface platform.
+Implementation of Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Logs (CE2, SE2) as part of WellQC subsurface platform.
 
 ### Acceptance Criteria:
 - [ ] Upcoming sprint planning and architectural review
 - [ ] Code review & staging testing
-- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","ML & Analytics,Upcoming","DA3, SE1",2026-11-13
-[SE1] [Milestone] Milestone: Production Release & NUPRC Pilot Sign-off (All) (⏳ Upcoming),"**Task ID:** Task #69
+- [ ] End-to-end integration pass","Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [0%]","Security,ML & Analytics,Compliance,Upcoming","CE2, SE2",2026-11-13
+[SE1] [Milestone] Milestone: Production Release & NUPRC Pilot Sign-off (All) (⏳ Upcoming),"**Task ID:** Task #72
 **Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale
 **Assigned Team:** SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4
 **Duration:** 0d (2026-11-13 to 2026-11-13)

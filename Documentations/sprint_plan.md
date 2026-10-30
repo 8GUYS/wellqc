@@ -3,7 +3,7 @@
 > **Project:** WellQC — AI-Powered Well Log Quality Assurance & Subsurface Analytics Platform  
 > **Team Structure (8 Members):** 2 Software Engineers · 4 Data Analysts · 2 Cloud Engineers  
 > **Timeline:** 4.5 Months (18 Weeks) · 9 × 2-Week Sprints (Sprints 1–7 Completed · Sprints 8–9 Upcoming Production Deployment & Hypercare)  
-> **Implementation Status:** **100% Core Platform Feature Complete** (Sprints 1–7 Landed & Verified · 125 Pytest + 38 Jest Passing)  
+> **Implementation Status:** **100% Core Platform Feature Complete** (Sprints 1–7 Landed & Code-Verified · 93 Pytest + 38 Jest = 131 Passing Tests)  
 > **Overall Progress toward Enterprise Steady-State:** **78% Complete** (Phase 4 Production Scale & Hypercare SLAs Scheduled)  
 > **Methodology:** Agile Scrum with 2-Week Sprint Cycles  
 > **User Stories Specification:** See [**user_stories.md**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/user_stories.md) for full acceptance criteria & personas  
@@ -221,56 +221,58 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
 
 ### 🟣 SPRINT 7 (Weeks 13–14: Oct 12 – Oct 29, 2026): Multi-Well Comparison, Dynamic Workstation & UX Enhancements [COMPLETED]
 
-* **Theme:** Advanced subsurface correlation, regulatory reporting compliance, background batch ingestion queue, unsupervised lithology classification, dynamic wireline log exploration, onboarding guidance, and full test suite verification.
-* **Current Progress:** **100% complete** — Multi-Well Comparison & Stratigraphic Correlation Engine completed, Hybrid Formation Marker database architecture (Option C) implemented with interactive verification modal, Dynamic Multi-Curve Wireline Log Viewer with toolbar selector deployed, Dashboard Onboarding Tour Guide with spotlight overlay integrated, Upload Workspace analysis tabs prioritized, database persistence terminology standardized to "Uploaded", RLS cascade integrity and privilege context resolved, automated test harness expanded to 125 Pytest backend tests and 38 Jest frontend tests (100% passing).
+* **Theme:** Advanced subsurface correlation, regulatory reporting compliance, client-side batch queue ingestion, dynamic wireline log exploration, onboarding guidance, and full test suite verification.
+* **Current Progress:** **100% complete** — Multi-Well Comparison & Stratigraphic Correlation Engine completed, Hybrid Formation Marker database architecture implemented with interactive verification modal, Dynamic Multi-Curve Wireline Log Viewer with toolbar selector deployed, Dashboard Onboarding Tour Guide with spotlight overlay integrated, Multi-File Batch Ingestion Queue wired, Webhook Management Engine & Admin UI deployed, Upload Workspace analysis tabs prioritized, database persistence terminology standardized to "Uploaded", and automated test harness expanded to 93 Pytest backend tests and 38 Jest frontend tests (131 total passing tests, 0 errors).
 * **SE1 (Core Engine & Correlation Mathematics):**
-  - **P1 — Well Comparison Engine (Completed):** Built multi-well depth alignment (0.5 ft resampling grid), curve normalization (Z-score and min-max), Pearson correlation coefficient ($r$), optimal structural lag shift ($\Delta z$), RMSD, MAE, stratigraphic continuity grading (`HIGH`, `MODERATE`, `LOW`, `DISCONTINUOUS`), and composite correlation match scoring across offset wells.
-  - **P4 — ML Lithology Classification (Completed):** Unsupervised clustering (K-Means / Gaussian Mixture) on GR-RHOB-NPHI crossplots to detect shale, sand, and carbonate intervals.
-  - **P3 — Dynamic Multi-Curve Wireline Integration (Completed):** Parameterized track generator accepting dynamic curve selections across any logging channel in the LAS dataset.
+  - **P1 — Well Comparison Engine (Completed):** Built multi-well depth alignment (0.5 ft resampling grid), curve normalization (Z-score and min-max), Pearson correlation coefficient ($r$), optimal structural lag shift ($\Delta z$), RMSD, MAE, stratigraphic continuity grading (`HIGH`, `MODERATE`, `LOW`, `DISCONTINUOUS`), and composite correlation match scoring across offset wells in [`backend/app/services/comparison.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/backend/app/services/comparison.py).
+  - **P2 — Dynamic Multi-Curve Wireline Integration (Completed):** Parameterized track generator in [`src/components/well-log/log-viewer.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/src/components/well-log/log-viewer.tsx) accepting dynamic curve selections across any logging channel present in the LAS dataset.
 * **SE2 (Frontend Navigation, Workstation & UX Lead):**
-  - **P1 — Well Comparison Workstation UI (`src/app/comparison/page.tsx`) (Completed):** Full multi-well workstation with 4 interactive tabs (Correlation Matrix, SVG Resampled Overlaid Track with differential fill, Side-by-Side Dual Log Tracks, and Formation Markers Alignment). Implemented interactive formation tops verification modal with live database updates.
+  - **P1 — Well Comparison Workstation UI (`src/app/comparison/page.tsx`) (Completed):** Full multi-well workstation with 3 interactive views (Correlation Matrix, SVG Resampled Overlaid Track with differential fill, and Side-by-Side Dual Log Tracks). Implemented interactive formation tops verification modal with live database updates.
   - **P2 — NUPRC Regulatory Audit Reports UI (`src/app/reports/page.tsx`) (Completed):** Formal Nigerian Upstream Petroleum Regulatory Commission submission templates with digital signatures and print layout.
   - **P3 — Dynamic Multi-Curve Wireline Log Viewer (`src/components/well-log/log-viewer.tsx`) (Completed):** Replaced hardcoded tracks with dynamic multi-curve workstation capable of rendering any curve channel in the LAS dataset. Added toolbar dropdown selector with active/total count badges, search filtering, quick presets (Standard 3, Select All, Clear), one-click "Only" track isolation, and per-track inline curve switching and removal.
-  - **P4 — Interactive Dashboard Onboarding Tour Guide (`src/components/dashboard/dashboard-tour.tsx`, `src/app/dashboard/page.tsx`) (Completed):** 6-step guided walkthrough featuring visual spotlight overlays, auto-scrolling, keyboard controls (`Escape`), non-intrusive first-time welcome banner, persistent "Tour Guide" trigger button, and React 19 `useSyncExternalStore` hydration-safe storage.
+  - **P4 — Interactive Dashboard Onboarding Tour Guide (`src/components/dashboard/dashboard-tour.tsx`, `src/app/dashboard/page.tsx`) (Completed):** 6-step guided walkthrough featuring visual spotlight overlays, auto-flipping collision detection, pulsing target beacon ring, top linear progress bar, interactive live preview controls ("Try It Live"), desktop hotkeys (`Esc`, `←`, `→`, `Space`), and hydration-safe storage.
   - **P5 — Upload Workspace Layout Optimization & Terminology Standardization (Completed):** Repositioned Detailed Analysis Tabs directly after the Well Quality Scorecard for immediate petrophysical inspection; standardized all database persistence terminology to "Uploaded to database" / "Upload to database" across frontend and backend services.
 * **DA1 & DA2 (Petrophysical Rules & Formation Markers Calibration):**
-  - Designed hybrid regional formation markers dictionary (Benin, Agbada, Akata) and custom reservoir sand tracking.
+  - Designed hybrid regional formation markers dictionary (Benin, Agbada, Akata) and custom reservoir sand tracking in [`backend/app/services/comparison.py`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/backend/app/services/comparison.py).
   - Calibrated Gamma Ray baseline trend heuristics for algorithmic fallback when unpicked wells are ingested.
 * **DA3 & DA4 (Compliance Documentation & Field Datasets):**
   - Benchmarked NUPRC regulatory validation rules (casing shoe markers, TD verification, calibration records).
-  - Prepared multi-well demonstration package with offset Niger Delta wells for cross-correlation validation.
+  - Conducted petrophysical anomaly benchmark validation and offline test log curation for cross-correlation validation.
   - Built Subsurface Basin Analytics Engine and real-time visualization API (`/api/analytics`, `src/app/analytics/page.tsx`, `charts.tsx`).
-* **CE1 (Batch Ingestion & Background Task Queue):**
-  - **P3 — Automated Batch Ingestion Queue (Completed):** Asynchronous background task workers (FastAPI `BackgroundTasks`) for multi-file LAS directory uploads with live progress bar and bulk ZIP download.
+* **CE1 (Batch Ingestion & Client Progress UI):**
+  - **P3 — Multi-File Batch Queue UI (Completed):** Implemented client-side multi-file LAS batch queue (`BatchQueueList` in [`src/components/upload/batch-queue-list.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/src/components/upload/batch-queue-list.tsx)) with sequential progress status, active item highlighting, and batch commit actions.
 * **CE2 (Database & Security Architecture):**
   - **P1 — Hybrid Formation Marker DB Layer (Completed):** Added `FormationMarker` PostgreSQL model with unique constraint, automatic table initialization in FastAPI lifespan, and `GET`/`POST /api/wells/{id}/markers` endpoints with tenant isolation and audit logging.
-  - **P5 — Webhook Event Dispatcher (Completed):** Outbound HTTP webhook dispatch notifying external cloud storage (S3/Blob) and subsurface databases upon well certification.
+  - **P2 — Enterprise Webhook Management Engine (Completed):** Added `Webhook` database schema, admin CRUD endpoints (`GET/POST/DELETE /api/admin/webhooks`), and admin panel management UI in [`src/app/admin/page.tsx`](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/src/app/admin/page.tsx) with ping test capability.
 * **Security & Quality Hardening (Completed):**
   - Foreign key cascade integrity, RLS application prep, SQL injection form protection, and zero ghost-token auto-provisioning verified.
   - Resolved PostgreSQL RLS transaction privilege context in automated tests.
-  - Test harness expanded to **125 Pytest backend tests** and **38 Jest unit tests** with 100% green pass rate, 0 TypeScript compilation errors, and 0 ESLint warnings.
+  - Test harness expanded to **93 Pytest backend tests** and **38 Jest unit tests** (131 automated tests passing, 0 errors, 0 warnings).
 
 ---
 
 ### 🟡 SPRINT 8 (Weeks 15–16: Nov 02 – Nov 13, 2026): Production Deployment, NUPRC Operator Pilot & Cloud Scale [UPCOMING]
 
-* **Theme:** Enterprise cloud containerization, multi-operator pilot onboarding, real-time wellsite telemetry streaming, advanced reservoir rock physics, and single sign-on (SSO) governance.
+* **Theme:** Enterprise cloud containerization, multi-operator pilot onboarding, real-time wellsite telemetry streaming, advanced reservoir rock physics, unsupervised lithology classification, asynchronous cloud background workers, and single sign-on (SSO) governance.
 * **Current Progress:** **Upcoming (0%)** — Sprints 1–7 fully landed; Sprint 8 execution commences November 02, 2026.
-* **SE1 (Core Engine & Rock Physics Lead):**
-  - **P1 — Real-Time Wellsite Telemetry Streaming Ingestion:** Ingestion adapter supporting WITSML 1.4 / 2.0 and OPC-UA socket streams for live rig-to-cloud quality scoring.
-  - **P2 — Advanced Reservoir Rock Physics Module:** Automated computation of Water Saturation ($S_w$ via Archie and Simandoux equations), Absolute & Effective Permeability ($k$ via Timur/Coates models), and Net-to-Gross (NTG) pay intervals.
+* **SE1 (Core Engine, ML & Rock Physics Lead):**
+  - **P1 — Unsupervised ML Lithology Clustering on GR-RHOB-NPHI:** K-Means and Gaussian Mixture Model (GMM) clustering algorithms on Gamma Ray, Bulk Density, and Neutron Porosity crossplots to classify sand, shale, and carbonate intervals.
+  - **P2 — Real-Time Wellsite Telemetry Streaming Ingestion:** Ingestion adapter supporting WITSML 1.4 / 2.0 and OPC-UA socket streams for live rig-to-cloud quality scoring.
+  - **P3 — Advanced Reservoir Rock Physics Module:** Automated computation of Water Saturation ($S_w$ via Archie and Simandoux equations), Absolute & Effective Permeability ($k$ via Timur/Coates models), and Net-to-Gross (NTG) pay intervals.
 * **SE2 (Enterprise Frontend & SSO Integration Lead):**
   - **P1 — Enterprise Single Sign-On (SSO):** SAML 2.0 / OpenID Connect integration for corporate identity providers (Microsoft Azure Active Directory / Entra ID, Okta, Google Workspace).
   - **P2 — Operator Pilot Workstation Customization:** White-label reporting themes and customizable audit certificate templates for enterprise exploration partners.
 * **DA1 & DA2 (Petrophysical Rock Physics Calibration):**
   - Calibrate Archie saturation parameters ($a, m, n$) for complex shaly-sand reservoirs in Niger Delta shallow and deepwater plays.
   - Establish automated lithological cutoffs (Vshale < 35%, Porosity > 12%, Sw < 50%) for reservoir pay flag classification.
-* **DA3 & DA4 (Operator Pilot Program & NUPRC Submission):**
+* **DA3 & DA4 (Operator Pilot Program & Demo Wells):**
+  - Curate and package official in-app demonstration Niger Delta well package with verified formations and pre-computed reference interpretations for instant operator pilot onboarding.
   - Coordinate live operator pilot program with asset management teams across 5 offshore and onshore Niger Delta assets.
   - Conduct formal end-to-end NUPRC regulatory validation audit with digital compliance signatures.
 * **CE1 & CE2 (DevOps, Cloud Scale & Security Lead):**
-  - **P1 — Multi-Region Kubernetes / ECS Deployment:** Containerized production orchestration across AWS us-east-1 and eu-west-1 with automated horizontal pod autoscaling (HPA).
-  - **P2 — Outbound Storage Sync & Enterprise Audit Logs:** S3 / Azure Blob automated sync pipelines with immutable access audit records.
+  - **P1 — Asynchronous Background Ingestion Task Workers & Cloud Queue:** Dedicated background task workers (Celery / Redis / FastAPI background tasks) for high-volume batch ingestion with live WebSocket progress reporting.
+  - **P2 — Outbound Webhook Cloud Storage Automated Sync Dispatcher:** Automated event dispatch pipeline triggering registered webhooks upon well certification to sync with external S3, Azure Blob, and subsurface databases.
+  - **P3 — Multi-Region Kubernetes / ECS Deployment:** Containerized production orchestration across AWS us-east-1 and eu-west-1 with automated horizontal pod autoscaling (HPA).
 * **Milestone:** Production Pilot Sign-Off & Formal NUPRC Audit Clearance (`2026-11-13`).
 
 ---
@@ -383,7 +385,7 @@ gantt
     FastAPI Microservice Migration (SE1, CE2) :done, s4_1, 2026-08-31, 2026-09-07
     SVG Multi-Track Log Viewer (SE2)          :done, s4_2, 2026-09-01, 2026-09-08
     Custom Mnemonic Aliases UI (DA1)          :done, s4_3, 2026-09-02, 2026-09-08
-    Imputation Algorithm Benchmark (DA2)      :done, s4_4, 2026-09-03, 2026-09-09
+    Imputation ML Benchmarking (DA2)          :done, s4_4, 2026-09-03, 2026-09-09
     Zero-Mock Clean Seeder & Tests (CE1, DA3) :done, s4_5, 2026-09-04, 2026-09-10
     Milestone: Python Backend & Log Viewer    :milestone, m4, 2026-09-11, 0d
 
@@ -408,13 +410,13 @@ gantt
 
     section Sprint 7: Multi-Well, Dynamic Workstation & UX [COMPLETED]
     Multi-Well Depth Alignment Engine (SE1)   :done, s7_1, 2026-10-12, 2026-10-16
-    Cross-Well Canvas & Overlaid Track (SE2)  :done, s7_2, 2026-10-13, 2026-10-19
-    ML Lithology Crossplot Clustering (SE1,DA2):done, s7_3, 2026-10-15, 2026-10-20
+    Cross-Well Workstation & Overlaid Track (SE2):done, s7_2, 2026-10-13, 2026-10-19
+    Stratigraphic Continuity Mathematics (SE1,DA2):done, s7_3, 2026-10-15, 2026-10-20
     NUPRC Compliance Report Template (SE2,DA4):done, s7_4, 2026-10-14, 2026-10-20
     Niger Delta Formation Cutoffs & DB (DA1,CE2):done, s7_5, 2026-10-12, 2026-10-16
-    Offset Wells Demonstration Package (DA3)  :done, s7_6, 2026-10-13, 2026-10-19
-    Batch Ingestion Background Queue (CE1)    :done, s7_7, 2026-10-14, 2026-10-21
-    Outbound Webhook Event Dispatcher (CE2)   :done, s7_8, 2026-10-15, 2026-10-22
+    Petrophysical Benchmark Log Curation (DA3,DA4):done, s7_6, 2026-10-13, 2026-10-19
+    Multi-File Batch Queue UI (CE1,SE2)       :done, s7_7, 2026-10-14, 2026-10-21
+    Webhook Management & Admin UI (CE2)       :done, s7_8, 2026-10-15, 2026-10-22
     Dynamic Multi-Curve Track Selector (SE1,SE2):done, s7_9, 2026-10-20, 2026-10-26
     Interactive Dashboard Tour Guide (SE2)    :done, s7_10, 2026-10-22, 2026-10-27
     Basin Analytics API & Charts (DA3, SE2)   :done, s7_11, 2026-10-23, 2026-10-28
@@ -422,12 +424,15 @@ gantt
     Milestone: Core Feature Complete & Verified:milestone, m7, 2026-10-29, 0d
 
     section Sprint 8: Production Deployment & Pilot [UPCOMING]
-    Multi-Region Cloud & Kubernetes Scale (CE1):active, s8_1, 2026-11-02, 2026-11-06
+    Multi-Region Cloud & Kubernetes Scale (CE1):s8_1, 2026-11-02, 2026-11-06
     Live NUPRC Operator Pilot Validation (DA4,SE2):s8_2, 2026-11-03, 2026-11-10
     WITSML / OPC-UA Real-Time Streaming (SE1,CE2):s8_3, 2026-11-04, 2026-11-11
-    Rock Physics Module: Sw, Perm, NTG (DA1,DA2):s8_4, 2026-11-05, 2026-11-11
-    Enterprise SSO (SAML / Azure AD) (CE2,SE2):s8_5, 2026-11-06, 2026-11-12
-    Offset Basin Correlation ML Enhancement (DA3,SE1):s8_6, 2026-11-09, 2026-11-13
+    Unsupervised ML Lithology Clustering (SE1,DA2):s8_4, 2026-11-04, 2026-11-09
+    Rock Physics Module: Sw, Perm, NTG (DA1,DA2):s8_5, 2026-11-05, 2026-11-11
+    Async Background Ingestion Workers & Queue (CE1,CE2):s8_6, 2026-11-05, 2026-11-11
+    Outbound Webhook Cloud Storage Sync Dispatcher (CE2):s8_7, 2026-11-06, 2026-11-12
+    Curated In-App Demo Well Package (DA3)    :s8_8, 2026-11-06, 2026-11-11
+    Enterprise SSO (SAML / Azure AD) (CE2,SE2):s8_9, 2026-11-09, 2026-11-13
     Milestone: Production Release & Pilot Sign-off:milestone, m8, 2026-11-13, 0d
 
     section Sprint 9: Enterprise Scale & Hypercare [UPCOMING]

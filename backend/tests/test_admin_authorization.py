@@ -394,6 +394,7 @@ def test_admin_can_get_and_update_email_settings(monkeypatch):
         stored_dict = json.loads(setting.value)
         assert "emailjs_private_key" not in stored_dict
         assert "resend_api_key" not in stored_dict
+        assert stored_dict.get("emailjs_public_key") == "pub_key_test789" 
     finally:
         db_verify.close()
 

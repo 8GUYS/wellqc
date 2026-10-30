@@ -473,8 +473,8 @@
     },
     {
       "id": "card_28",
-      "name": "[DA2] [Backend] Imputation Algorithm Benchmark (KNN, Spline, Iterative SVD) (\u2705)",
-      "desc": "**Task ID:** Task #28\n**Sprint:** Sprint 4: Advanced Visualisation, Imputation & Python Migration\n**Assigned Resources:** DA2\n**Timeline:** 2026-09-03 to 2026-09-09 (5d)\n**Progress:** 100%\n\n### Deliverable Scope:\nImputation Algorithm Benchmark (KNN, Spline, Iterative SVD) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
+      "name": "[DA2] [Backend] Imputation Algorithm Benchmark (KNN, Spline, Random Forest, Gradient Boosting, Linear) (\u2705)",
+      "desc": "**Task ID:** Task #28\n**Sprint:** Sprint 4: Advanced Visualisation, Imputation & Python Migration\n**Assigned Resources:** DA2\n**Timeline:** 2026-09-03 to 2026-09-09 (5d)\n**Progress:** 100%\n\n### Deliverable Scope:\nImputation Algorithm Benchmark (KNN, Spline, Random Forest, Gradient Boosting, Linear) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
       "idList": "list_sprint_4",
       "idBoard": "wellqc_board_01",
       "idLabels": [
@@ -581,8 +581,8 @@
     },
     {
       "id": "card_36",
-      "name": "[DA4] [Security] Automated Security Test Suite (14 Tests in `test_admin_auth.py`) (\u2705)",
-      "desc": "**Task ID:** Task #36\n**Sprint:** Sprint 5: Security Hardening, Default-to-Deny RBAC & Admin Tools\n**Assigned Resources:** DA4, CE1\n**Timeline:** 2026-09-21 to 2026-09-25 (5d)\n**Progress:** 100%\n\n### Deliverable Scope:\nAutomated Security Test Suite (14 Tests in `test_admin_auth.py`) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
+      "name": "[DA4] [Security] Automated Security Test Suite (19 Tests in `test_admin_auth.py`) (\u2705)",
+      "desc": "**Task ID:** Task #36\n**Sprint:** Sprint 5: Security Hardening, Default-to-Deny RBAC & Admin Tools\n**Assigned Resources:** DA4, CE1\n**Timeline:** 2026-09-21 to 2026-09-25 (5d)\n**Progress:** 100%\n\n### Deliverable Scope:\nAutomated Security Test Suite (19 Tests in `test_admin_auth.py`) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
       "idList": "list_sprint_5",
       "idBoard": "wellqc_board_01",
       "idLabels": [
@@ -778,13 +778,12 @@
     },
     {
       "id": "card_51",
-      "name": "[SE1] [Petrophysics] Unsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2) (\u2705)",
-      "desc": "**Task ID:** Task #51\n**Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements\n**Assigned Resources:** SE1, DA2\n**Timeline:** 2026-10-15 to 2026-10-20 (4d)\n**Progress:** 100%\n\n### Deliverable Scope:\nUnsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
+      "name": "[SE1] [Frontend] Stratigraphic Continuity Grading & Depth Shift Mathematics (SE1, DA2) (\u2705)",
+      "desc": "**Task ID:** Task #51\n**Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements\n**Assigned Resources:** SE1, DA2\n**Timeline:** 2026-10-15 to 2026-10-20 (4d)\n**Progress:** 100%\n\n### Deliverable Scope:\nStratigraphic Continuity Grading & Depth Shift Mathematics (SE1, DA2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
       "idList": "list_sprint_7",
       "idBoard": "wellqc_board_01",
       "idLabels": [
-        "lbl_02",
-        "lbl_05",
+        "lbl_04",
         "lbl_09"
       ],
       "due": "2026-10-20T17:00:00.000Z",
@@ -824,12 +823,13 @@
     },
     {
       "id": "card_54",
-      "name": "[DA3] [Petrophysics] Offset Niger Delta Demonstration Well Package Curation (DA3) (\u2705)",
-      "desc": "**Task ID:** Task #54\n**Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements\n**Assigned Resources:** DA3\n**Timeline:** 2026-10-13 to 2026-10-19 (5d)\n**Progress:** 100%\n\n### Deliverable Scope:\nOffset Niger Delta Demonstration Well Package Curation (DA3) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
+      "name": "[DA3] [Petrophysics] Petrophysical Anomaly Benchmark Validation & Test Log Curation (DA3, DA4) (\u2705)",
+      "desc": "**Task ID:** Task #54\n**Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements\n**Assigned Resources:** DA3, DA4\n**Timeline:** 2026-10-13 to 2026-10-19 (5d)\n**Progress:** 100%\n\n### Deliverable Scope:\nPetrophysical Anomaly Benchmark Validation & Test Log Curation (DA3, DA4) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
       "idList": "list_sprint_7",
       "idBoard": "wellqc_board_01",
       "idLabels": [
         "lbl_02",
+        "lbl_05",
         "lbl_09"
       ],
       "due": "2026-10-19T17:00:00.000Z",
@@ -839,11 +839,12 @@
     },
     {
       "id": "card_55",
-      "name": "[CE1] [Completed] Asynchronous Batch Ingestion Background Workers & Live Progress (CE1) (\u2705)",
-      "desc": "**Task ID:** Task #55\n**Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements\n**Assigned Resources:** CE1\n**Timeline:** 2026-10-14 to 2026-10-21 (6d)\n**Progress:** 100%\n\n### Deliverable Scope:\nAsynchronous Batch Ingestion Background Workers & Live Progress (CE1) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
+      "name": "[CE1] [Frontend] Multi-File Batch Queue & Progress Ingestion UI (CE1, SE2) (\u2705)",
+      "desc": "**Task ID:** Task #55\n**Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements\n**Assigned Resources:** CE1, SE2\n**Timeline:** 2026-10-14 to 2026-10-21 (6d)\n**Progress:** 100%\n\n### Deliverable Scope:\nMulti-File Batch Queue & Progress Ingestion UI (CE1, SE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
       "idList": "list_sprint_7",
       "idBoard": "wellqc_board_01",
       "idLabels": [
+        "lbl_04",
         "lbl_09"
       ],
       "due": "2026-10-21T17:00:00.000Z",
@@ -853,13 +854,13 @@
     },
     {
       "id": "card_56",
-      "name": "[CE2] [Backend] Outbound Webhook Event Dispatcher for Cloud Storage Sync (CE2) (\u2705)",
-      "desc": "**Task ID:** Task #56\n**Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements\n**Assigned Resources:** CE2\n**Timeline:** 2026-10-15 to 2026-10-22 (6d)\n**Progress:** 100%\n\n### Deliverable Scope:\nOutbound Webhook Event Dispatcher for Cloud Storage Sync (CE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
+      "name": "[CE2] [Security] Enterprise Webhook Management Engine & Admin Integration (CE2) (\u2705)",
+      "desc": "**Task ID:** Task #56\n**Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements\n**Assigned Resources:** CE2\n**Timeline:** 2026-10-15 to 2026-10-22 (6d)\n**Progress:** 100%\n\n### Deliverable Scope:\nEnterprise Webhook Management Engine & Admin Integration (CE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
       "idList": "list_sprint_7",
       "idBoard": "wellqc_board_01",
       "idLabels": [
+        "lbl_01",
         "lbl_03",
-        "lbl_06",
         "lbl_09"
       ],
       "due": "2026-10-22T17:00:00.000Z",
@@ -915,8 +916,8 @@
     },
     {
       "id": "card_60",
-      "name": "[SE1] [Frontend] End-to-End System Test Suite (125 Pytest + 38 Jest Passing) (All) (\u2705)",
-      "desc": "**Task ID:** Task #60\n**Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements\n**Assigned Resources:** SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4\n**Timeline:** 2026-10-24 to 2026-10-29 (5d)\n**Progress:** 100%\n\n### Deliverable Scope:\nEnd-to-End System Test Suite (125 Pytest + 38 Jest Passing) (All) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
+      "name": "[SE1] [Frontend] End-to-End System Test Suite (93 Pytest + 38 Jest Passing) (All) (\u2705)",
+      "desc": "**Task ID:** Task #60\n**Sprint:** Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements\n**Assigned Resources:** SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4\n**Timeline:** 2026-10-24 to 2026-10-29 (5d)\n**Progress:** 100%\n\n### Deliverable Scope:\nEnd-to-End System Test Suite (93 Pytest + 38 Jest Passing) (All) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [x] Unit & Regression Tests Passing\n- [x] Type Safety & ESLint Compliance\n- [x] Architectural Security & RBAC Alignment",
       "idList": "list_sprint_7",
       "idBoard": "wellqc_board_01",
       "idLabels": [
@@ -991,8 +992,24 @@
     },
     {
       "id": "card_66",
+      "name": "[SE1] [Petrophysics] Unsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2) (\u23f3 Upcoming)",
+      "desc": "**Task ID:** Task #66\n**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale\n**Assigned Resources:** SE1, DA2\n**Timeline:** 2026-11-04 to 2026-11-09 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nUnsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "idList": "list_sprint_8",
+      "idBoard": "wellqc_board_01",
+      "idLabels": [
+        "lbl_02",
+        "lbl_05",
+        "lbl_11"
+      ],
+      "due": "2026-11-09T17:00:00.000Z",
+      "dueComplete": false,
+      "closed": false,
+      "pos": 400
+    },
+    {
+      "id": "card_67",
       "name": "[DA1] [Petrophysics] Advanced Reservoir Rock Physics Module (Sw, Permeability, Net-to-Gross) (DA1, DA2) (\u23f3 Upcoming)",
-      "desc": "**Task ID:** Task #66\n**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale\n**Assigned Resources:** DA1, DA2\n**Timeline:** 2026-11-05 to 2026-11-11 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nAdvanced Reservoir Rock Physics Module (Sw, Permeability, Net-to-Gross) (DA1, DA2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "desc": "**Task ID:** Task #67\n**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale\n**Assigned Resources:** DA1, DA2\n**Timeline:** 2026-11-05 to 2026-11-11 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nAdvanced Reservoir Rock Physics Module (Sw, Permeability, Net-to-Gross) (DA1, DA2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
       "idList": "list_sprint_8",
       "idBoard": "wellqc_board_01",
       "idLabels": [
@@ -1002,12 +1019,58 @@
       "due": "2026-11-11T17:00:00.000Z",
       "dueComplete": false,
       "closed": false,
-      "pos": 400
+      "pos": 500
     },
     {
-      "id": "card_67",
-      "name": "[CE2] [Security] Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Access Logs (CE2, SE2) (\u23f3 Upcoming)",
-      "desc": "**Task ID:** Task #67\n**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale\n**Assigned Resources:** CE2, SE2\n**Timeline:** 2026-11-06 to 2026-11-12 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nEnterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Access Logs (CE2, SE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "id": "card_68",
+      "name": "[CE1] [DevOps & Cloud] Asynchronous Background Ingestion Task Workers & Cloud Queue (CE1, CE2) (\u23f3 Upcoming)",
+      "desc": "**Task ID:** Task #68\n**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale\n**Assigned Resources:** CE1, CE2\n**Timeline:** 2026-11-05 to 2026-11-11 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nAsynchronous Background Ingestion Task Workers & Cloud Queue (CE1, CE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "idList": "list_sprint_8",
+      "idBoard": "wellqc_board_01",
+      "idLabels": [
+        "lbl_06",
+        "lbl_11"
+      ],
+      "due": "2026-11-11T17:00:00.000Z",
+      "dueComplete": false,
+      "closed": false,
+      "pos": 600
+    },
+    {
+      "id": "card_69",
+      "name": "[CE2] [Backend] Outbound Webhook Cloud Storage Automated Sync Dispatcher (CE2) (\u23f3 Upcoming)",
+      "desc": "**Task ID:** Task #69\n**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale\n**Assigned Resources:** CE2\n**Timeline:** 2026-11-06 to 2026-11-12 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nOutbound Webhook Cloud Storage Automated Sync Dispatcher (CE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "idList": "list_sprint_8",
+      "idBoard": "wellqc_board_01",
+      "idLabels": [
+        "lbl_03",
+        "lbl_06",
+        "lbl_11"
+      ],
+      "due": "2026-11-12T17:00:00.000Z",
+      "dueComplete": false,
+      "closed": false,
+      "pos": 700
+    },
+    {
+      "id": "card_70",
+      "name": "[DA3] [Compliance] Curated In-App Demonstration Well Package for Operator Pilot (DA3) (\u23f3 Upcoming)",
+      "desc": "**Task ID:** Task #70\n**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale\n**Assigned Resources:** DA3\n**Timeline:** 2026-11-06 to 2026-11-11 (4d)\n**Progress:** 0%\n\n### Deliverable Scope:\nCurated In-App Demonstration Well Package for Operator Pilot (DA3) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "idList": "list_sprint_8",
+      "idBoard": "wellqc_board_01",
+      "idLabels": [
+        "lbl_07",
+        "lbl_11"
+      ],
+      "due": "2026-11-11T17:00:00.000Z",
+      "dueComplete": false,
+      "closed": false,
+      "pos": 800
+    },
+    {
+      "id": "card_71",
+      "name": "[CE2] [Security] Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Logs (CE2, SE2) (\u23f3 Upcoming)",
+      "desc": "**Task ID:** Task #71\n**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale\n**Assigned Resources:** CE2, SE2\n**Timeline:** 2026-11-09 to 2026-11-13 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nEnterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Logs (CE2, SE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
       "idList": "list_sprint_8",
       "idBoard": "wellqc_board_01",
       "idLabels": [
@@ -1016,30 +1079,15 @@
         "lbl_07",
         "lbl_11"
       ],
-      "due": "2026-11-12T17:00:00.000Z",
-      "dueComplete": false,
-      "closed": false,
-      "pos": 500
-    },
-    {
-      "id": "card_68",
-      "name": "[DA3] [ML & Analytics] Offset Well Basin Correlation ML Enhancement (DA3, SE1) (\u23f3 Upcoming)",
-      "desc": "**Task ID:** Task #68\n**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale\n**Assigned Resources:** DA3, SE1\n**Timeline:** 2026-11-09 to 2026-11-13 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nOffset Well Basin Correlation ML Enhancement (DA3, SE1) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
-      "idList": "list_sprint_8",
-      "idBoard": "wellqc_board_01",
-      "idLabels": [
-        "lbl_05",
-        "lbl_11"
-      ],
       "due": "2026-11-13T17:00:00.000Z",
       "dueComplete": false,
       "closed": false,
-      "pos": 600
+      "pos": 900
     },
     {
-      "id": "card_69",
+      "id": "card_72",
       "name": "[SE1] [Milestone] Milestone: Production Release & NUPRC Pilot Sign-off (All) (\u23f3 Upcoming)",
-      "desc": "**Task ID:** Task #69\n**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale\n**Assigned Resources:** SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4\n**Timeline:** 2026-11-13 to 2026-11-13 (0d)\n**Progress:** 0%\n\n### Deliverable Scope:\nMilestone: Production Release & NUPRC Pilot Sign-off (All) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "desc": "**Task ID:** Task #72\n**Sprint:** Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale\n**Assigned Resources:** SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4\n**Timeline:** 2026-11-13 to 2026-11-13 (0d)\n**Progress:** 0%\n\n### Deliverable Scope:\nMilestone: Production Release & NUPRC Pilot Sign-off (All) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
       "idList": "list_sprint_8",
       "idBoard": "wellqc_board_01",
       "idLabels": [
@@ -1050,12 +1098,12 @@
       "due": "2026-11-13T17:00:00.000Z",
       "dueComplete": false,
       "closed": false,
-      "pos": 700
+      "pos": 1000
     },
     {
-      "id": "card_71",
+      "id": "card_74",
       "name": "[CE2] [ML & Analytics] High-Availability Multi-AZ Database Clustering & Disaster Recovery (CE2) (\u23f3 Upcoming)",
-      "desc": "**Task ID:** Task #71\n**Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff\n**Assigned Resources:** CE2\n**Timeline:** 2026-11-16 to 2026-11-20 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nHigh-Availability Multi-AZ Database Clustering & Disaster Recovery (CE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "desc": "**Task ID:** Task #74\n**Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff\n**Assigned Resources:** CE2\n**Timeline:** 2026-11-16 to 2026-11-20 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nHigh-Availability Multi-AZ Database Clustering & Disaster Recovery (CE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
       "idList": "list_sprint_9",
       "idBoard": "wellqc_board_01",
       "idLabels": [
@@ -1069,9 +1117,9 @@
       "pos": 100
     },
     {
-      "id": "card_72",
+      "id": "card_75",
       "name": "[SE1] [Petrophysics] Automated Periodic AI Model Drift Detection & Petrophysical Re-calibration (SE1, DA2) (\u23f3 Upcoming)",
-      "desc": "**Task ID:** Task #72\n**Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff\n**Assigned Resources:** SE1, DA2\n**Timeline:** 2026-11-17 to 2026-11-23 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nAutomated Periodic AI Model Drift Detection & Petrophysical Re-calibration (SE1, DA2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "desc": "**Task ID:** Task #75\n**Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff\n**Assigned Resources:** SE1, DA2\n**Timeline:** 2026-11-17 to 2026-11-23 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nAutomated Periodic AI Model Drift Detection & Petrophysical Re-calibration (SE1, DA2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
       "idList": "list_sprint_9",
       "idBoard": "wellqc_board_01",
       "idLabels": [
@@ -1085,9 +1133,9 @@
       "pos": 200
     },
     {
-      "id": "card_73",
+      "id": "card_76",
       "name": "[CE1] [Backend] 24/7 SLI/SLO Telemetry Observability, Prometheus Metrics & Alerting (CE1) (\u23f3 Upcoming)",
-      "desc": "**Task ID:** Task #73\n**Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff\n**Assigned Resources:** CE1\n**Timeline:** 2026-11-18 to 2026-11-24 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\n24/7 SLI/SLO Telemetry Observability, Prometheus Metrics & Alerting (CE1) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "desc": "**Task ID:** Task #76\n**Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff\n**Assigned Resources:** CE1\n**Timeline:** 2026-11-18 to 2026-11-24 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\n24/7 SLI/SLO Telemetry Observability, Prometheus Metrics & Alerting (CE1) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
       "idList": "list_sprint_9",
       "idBoard": "wellqc_board_01",
       "idLabels": [
@@ -1101,9 +1149,9 @@
       "pos": 300
     },
     {
-      "id": "card_74",
+      "id": "card_77",
       "name": "[DA3] [Backend] Enterprise User Training Portal, API Knowledge Base & Interactive Video Guides (DA3, DA4, SE2) (\u23f3 Upcoming)",
-      "desc": "**Task ID:** Task #74\n**Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff\n**Assigned Resources:** DA3, DA4, SE2\n**Timeline:** 2026-11-19 to 2026-11-26 (6d)\n**Progress:** 0%\n\n### Deliverable Scope:\nEnterprise User Training Portal, API Knowledge Base & Interactive Video Guides (DA3, DA4, SE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "desc": "**Task ID:** Task #77\n**Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff\n**Assigned Resources:** DA3, DA4, SE2\n**Timeline:** 2026-11-19 to 2026-11-26 (6d)\n**Progress:** 0%\n\n### Deliverable Scope:\nEnterprise User Training Portal, API Knowledge Base & Interactive Video Guides (DA3, DA4, SE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
       "idList": "list_sprint_9",
       "idBoard": "wellqc_board_01",
       "idLabels": [
@@ -1117,9 +1165,9 @@
       "pos": 400
     },
     {
-      "id": "card_75",
+      "id": "card_78",
       "name": "[DA4] [Compliance] Client Acceptance Review & Regulatory Compliance Handoff (DA4, CE2) (\u23f3 Upcoming)",
-      "desc": "**Task ID:** Task #75\n**Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff\n**Assigned Resources:** DA4, CE2\n**Timeline:** 2026-11-23 to 2026-11-27 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nClient Acceptance Review & Regulatory Compliance Handoff (DA4, CE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "desc": "**Task ID:** Task #78\n**Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff\n**Assigned Resources:** DA4, CE2\n**Timeline:** 2026-11-23 to 2026-11-27 (5d)\n**Progress:** 0%\n\n### Deliverable Scope:\nClient Acceptance Review & Regulatory Compliance Handoff (DA4, CE2) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
       "idList": "list_sprint_9",
       "idBoard": "wellqc_board_01",
       "idLabels": [
@@ -1132,9 +1180,9 @@
       "pos": 500
     },
     {
-      "id": "card_76",
+      "id": "card_79",
       "name": "[SE1] [Milestone] Milestone: Enterprise General Availability (GA) & Steady-State SLAs (All) (\u23f3 Upcoming)",
-      "desc": "**Task ID:** Task #76\n**Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff\n**Assigned Resources:** SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4\n**Timeline:** 2026-11-27 to 2026-11-27 (0d)\n**Progress:** 0%\n\n### Deliverable Scope:\nMilestone: Enterprise General Availability (GA) & Steady-State SLAs (All) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
+      "desc": "**Task ID:** Task #79\n**Sprint:** Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff\n**Assigned Resources:** SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4\n**Timeline:** 2026-11-27 to 2026-11-27 (0d)\n**Progress:** 0%\n\n### Deliverable Scope:\nMilestone: Enterprise General Availability (GA) & Steady-State SLAs (All) within the WellQC production roadmap.\n\n### Verification Checklist:\n- [ ] Upcoming Sprint Planning & RFC Review\n- [ ] Code Formatting & Review\n- [ ] Final Integration Pass",
       "idList": "list_sprint_9",
       "idBoard": "wellqc_board_01",
       "idLabels": [

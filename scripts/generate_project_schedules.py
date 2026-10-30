@@ -2,7 +2,7 @@
 Script to generate:
 1. Documentations/wellqc_project_schedule.csv (Master MS Project / Excel CSV)
 2. Documentations/wellqc_project_schedule.xml (Master MS Project XML MSPDI format)
-Reflecting all Sprint 1-7 implementations (100% completed), current project progress,
+Reflecting verified Sprint 1-7 implementations (100% completed), current project progress,
 and upcoming Sprint 8-9 tasks through Nov 2026.
 """
 
@@ -45,7 +45,7 @@ TASKS = [
     {"id": 25, "level": 3, "name": "FastAPI Microservice Migration & Native NumPy/Pandas Stack", "dur": "6d", "start": "2026-08-31", "finish": "2026-09-07", "pred": "23", "res": "SE1, CE2", "pct": "100%"},
     {"id": 26, "level": 3, "name": "SVG Multi-Track Wireline Log Viewer with Depth Sync", "dur": "6d", "start": "2026-09-01", "finish": "2026-09-08", "pred": "23", "res": "SE2", "pct": "100%"},
     {"id": 27, "level": 3, "name": "Custom Mnemonic Aliases & Tenant Rule Management", "dur": "5d", "start": "2026-09-02", "finish": "2026-09-08", "pred": "25", "res": "DA1", "pct": "100%"},
-    {"id": 28, "level": 3, "name": "Imputation Algorithm Benchmark (KNN, Spline, Iterative SVD)", "dur": "5d", "start": "2026-09-03", "finish": "2026-09-09", "pred": "25", "res": "DA2", "pct": "100%"},
+    {"id": 28, "level": 3, "name": "Imputation Algorithm Benchmark (KNN, Spline, Random Forest, Gradient Boosting, Linear)", "dur": "5d", "start": "2026-09-03", "finish": "2026-09-09", "pred": "25", "res": "DA2", "pct": "100%"},
     {"id": 29, "level": 3, "name": "Zero-Mock Clean Seeder & Performance Load Testing", "dur": "5d", "start": "2026-09-04", "finish": "2026-09-10", "pred": "25", "res": "CE1, DA3", "pct": "100%"},
     {"id": 30, "level": 3, "name": "Milestone: Unified Python Backend & Interactive Log Viewer", "dur": "0d", "start": "2026-09-11", "finish": "2026-09-11", "pred": "25,26,27,28,29", "res": "SE1, SE2, CE2", "pct": "100%"},
 
@@ -55,7 +55,7 @@ TASKS = [
     {"id": 33, "level": 3, "name": "Self-Registration Role Escalation Block (403 on ADMIN role)", "dur": "4d", "start": "2026-09-16", "finish": "2026-09-21", "pred": "32", "res": "SE1", "pct": "100%"},
     {"id": 34, "level": 3, "name": "Interactive Admin Management CLI (`manage_admin.py`)", "dur": "4d", "start": "2026-09-17", "finish": "2026-09-22", "pred": "32", "res": "CE2", "pct": "100%"},
     {"id": 35, "level": 3, "name": "Admin Panel UI with Tabbed User Management & Tokens", "dur": "5d", "start": "2026-09-18", "finish": "2026-09-24", "pred": "33", "res": "SE2", "pct": "100%"},
-    {"id": 36, "level": 3, "name": "Automated Security Test Suite (14 Tests in `test_admin_auth.py`)", "dur": "5d", "start": "2026-09-21", "finish": "2026-09-25", "pred": "33", "res": "DA4, CE1", "pct": "100%"},
+    {"id": 36, "level": 3, "name": "Automated Security Test Suite (19 Tests in `test_admin_auth.py`)", "dur": "5d", "start": "2026-09-21", "finish": "2026-09-25", "pred": "33", "res": "DA4, CE1", "pct": "100%"},
     {"id": 37, "level": 3, "name": "Milestone: Default-to-Deny Security & Administrative Center", "dur": "0d", "start": "2026-09-25", "finish": "2026-09-25", "pred": "32,33,34,35,36", "res": "SE1, SE2, CE2", "pct": "100%"},
 
     # Sprint 6: Production Hardening & Quality Engine 12-Item Overhaul
@@ -74,16 +74,16 @@ TASKS = [
     {"id": 48, "level": 2, "name": "Sprint 7: Multi-Well Comparison, Dynamic Workstation & UX Enhancements", "dur": "14d", "start": "2026-10-12", "finish": "2026-10-29", "pred": "47", "res": "", "pct": "100%"},
     {"id": 49, "level": 3, "name": "Multi-Well Depth Alignment & Stratigraphic Correlation Engine (SE1)", "dur": "5d", "start": "2026-10-12", "finish": "2026-10-16", "pred": "47", "res": "SE1", "pct": "100%"},
     {"id": 50, "level": 3, "name": "Cross-Well Workstation UI & Interactive SVG Overlaid Track (SE2)", "dur": "5d", "start": "2026-10-13", "finish": "2026-10-19", "pred": "49", "res": "SE2", "pct": "100%"},
-    {"id": 51, "level": 3, "name": "Unsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2)", "dur": "4d", "start": "2026-10-15", "finish": "2026-10-20", "pred": "49", "res": "SE1, DA2", "pct": "100%"},
+    {"id": 51, "level": 3, "name": "Stratigraphic Continuity Grading & Depth Shift Mathematics (SE1, DA2)", "dur": "4d", "start": "2026-10-15", "finish": "2026-10-20", "pred": "49", "res": "SE1, DA2", "pct": "100%"},
     {"id": 52, "level": 3, "name": "NUPRC Compliance Report Template & Digital Signatures (SE2, DA4)", "dur": "5d", "start": "2026-10-14", "finish": "2026-10-20", "pred": "47", "res": "SE2, DA4", "pct": "100%"},
     {"id": 53, "level": 3, "name": "Niger Delta Formation Cutoffs & Hybrid Markers DB Schema (DA1, CE2)", "dur": "5d", "start": "2026-10-12", "finish": "2026-10-16", "pred": "47", "res": "DA1, CE2", "pct": "100%"},
-    {"id": 54, "level": 3, "name": "Offset Niger Delta Demonstration Well Package Curation (DA3)", "dur": "5d", "start": "2026-10-13", "finish": "2026-10-19", "pred": "53", "res": "DA3", "pct": "100%"},
-    {"id": 55, "level": 3, "name": "Asynchronous Batch Ingestion Background Workers & Live Progress (CE1)", "dur": "6d", "start": "2026-10-14", "finish": "2026-10-21", "pred": "47", "res": "CE1", "pct": "100%"},
-    {"id": 56, "level": 3, "name": "Outbound Webhook Event Dispatcher for Cloud Storage Sync (CE2)", "dur": "6d", "start": "2026-10-15", "finish": "2026-10-22", "pred": "47", "res": "CE2", "pct": "100%"},
+    {"id": 54, "level": 3, "name": "Petrophysical Anomaly Benchmark Validation & Test Log Curation (DA3, DA4)", "dur": "5d", "start": "2026-10-13", "finish": "2026-10-19", "pred": "53", "res": "DA3, DA4", "pct": "100%"},
+    {"id": 55, "level": 3, "name": "Multi-File Batch Queue & Progress Ingestion UI (CE1, SE2)", "dur": "6d", "start": "2026-10-14", "finish": "2026-10-21", "pred": "47", "res": "CE1, SE2", "pct": "100%"},
+    {"id": 56, "level": 3, "name": "Enterprise Webhook Management Engine & Admin Integration (CE2)", "dur": "6d", "start": "2026-10-15", "finish": "2026-10-22", "pred": "47", "res": "CE2", "pct": "100%"},
     {"id": 57, "level": 3, "name": "Dynamic Multi-Curve Wireline Log Viewer & Channel Selector (SE1, SE2)", "dur": "5d", "start": "2026-10-20", "finish": "2026-10-26", "pred": "50", "res": "SE1, SE2", "pct": "100%"},
     {"id": 58, "level": 3, "name": "Interactive Dashboard Onboarding Tour Guide & Spotlight Walkthrough (SE2)", "dur": "4d", "start": "2026-10-22", "finish": "2026-10-27", "pred": "50", "res": "SE2", "pct": "100%"},
     {"id": 59, "level": 3, "name": "Subsurface Basin Analytics Engine & Real-Time Visualization API (DA3, SE2)", "dur": "4d", "start": "2026-10-23", "finish": "2026-10-28", "pred": "54", "res": "DA3, SE2", "pct": "100%"},
-    {"id": 60, "level": 3, "name": "End-to-End System Test Suite (125 Pytest + 38 Jest Passing) (All)", "dur": "5d", "start": "2026-10-24", "finish": "2026-10-29", "pred": "57,58,59", "res": "SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4", "pct": "100%"},
+    {"id": 60, "level": 3, "name": "End-to-End System Test Suite (93 Pytest + 38 Jest Passing) (All)", "dur": "5d", "start": "2026-10-24", "finish": "2026-10-29", "pred": "57,58,59", "res": "SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4", "pct": "100%"},
     {"id": 61, "level": 3, "name": "Milestone: Multi-Well Platform, Dynamic Workstation & Core Feature Complete", "dur": "0d", "start": "2026-10-29", "finish": "2026-10-29", "pred": "60", "res": "SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4", "pct": "100%"},
 
     # Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale [UPCOMING]
@@ -91,19 +91,22 @@ TASKS = [
     {"id": 63, "level": 3, "name": "Multi-Region Cloud Deployment & Kubernetes Orchestration (CE1)", "dur": "5d", "start": "2026-11-02", "finish": "2026-11-06", "pred": "61", "res": "CE1", "pct": "0%"},
     {"id": 64, "level": 3, "name": "Live NUPRC Operator Pilot Program & Formal Submission Validation (DA4, SE2)", "dur": "6d", "start": "2026-11-03", "finish": "2026-11-10", "pred": "61", "res": "DA4, SE2", "pct": "0%"},
     {"id": 65, "level": 3, "name": "Real-Time Wellsite Telemetry Streaming Ingestion (WITSML / OPC-UA) (SE1, CE2)", "dur": "6d", "start": "2026-11-04", "finish": "2026-11-11", "pred": "63", "res": "SE1, CE2", "pct": "0%"},
-    {"id": 66, "level": 3, "name": "Advanced Reservoir Rock Physics Module (Sw, Permeability, Net-to-Gross) (DA1, DA2)", "dur": "5d", "start": "2026-11-05", "finish": "2026-11-11", "pred": "61", "res": "DA1, DA2", "pct": "0%"},
-    {"id": 67, "level": 3, "name": "Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Access Logs (CE2, SE2)", "dur": "5d", "start": "2026-11-06", "finish": "2026-11-12", "pred": "63", "res": "CE2, SE2", "pct": "0%"},
-    {"id": 68, "level": 3, "name": "Offset Well Basin Correlation ML Enhancement (DA3, SE1)", "dur": "5d", "start": "2026-11-09", "finish": "2026-11-13", "pred": "66", "res": "DA3, SE1", "pct": "0%"},
-    {"id": 69, "level": 3, "name": "Milestone: Production Release & NUPRC Pilot Sign-off (All)", "dur": "0d", "start": "2026-11-13", "finish": "2026-11-13", "pred": "63,64,65,66,67,68", "res": "SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4", "pct": "0%"},
+    {"id": 66, "level": 3, "name": "Unsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2)", "dur": "5d", "start": "2026-11-04", "finish": "2026-11-09", "pred": "61", "res": "SE1, DA2", "pct": "0%"},
+    {"id": 67, "level": 3, "name": "Advanced Reservoir Rock Physics Module (Sw, Permeability, Net-to-Gross) (DA1, DA2)", "dur": "5d", "start": "2026-11-05", "finish": "2026-11-11", "pred": "61", "res": "DA1, DA2", "pct": "0%"},
+    {"id": 68, "level": 3, "name": "Asynchronous Background Ingestion Task Workers & Cloud Queue (CE1, CE2)", "dur": "5d", "start": "2026-11-05", "finish": "2026-11-11", "pred": "63", "res": "CE1, CE2", "pct": "0%"},
+    {"id": 69, "level": 3, "name": "Outbound Webhook Cloud Storage Automated Sync Dispatcher (CE2)", "dur": "5d", "start": "2026-11-06", "finish": "2026-11-12", "pred": "63", "res": "CE2", "pct": "0%"},
+    {"id": 70, "level": 3, "name": "Curated In-App Demonstration Well Package for Operator Pilot (DA3)", "dur": "4d", "start": "2026-11-06", "finish": "2026-11-11", "pred": "64", "res": "DA3", "pct": "0%"},
+    {"id": 71, "level": 3, "name": "Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Logs (CE2, SE2)", "dur": "5d", "start": "2026-11-09", "finish": "2026-11-13", "pred": "63", "res": "CE2, SE2", "pct": "0%"},
+    {"id": 72, "level": 3, "name": "Milestone: Production Release & NUPRC Pilot Sign-off (All)", "dur": "0d", "start": "2026-11-13", "finish": "2026-11-13", "pred": "63,64,65,66,67,68,69,70,71", "res": "SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4", "pct": "0%"},
 
     # Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff [UPCOMING]
-    {"id": 70, "level": 2, "name": "Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff", "dur": "10d", "start": "2026-11-16", "finish": "2026-11-27", "pred": "69", "res": "", "pct": "0%"},
-    {"id": 71, "level": 3, "name": "High-Availability Multi-AZ Database Clustering & Disaster Recovery (CE2)", "dur": "5d", "start": "2026-11-16", "finish": "2026-11-20", "pred": "69", "res": "CE2", "pct": "0%"},
-    {"id": 72, "level": 3, "name": "Automated Periodic AI Model Drift Detection & Petrophysical Re-calibration (SE1, DA2)", "dur": "5d", "start": "2026-11-17", "finish": "2026-11-23", "pred": "69", "res": "SE1, DA2", "pct": "0%"},
-    {"id": 73, "level": 3, "name": "24/7 SLI/SLO Telemetry Observability, Prometheus Metrics & Alerting (CE1)", "dur": "5d", "start": "2026-11-18", "finish": "2026-11-24", "pred": "71", "res": "CE1", "pct": "0%"},
-    {"id": 74, "level": 3, "name": "Enterprise User Training Portal, API Knowledge Base & Interactive Video Guides (DA3, DA4, SE2)", "dur": "6d", "start": "2026-11-19", "finish": "2026-11-26", "pred": "69", "res": "DA3, DA4, SE2", "pct": "0%"},
-    {"id": 75, "level": 3, "name": "Client Acceptance Review & Regulatory Compliance Handoff (DA4, CE2)", "dur": "5d", "start": "2026-11-23", "finish": "2026-11-27", "pred": "73,74", "res": "DA4, CE2", "pct": "0%"},
-    {"id": 76, "level": 3, "name": "Milestone: Enterprise General Availability (GA) & Steady-State SLAs (All)", "dur": "0d", "start": "2026-11-27", "finish": "2026-11-27", "pred": "71,72,73,74,75", "res": "SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4", "pct": "0%"}
+    {"id": 73, "level": 2, "name": "Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff", "dur": "10d", "start": "2026-11-16", "finish": "2026-11-27", "pred": "72", "res": "", "pct": "0%"},
+    {"id": 74, "level": 3, "name": "High-Availability Multi-AZ Database Clustering & Disaster Recovery (CE2)", "dur": "5d", "start": "2026-11-16", "finish": "2026-11-20", "pred": "72", "res": "CE2", "pct": "0%"},
+    {"id": 75, "level": 3, "name": "Automated Periodic AI Model Drift Detection & Petrophysical Re-calibration (SE1, DA2)", "dur": "5d", "start": "2026-11-17", "finish": "2026-11-23", "pred": "72", "res": "SE1, DA2", "pct": "0%"},
+    {"id": 76, "level": 3, "name": "24/7 SLI/SLO Telemetry Observability, Prometheus Metrics & Alerting (CE1)", "dur": "5d", "start": "2026-11-18", "finish": "2026-11-24", "pred": "74", "res": "CE1", "pct": "0%"},
+    {"id": 77, "level": 3, "name": "Enterprise User Training Portal, API Knowledge Base & Interactive Video Guides (DA3, DA4, SE2)", "dur": "6d", "start": "2026-11-19", "finish": "2026-11-26", "pred": "72", "res": "DA3, DA4, SE2", "pct": "0%"},
+    {"id": 78, "level": 3, "name": "Client Acceptance Review & Regulatory Compliance Handoff (DA4, CE2)", "dur": "5d", "start": "2026-11-23", "finish": "2026-11-27", "pred": "76,77", "res": "DA4, CE2", "pct": "0%"},
+    {"id": 79, "level": 3, "name": "Milestone: Enterprise General Availability (GA) & Steady-State SLAs (All)", "dur": "0d", "start": "2026-11-27", "finish": "2026-11-27", "pred": "74,75,76,77,78", "res": "SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4", "pct": "0%"}
 ]
 
 def generate_csv():
@@ -141,13 +144,11 @@ def generate_xml():
     ET.SubElement(t_root, "ID").text = "1"
     ET.SubElement(t_root, "Name").text = "WellQC Platform Development"
     ET.SubElement(t_root, "OutlineLevel").text = "1"
-    ET.SubElement(t_root, "Duration").text = "PT720H0M0S"
-    ET.SubElement(t_root, "DurationFormat").text = "7"
     ET.SubElement(t_root, "Start").text = "2026-07-20T08:00:00"
     ET.SubElement(t_root, "Finish").text = "2026-11-27T17:00:00"
-    ET.SubElement(t_root, "Milestone").text = "0"
-    ET.SubElement(t_root, "Summary").text = "1"
+    ET.SubElement(t_root, "Duration").text = "PT720H0M0S"
     ET.SubElement(t_root, "PercentComplete").text = "78"
+    ET.SubElement(t_root, "Summary").text = "1"
 
     for t in TASKS:
         t_el = ET.SubElement(tasks_el, "Task")
@@ -155,33 +156,27 @@ def generate_xml():
         ET.SubElement(t_el, "ID").text = str(t["id"])
         ET.SubElement(t_el, "Name").text = t["name"]
         ET.SubElement(t_el, "OutlineLevel").text = str(t["level"])
-        
-        # Duration format
-        is_milestone = t["dur"] == "0d"
-        dur_val = int(t["dur"].replace("d", "")) * 8
-        ET.SubElement(t_el, "Duration").text = f"PT{dur_val}H0M0S"
-        ET.SubElement(t_el, "DurationFormat").text = "7"
         ET.SubElement(t_el, "Start").text = f"{t['start']}T08:00:00"
         ET.SubElement(t_el, "Finish").text = f"{t['finish']}T17:00:00"
-        ET.SubElement(t_el, "Milestone").text = "1" if is_milestone else "0"
-        ET.SubElement(t_el, "Summary").text = "1" if t["level"] == 2 else "0"
+        dur_days = int(t["dur"].replace("d", ""))
+        ET.SubElement(t_el, "Duration").text = f"PT{dur_days * 8}H0M0S"
         ET.SubElement(t_el, "PercentComplete").text = t["pct"].replace("%", "")
-
+        ET.SubElement(t_el, "Summary").text = "1" if t["level"] == 2 else "0"
+        ET.SubElement(t_el, "Milestone").text = "1" if dur_days == 0 else "0"
         if t["pred"]:
             for p in t["pred"].split(","):
-                p_link = ET.SubElement(t_el, "PredecessorLink")
-                ET.SubElement(p_link, "PredecessorUID").text = p.strip()
-                ET.SubElement(p_link, "Type").text = "1"
+                pl = ET.SubElement(t_el, "PredecessorLink")
+                ET.SubElement(pl, "PredecessorUID").text = p.strip()
+                ET.SubElement(pl, "Type").text = "1" # Finish-to-Start
 
-    # Pretty-print
     xml_str = ET.tostring(project, encoding="utf-8")
     dom = minidom.parseString(xml_str)
-    pretty_xml = dom.toprettyxml(indent="  ", encoding="utf-8")
-    with open(xml_path, mode="wb") as f:
+    pretty_xml = dom.toprettyxml(indent="  ")
+
+    with open(xml_path, mode="w", encoding="utf-8") as f:
         f.write(pretty_xml)
     print(f"Generated {xml_path} with {len(TASKS) + 1} tasks.")
 
 if __name__ == "__main__":
     generate_csv()
     generate_xml()
-

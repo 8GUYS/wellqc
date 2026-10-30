@@ -465,6 +465,7 @@ export function CleanedLogViewer({
               </div>
               <div className="flex justify-between text-[11px] font-mono px-2 pt-1 border-t border-slate-300 mt-1">
                 <span>{track1Config.min}</span>
+                <span>100</span>
                 <span>{track1Config.max}</span>
               </div>
             </div>

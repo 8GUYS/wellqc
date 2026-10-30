@@ -175,18 +175,37 @@ export function WellLogViewer({
   // Dropdown selector state
   const [isTrackDropdownOpen, setIsTrackDropdownOpen] = useState(false);
   const [curveSearchQuery, setCurveSearchQuery] = useState("");
+  const [dropdownAlign, setDropdownAlign] = useState<"left" | "right">("left");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on click outside
+  // Determine optimal dropdown alignment based on screen boundaries
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    if (isTrackDropdownOpen && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const popupWidth = 384;
+      // If expanding to the right would overflow the screen and there's sufficient room on the left
+      if (rect.left + popupWidth > window.innerWidth - 16 && rect.right >= popupWidth) {
+        setDropdownAlign("right");
+      } else {
+        setDropdownAlign("left");
+      }
+    }
+  }, [isTrackDropdownOpen]);
+
+  // Close dropdown on click or touch outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsTrackDropdownOpen(false);
       }
     }
     if (isTrackDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside, { passive: true });
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener("touchstart", handleClickOutside);
+      };
     }
   }, [isTrackDropdownOpen]);
 
@@ -260,7 +279,7 @@ export function WellLogViewer({
         maxVal = 2000;
       } else if (std.standardMnemonic === "GR" || std.category === "GAMMA") {
         minVal = 0;
-        maxVal = ext.hasData && ext.max > 150 ? Math.ceil(ext.max / 50) * 50 : 150;
+        maxVal = 150;
       } else if (std.standardMnemonic === "RHOB" || std.category === "DENSITY") {
         minVal = 1.65;
         maxVal = 2.65;
@@ -289,8 +308,11 @@ export function WellLogViewer({
       }
 
       const isLogScale = isResistivity;
+      const isGamma = std.standardMnemonic === "GR" || std.category === "GAMMA";
       const ticks = isLogScale
         ? [0.2, 2, 20, 200, 2000]
+        : isGamma
+        ? [0, 100, 150]
         : [
             minVal,
             Number(((minVal + maxVal) / 2).toFixed(minVal < 2 ? 2 : 0)),
@@ -974,26 +996,26 @@ export function WellLogViewer({
   return (
     <div className="space-y-4 font-sans">
       {/* Top Action Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-wellqc-panel border border-wellqc-border rounded-xl shadow-lg">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-wellqc-panel border border-wellqc-border rounded-xl shadow-lg">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            <h3 className="text-base font-extrabold text-white tracking-tight">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <h3 className="text-sm sm:text-base font-extrabold text-white tracking-tight truncate">
               {wellName} — Wireline Subsurface Explorer
             </h3>
           </div>
-          <p className="text-xs text-wellqc-muted font-mono mt-0.5">
+          <p className="text-[11px] sm:text-xs text-wellqc-muted font-mono mt-0.5 truncate">
             Depth Interval: {minDepth} – {maxDepth} {depthUnit} | {totalPoints.toLocaleString()} Recorded Samples
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 font-mono text-xs">
           {/* CURVE TRACKS DROPDOWN SELECTOR BUTTON */}
           <div className="relative" ref={dropdownRef}>
             <button
               type="button"
               onClick={() => setIsTrackDropdownOpen((prev) => !prev)}
-              className="flex items-center space-x-2 px-3 py-1.5 rounded-xl font-bold bg-wellqc-card border border-wellqc-border hover:border-cyan-500/50 text-slate-200 hover:text-white transition-all shadow-inner"
+              className="flex items-center space-x-2 px-2.5 sm:px-3 py-1.5 rounded-xl font-bold bg-wellqc-card border border-wellqc-border hover:border-cyan-500/50 text-slate-200 hover:text-white transition-all shadow-inner text-xs"
               title="Select which curve tracks to display in the wireline log"
             >
               <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400" />
@@ -1014,7 +1036,9 @@ export function WellLogViewer({
 
             {/* Dropdown Menu Popover */}
             {isTrackDropdownOpen && (
-              <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-80 sm:w-96 bg-wellqc-panel/95 backdrop-blur-xl border border-wellqc-border rounded-2xl shadow-2xl z-50 overflow-hidden divide-y divide-wellqc-border animate-in fade-in zoom-in-95 duration-150">
+              <div className={`absolute mt-2 w-[calc(100vw-2.5rem)] sm:w-96 max-w-[calc(100vw-2.5rem)] sm:max-w-md bg-wellqc-panel/95 backdrop-blur-xl border border-wellqc-border rounded-2xl shadow-2xl z-50 overflow-hidden divide-y divide-wellqc-border animate-in fade-in zoom-in-95 duration-150 ${
+                dropdownAlign === "right" ? "right-0" : "left-0"
+              }`}>
                 {/* Header */}
                 <div className="p-3 bg-wellqc-card/80 flex items-center justify-between">
                   <div>
@@ -1095,7 +1119,7 @@ export function WellLogViewer({
                               : "hover:bg-wellqc-card border border-transparent text-slate-300"
                           }`}
                         >
-                          <div className="flex items-center space-x-2.5 truncate">
+                          <div className="flex items-center space-x-2.5 min-w-0 flex-1 mr-2">
                             {/* Checkbox */}
                             <div
                               className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-colors ${
@@ -1114,7 +1138,7 @@ export function WellLogViewer({
                             />
 
                             {/* Curve Name & Info */}
-                            <div className="truncate">
+                            <div className="min-w-0 flex-1 truncate">
                               <div className="flex items-center space-x-1.5">
                                 <span className="font-mono font-bold text-xs text-white">
                                   {key}
@@ -1125,7 +1149,7 @@ export function WellLogViewer({
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-slate-400 truncate max-w-[170px] font-sans">
+                              <p className="text-[10px] text-slate-400 truncate font-sans">
                                 {meta?.name || key}
                               </p>
                             </div>

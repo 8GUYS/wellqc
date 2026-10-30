@@ -68,7 +68,7 @@ export function ThemeSwitcher() {
         </button>
 
         {open && (
-          <div className="absolute right-0 mt-2 w-80 bg-wellqc-panel border border-wellqc-border rounded-2xl shadow-2xl p-2.5 z-50 text-slate-800 dark:text-slate-200 font-mono animate-in fade-in zoom-in-95 duration-100 max-h-[82vh] overflow-y-auto">
+          <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-sm bg-wellqc-panel border border-wellqc-border rounded-2xl shadow-2xl p-2.5 z-50 text-slate-800 dark:text-slate-200 font-mono animate-in fade-in zoom-in-95 duration-100 max-h-[82vh] overflow-y-auto">
             {/* Dropdown Header */}
             <div className="px-2 py-1.5 border-b border-wellqc-border flex items-center justify-between text-xs">
               <span className="font-semibold text-slate-900 dark:text-slate-100 flex items-center space-x-1.5">

@@ -60,15 +60,21 @@ export function Header({
 
   return (
     <header className="h-12 bg-wellqc-panel border-b border-wellqc-border px-3 md:px-4 flex items-center justify-between sticky top-0 z-20 select-none">
-      {/* Left section: Mobile toggle */}
+      {/* Left section: Mobile toggle & Brand */}
       <div className="flex items-center space-x-2.5">
         <button
           onClick={onToggleMobileNav}
-          className="md:hidden p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700 focus:outline-none"
+          className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700 focus:outline-none"
           aria-label="Toggle Navigation Menu"
         >
           <Menu className="w-4 h-4" />
         </button>
+        <Link href="/dashboard" className="md:hidden flex items-center space-x-1.5">
+          <span className="font-extrabold text-xs text-white tracking-wider flex items-center gap-1 font-mono">
+            <span className="text-cyan-400">WellQC</span>
+            <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">STUDIO</span>
+          </span>
+        </Link>
       </div>
 
       {/* Right section: System telemetry + Notifications + User context */}
@@ -97,7 +103,7 @@ export function Header({
           </button>
 
           {notificationsOpen && (
-            <div className="absolute right-0 mt-1.5 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3 z-50 text-slate-200 font-mono">
+            <div className="absolute right-0 mt-1.5 w-[calc(100vw-2rem)] sm:w-80 max-w-sm bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3 z-50 text-slate-200 font-mono">
               <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs font-semibold">
                 <span>Recent Audit Trail</span>
                 <span className="text-[10px] text-cyan-400">{activities.length} Events</span>

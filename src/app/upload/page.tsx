@@ -450,9 +450,9 @@ export default function LASUploadPage() {
             {/* Tabbed Detailed Analysis Inspector */}
             <section
               aria-label="Detailed Analysis Tabs"
-              className="bg-wellqc-panel border border-wellqc-border rounded-2xl overflow-hidden shadow-lg"
+              className="bg-wellqc-panel border border-wellqc-border rounded-2xl shadow-lg"
             >
-              <div className="flex items-center border-b border-wellqc-border bg-wellqc-card/40 px-4 overflow-x-auto">
+              <div className="flex items-center border-b border-wellqc-border bg-wellqc-card/40 px-4 overflow-x-auto rounded-t-2xl">
                 <button
                   type="button"
                   onClick={() => setActiveTab("curves")}

@@ -350,6 +350,7 @@ def _extract_curves_matrix(well: Well) -> Tuple[Dict[str, Any], float, float, st
     curves_matrix = {
         "depth": depth_array,
         "curves": curves_dict,
+        "nullValue": latest_las_file.nullValue if latest_las_file else None,
     }
     return curves_matrix, start_depth, stop_depth, depth_unit
 

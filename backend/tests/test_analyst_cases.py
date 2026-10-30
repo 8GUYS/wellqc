@@ -121,11 +121,8 @@ def test_file_with_no_null_marker_does_not_crash():
     assert res_analyze.json()["parsed"]["wellInfo"]["nullValue"] is None
 
     res_clean = client.post("/api/las/clean", json={"content": SAMPLE_NO_NULL_LAS})
-    assert res_clean.status_code == 200
-    clean_data = res_clean.json()
-    assert "-999.25 : NULL VALUE" in clean_data["cleanedLasText"]
-    assert clean_data["cleanedLas"]["wellInfo"]["nullValue"] == -999.25
-    assert "no NULL marker" in clean_data["verificationReport"]["summaryMessage"]
+    assert res_clean.status_code == 400
+    assert "does not declare a NULL marker" in res_clean.json()["detail"]
 
 
 def test_file_with_null_depth_row_reports_null_depth_anomaly():
@@ -201,4 +198,3 @@ GAMX.GAPI : 2 CUSTOM GAMMA
     parsed = parse_las_content(sample_custom, custom_aliases=custom_aliases)
     cleaned = clean_las_log_data(parsed, custom_aliases=custom_aliases, options=CleaningOptions(unitStandardization=True))
     assert any(c.mnemonic == "GR" for c in cleaned.cleanedLas.curves)
-

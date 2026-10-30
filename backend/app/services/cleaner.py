@@ -39,14 +39,25 @@ from backend.app.services.standardiser import (
 
 IMPUTE_MAX_NULL_FRACTION = 0.4
 ML_METHODS = ("RANDOM_FOREST", "GRADIENT_BOOSTING")
-FILL_METHODS = ("KNN", "LINEAR", "SPLINE", "RANDOM_FOREST", "GRADIENT_BOOSTING", "AUTO", "MEDIAN")
+FILL_METHODS = ("KNN", "LINEAR", "SPLINE", "RANDOM_FOREST", "GRADIENT_BOOSTING", "AUTO")
+
+
+class NullMarkerMissingError(ValueError):
+    """Raised when a file has no NULL marker, declared or found in the data, so it cannot be cleaned."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "This file does not declare a NULL marker in its header, and none could be identified in the data, "
+            "so it cannot be cleaned. Add a NULL line to the ~Well section (for example "
+            "NULL. -999.25 : NULL VALUE) and upload it again."
+        )
 
 
 class ApprovedFix(BaseModel):
     """
     One problem the user approved for repair, found by its curve and depth range, with the method
     chosen for it. `curve` is the mnemonic shown in the anomaly list (use "DEPT" for duplicate depths).
-    `method` is REMOVE_SECOND / COMPARE_ROWS for duplicate depths, REMOVE / CLIP / DELETE_ROW for
+    `method` is REMOVE_SECOND / COMPARE_ROWS / KEEP_LAST for duplicate depths, REMOVE / CLIP / DELETE_ROW for
     impossible values, KNN / LINEAR / SPLINE / RANDOM_FOREST / GRADIENT_BOOSTING / AUTO for null clusters
     (AUTO lets the benchmark choose the method for that cluster), and is not used for spikes.
     """
@@ -62,13 +73,13 @@ class CleaningOptions(BaseModel):
     outlierClipping: bool = True
     unitStandardization: bool = True
     duplicateDepthPruning: bool = True
-    duplicateAction: Literal["REMOVE_SECOND", "COMPARE_ROWS"] = "REMOVE_SECOND"
+    duplicateAction: Literal["REMOVE_SECOND", "COMPARE_ROWS", "KEEP_LAST"] = "REMOVE_SECOND"
     impossibleAction: Literal["REMOVE", "CLIP", "DELETE_ROW"] = "REMOVE"
     approvedFixes: Optional[List[ApprovedFix]] = None
     flatlineHandling: bool = True
     depthGapInterpolation: bool = True
     imputationStrategy: Literal[
-        "NONE", "KNN", "LINEAR", "SPLINE", "RANDOM_FOREST", "GRADIENT_BOOSTING", "AUTO", "MEDIAN"
+        "NONE", "KNN", "LINEAR", "SPLINE", "RANDOM_FOREST", "GRADIENT_BOOSTING", "AUTO"
     ] = "KNN"
     spikeSigma: float = SPIKE_SIGMA
     maxImputeGapSamples: int = 100
@@ -144,16 +155,22 @@ def _gap_rows(
     return np.array(positions, dtype=int), np.array(values, dtype=float), gaps
 
 
-def _rows_to_keep(depth_full: np.ndarray, valid_counts: Optional[np.ndarray] = None) -> np.ndarray:
+def _rows_to_keep(
+    depth_full: np.ndarray,
+    valid_counts: Optional[np.ndarray] = None,
+    keep_last: bool = False,
+) -> np.ndarray:
     """
     Row numbers to keep, in file order. Rows with a non-numeric depth are dropped. Depths are
     compared after rounding to 6 decimals; when a depth appears more than once, one row is kept:
-    the first one, or (when valid_counts is given) the one with the most valid readings, with a tie
-    going to the first.
+    the first one, the last one when keep_last is set, or (when valid_counts is given) the one with
+    the most valid readings, with a tie going to the first.
     """
     finite_idx = np.flatnonzero(np.isfinite(depth_full))
     rounded = np.round(depth_full[finite_idx], 6)
-    if valid_counts is None:
+    if keep_last:
+        order = np.lexsort((-finite_idx, rounded))
+    elif valid_counts is None:
         order = np.lexsort((finite_idx, rounded))
     else:
         order = np.lexsort((finite_idx, -valid_counts[finite_idx], rounded))
@@ -175,8 +192,8 @@ def _approved_duplicate_rows(
     """
     Row numbers to keep when only the approved duplicate depths are repaired. Every row that is not
     at an approved duplicate depth is kept, including rows with a non-numeric depth. At an approved
-    depth one row is kept: the first, or with COMPARE_ROWS the one with the most valid readings
-    (a tie keeps the first). `hit_fixes` collects the indexes of the fixes that found a duplicate.
+    depth one row is kept: the first, with KEEP_LAST the last, or with COMPARE_ROWS the one with the
+    most valid readings (a tie keeps the first). `hit_fixes` collects the indexes of the fixes that found a duplicate.
     """
     drop = np.zeros(depth_full.size, dtype=bool)
     finite_idx = np.flatnonzero(np.isfinite(depth_full))
@@ -194,6 +211,8 @@ def _approved_duplicate_rows(
             continue
         if fix.method == "COMPARE_ROWS" and valid_counts is not None:
             best = rows[int(np.argmax(valid_counts[rows]))]
+        elif fix.method == "KEEP_LAST":
+            best = rows[-1]
         else:
             best = rows[0]
         drop[rows[rows != best]] = True
@@ -217,7 +236,7 @@ def _clean_text(value: str) -> str:
 
 
 def build_las_file_string(las: ParsedLAS, qa: QualityAnalysisResult, report: VerificationReport) -> str:
-    null_val = las.wellInfo.nullValue if las.wellInfo.nullValue is not None else -999.25
+    null_val = las.wellInfo.nullValue
     wi = las.wellInfo
     now_iso = datetime.now(timezone.utc).isoformat()
     lines = [
@@ -273,7 +292,7 @@ def build_las_file_string(las: ParsedLAS, qa: QualityAnalysisResult, report: Ver
 
 
 def build_csv_file_string(las: ParsedLAS) -> str:
-    null_val = las.wellInfo.nullValue if las.wellInfo.nullValue is not None else -999.25
+    null_val = las.wellInfo.nullValue
     n = len(las.data.depth)
     rows = [",".join(["DEPTH"] + [c.mnemonic for c in las.curves])]
     columns: List[List[str]] = [[f"{d:.4f}" if math.isfinite(d) else "" for d in las.data.depth]]
@@ -295,14 +314,9 @@ def clean_las_log_data(
     opts = options or CleaningOptions()
     raw_qa = initial_qa or analyze_well_log_quality(las, custom_aliases)
     notes: List[str] = []
-    declared_null = las.wellInfo.nullValue
-    no_marker = declared_null is None or not math.isfinite(declared_null)
-    if no_marker:
-        # No marker declared and none found in the data: the cleaned file still needs one.
-        null_val = -999.25
-        notes.append("The file had no NULL marker; -999.25 was used in the cleaned output.")
-    else:
-        null_val = declared_null
+    null_val = las.wellInfo.nullValue
+    if null_val is None or not math.isfinite(null_val):
+        raise NullMarkerMissingError()
 
     outliers_removed = outliers_clipped = spikes_despiked = units_converted = 0
     rows_deleted = good_lost = 0
@@ -336,7 +350,7 @@ def clean_las_log_data(
     if approved is None:
         if opts.duplicateDepthPruning:
             counts = row_valid_counts() if opts.duplicateAction == "COMPARE_ROWS" else None
-            keep = _rows_to_keep(depth_full, counts)
+            keep = _rows_to_keep(depth_full, counts, opts.duplicateAction == "KEEP_LAST")
     else:
         dup_fixes = fixes_of("DUPLICATE_DEPTH")
         if dup_fixes:
@@ -695,9 +709,6 @@ def clean_las_log_data(
             f"Data partially repaired. Quality score {change} to {cleaned_qa.overallScore}%. "
             f"Some sensor gaps require manual petrophysical review."
         )
-
-    if no_marker:
-        summary = "The file had no NULL marker, so -999.25 was used in the cleaned output. " + summary
 
     report = VerificationReport(
         outliersRemovedCount=outliers_removed,

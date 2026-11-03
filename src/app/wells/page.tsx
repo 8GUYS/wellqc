@@ -56,7 +56,7 @@ export default function WellManagementPage() {
         const parsed = JSON.parse(storedUser);
         return parsed?.role || null;
       }
-    } catch {}
+    } catch { }
     return null;
   });
   const [searchQuery, setSearchQuery] = useState("");
@@ -107,7 +107,7 @@ export default function WellManagementPage() {
           };
         }
       }
-    } catch {}
+    } catch { }
     return null;
   }, [storedWellRaw]);
 
@@ -127,7 +127,7 @@ export default function WellManagementPage() {
       .then((data) => {
         if (data?.user?.role) setCurrentUserRole(data.user.role);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const toggleExpandWell = (wellId: string) => {
@@ -392,13 +392,13 @@ export default function WellManagementPage() {
               <UploadCloud className="w-4 h-4" />
               <span>Upload LAS</span>
             </Link>
-            <button
+            {/* <button
               onClick={() => setIsCreateOpen(true)}
               className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all"
             >
               <Plus className="w-4 h-4" />
               <span>Create Well Asset</span>
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -444,11 +444,10 @@ export default function WellManagementPage() {
 
         {feedbackMessage && (
           <div
-            className={`border rounded-xl px-4 py-3 text-xs font-mono flex items-center justify-between gap-3 ${
-              feedbackMessage.type === "success"
-                ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300"
-                : "bg-red-500/10 border-red-500/30 text-red-200"
-            }`}
+            className={`border rounded-xl px-4 py-3 text-xs font-mono flex items-center justify-between gap-3 ${feedbackMessage.type === "success"
+              ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300"
+              : "bg-red-500/10 border-red-500/30 text-red-200"
+              }`}
           >
             <div className="flex items-center gap-2">
               {feedbackMessage.type === "success" ? (
@@ -669,9 +668,8 @@ export default function WellManagementPage() {
                     return (
                       <React.Fragment key={well.id}>
                         <tr
-                          className={`hover:bg-wellqc-card/60 transition-colors ${
-                            isExpanded ? "bg-wellqc-card/40" : ""
-                          } ${isSelected ? "bg-cyan-950/30 border-l-2 border-cyan-400" : ""}`}
+                          className={`hover:bg-wellqc-card/60 transition-colors ${isExpanded ? "bg-wellqc-card/40" : ""
+                            } ${isSelected ? "bg-cyan-950/30 border-l-2 border-cyan-400" : ""}`}
                         >
                           <td className="p-4 text-center w-12" onClick={(e) => e.stopPropagation()}>
                             <input
@@ -751,11 +749,10 @@ export default function WellManagementPage() {
                             )}
                           </td>
                           <td className="p-4">
-                            <span className={`px-2.5 py-1 rounded text-xs font-bold ${
-                              well.qualityScore >= 90 ? "badge-excellent" :
+                            <span className={`px-2.5 py-1 rounded text-xs font-bold ${well.qualityScore >= 90 ? "badge-excellent" :
                               well.qualityScore >= 75 ? "badge-good" :
-                              well.qualityScore >= 50 ? "badge-poor" : "badge-critical"
-                            }`}>
+                                well.qualityScore >= 50 ? "badge-poor" : "badge-critical"
+                              }`}>
                               {well.qualityScore}/100 ({well.qualityGrade})
                             </span>
                           </td>
@@ -763,11 +760,10 @@ export default function WellManagementPage() {
                             <button
                               type="button"
                               onClick={() => toggleExpandWell(well.id)}
-                              className={`p-1.5 rounded-lg border inline-flex items-center gap-1 text-xs font-mono transition-all ${
-                                isExpanded
-                                   ? "bg-cyan-500/30 border-cyan-400 text-cyan-200 shadow-sm shadow-cyan-500/20"
-                                  : "bg-wellqc-card border-wellqc-border hover:border-cyan-500/50 text-cyan-300"
-                              }`}
+                              className={`p-1.5 rounded-lg border inline-flex items-center gap-1 text-xs font-mono transition-all ${isExpanded
+                                ? "bg-cyan-500/30 border-cyan-400 text-cyan-200 shadow-sm shadow-cyan-500/20"
+                                : "bg-wellqc-card border-wellqc-border hover:border-cyan-500/50 text-cyan-300"
+                                }`}
                               title="View Curve Standardisation & Quality Inventory"
                             >
                               <Layers className="w-3.5 h-3.5" />
@@ -922,12 +918,12 @@ export default function WellManagementPage() {
                                       <div className="text-white font-semibold text-xs">
                                         {well.latestLasFileCreatedAt || well.createdAt
                                           ? new Date(well.latestLasFileCreatedAt || well.createdAt).toLocaleDateString(undefined, {
-                                              year: "numeric",
-                                              month: "short",
-                                              day: "numeric",
-                                              hour: "2-digit",
-                                              minute: "2-digit",
-                                            })
+                                            year: "numeric",
+                                            month: "short",
+                                            day: "numeric",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })
                                           : "Unknown"}
                                       </div>
                                       <div className="text-[10px] text-emerald-400/90 font-mono">
@@ -945,11 +941,10 @@ export default function WellManagementPage() {
                                         <span>Governance & Quality</span>
                                       </div>
                                       <div className="flex items-center gap-2">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                          well.qualityScore >= 90 ? "badge-excellent" :
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${well.qualityScore >= 90 ? "badge-excellent" :
                                           well.qualityScore >= 75 ? "badge-good" :
-                                          well.qualityScore >= 50 ? "badge-poor" : "badge-critical"
-                                        }`}>
+                                            well.qualityScore >= 50 ? "badge-poor" : "badge-critical"
+                                          }`}>
                                           Score: {well.qualityScore}/100 ({well.qualityGrade})
                                         </span>
                                       </div>

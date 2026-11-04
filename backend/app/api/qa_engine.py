@@ -215,8 +215,13 @@ def _resolve_target_las(
                 )
             if db_well.lasFiles:
                 latest = db_well.lasFiles[0]
-                if getattr(latest, "rawContent", None):
-                    effective_raw_text = latest.rawContent
+                r2_key = getattr(latest, "r2Key", None)
+                raw_db = getattr(latest, "rawContent", None)
+                if r2_key:
+                    from backend.app.services import r2_storage
+                    effective_raw_text = r2_storage.download_las(r2_key) or raw_db
+                elif raw_db:
+                    effective_raw_text = raw_db
 
     if effective_raw_text:
         try:

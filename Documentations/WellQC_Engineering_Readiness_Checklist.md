@@ -85,8 +85,8 @@
 - [ ] Runbook: what to do if the site goes down
 
 ### 🗂️ File Storage
-- [ ] ⚠️ LAS file content stored in Cloudflare R2 (not in PostgreSQL rows) — do this before 50 users to avoid storage cost explosion
-- [ ] Database stores only the R2 object key, not the file bytes
+- [x] ⚠️ LAS file content stored in Cloudflare R2 (not in PostgreSQL rows) — do this before 50 users to avoid storage cost explosion
+- [x] Database stores only the R2 object key, not the file bytes
 
 ---
 

@@ -26,6 +26,7 @@ from backend.app.services.petro_utils import (
 )
 from backend.app.services.quality_engine import QualityAnalysisResult
 from backend.app.services.standardiser import CustomAliasEntry, standardise_mnemonic
+from backend.app.services import r2_storage
 
 
 def commit_las_file_transaction(
@@ -124,7 +125,7 @@ def commit_las_file_transaction(
         nullValue=parsed.wellInfo.nullValue,
         depthUnit=depth_unit,
         rawHeader=parsed.rawHeader,
-        rawContent=content,
+        rawContent=None,  # Will be set below after R2 upload attempt
         curveCount=len(parsed.curves) + (1 if parsed.depthCurve else 0),
         pointCount=parsed.totalPoints,
         status="PROCESSED",
@@ -133,6 +134,15 @@ def commit_las_file_transaction(
     )
     db.add(las_file)
     db.flush()
+
+    # Attempt to store raw LAS content in Cloudflare R2 (falls back to DB column if R2 not configured)
+    r2_key = r2_storage.upload_las(user.id, las_file.id, content)
+    if r2_key:
+        las_file.r2Key = r2_key
+        # rawContent stays None — blob lives in R2
+    else:
+        # R2 not configured (local dev / CI) — keep content in DB column
+        las_file.rawContent = content
 
     # Downsampled curve data
     curve_objs = {}

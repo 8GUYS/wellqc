@@ -52,8 +52,6 @@ class ImputationStrategy(str, Enum):
     """Supported mathematical imputation and repair algorithms."""
     KNN = "KNN"
     LINEAR = "LINEAR"
-    MEAN = "MEAN"
-    MEDIAN = "MEDIAN"
     SPLINE = "SPLINE"
     RANDOM_FOREST = "RANDOM_FOREST"
     GRADIENT_BOOSTING = "GRADIENT_BOOSTING"

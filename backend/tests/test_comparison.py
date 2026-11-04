@@ -19,7 +19,7 @@ client = TestClient(app)
 def test_clean_curve_series():
     depth = np.array([1000.0, 1001.0, 1002.0, 1003.0, 1004.0])
     vals = np.array([50.0, -999.25, np.nan, 75.0, np.inf])
-    cd, cv = _clean_curve_series(depth, vals)
+    cd, cv = _clean_curve_series(depth, vals, -999.25)
     assert len(cd) == 2
     assert list(cd) == [1000.0, 1003.0]
     assert list(cv) == [50.0, 75.0]

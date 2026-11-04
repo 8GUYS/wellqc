@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from backend.app.services.standardiser import CustomAliasEntry, standardise_mnemonic
 
 STEP_MISMATCH_TOLERANCE = 0.05  # 5 % between header STEP and the data's median step
+NULL_OVERRIDE_MIN_COUNT = 20
 
 
 class LASParseError(ValueError):
@@ -216,20 +217,27 @@ def _to_float(token: str) -> float:
 _NINES_NULL = re.compile(r"^-9{3,}(\.\d+)?$")
 
 
-def _detect_null_marker(rows: List[List[float]]) -> Optional[Tuple[float, int]]:
+def _marker_like_counts(rows: List[List[float]]) -> Dict[float, int]:
     """
-    Find the null marker in the data when the header does not declare one.
-
-    Looks at every value after the first column (the first column is depth, and depths
-    such as 999.0 are real) and picks the most frequent value that is written like a
-    null marker (negative, all 9s: -999.25, -999, -9999 ...). Returns (value, count),
-    or None when the data holds no such value.
+    How many times each value that is written like a null marker (negative, all 9s: -999.25,
+    -999, -9999 ...) appears in the data. Looks at every value after the first column, because
+    the first column is depth.
     """
     counts: Dict[float, int] = {}
     for row in rows:
         for v in row[1:]:
-            if math.isfinite(v) and v < 0 and _NINES_NULL.match(f"{v:.6f}".rstrip("0").rstrip(".")):
+            if math.isfinite(v) and v <= -999.0 and _NINES_NULL.match(f"{v:.6f}".rstrip("0").rstrip(".")):
                 counts[v] = counts.get(v, 0) + 1
+    return counts
+
+
+def _detect_null_marker(rows: List[List[float]]) -> Optional[Tuple[float, int]]:
+    """
+    Find the null marker in the data when the header does not declare one: the most frequent
+    value that is written like a null marker. Returns (value, count), or None when the data
+    holds no such value.
+    """
+    counts = _marker_like_counts(rows)
     if not counts:
         return None
     best = max(counts, key=lambda k: counts[k])
@@ -362,6 +370,15 @@ def parse_las_content(
     null_value: Optional[float]
     if declared_null is not None:
         null_value = declared_null
+        declared_in_data = any(abs(v - declared_null) < 0.01 for r in rows for v in r[1:] if math.isfinite(v))
+        found = _detect_null_marker(rows)
+        if not declared_in_data and found is not None and found[1] >= NULL_OVERRIDE_MIN_COUNT:
+            null_value = found[0]
+            warnings.append(
+                f"The header says NULL is {declared_null:g}, but that value never appears in the data. "
+                f"{null_value:g} appears {found[1]} times and was used as the null marker instead. "
+                "Check the NULL line in the header."
+            )
     else:
         found = _detect_null_marker(rows)
         if found is not None:
@@ -375,6 +392,16 @@ def parse_las_content(
             warnings.append(
                 "NULL is not declared in the header and no null marker was found in the data; "
                 "nullValue is left empty."
+            )
+    if null_value is not None:
+        other_markers = sorted(
+            ((v, c) for v, c in _marker_like_counts(rows).items() if abs(v - null_value) >= 0.01),
+            key=lambda item: -item[1],
+        )
+        for v, c in other_markers[:5]:
+            warnings.append(
+                f"{v:g} appears {c} time(s) in the data and is written like a null marker, but the null marker "
+                f"is {null_value:g}. It was not treated as null. Check the NULL line in the header."
             )
     # Text, NaN/inf and missing values become the null marker, or NaN when there is none.
     fill = null_value if null_value is not None else math.nan

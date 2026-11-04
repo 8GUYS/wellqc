@@ -447,6 +447,22 @@ export default function LASUploadPage() {
               </div>
             )}
 
+            <BatchQueueList
+              uploadQueue={uploadQueue}
+              isSaving={isSaving}
+              onUploadAll={handleCommitAll}
+              onCommitAll={handleCommitAll}
+              onLoadFile={loadQueuedFile}
+              onRemoveFile={(id) => setUploadQueue((files) => files.filter((item) => item.id !== id))}
+            />
+
+
+
+            <AuditSummaryCards
+              parsedLAS={parsedLAS}
+              qaResult={qaResult}
+            />
+            <AIInsightsPanel aiOutput={aiOutput} />
             {/* Tabbed Detailed Analysis Inspector */}
             <section
               aria-label="Detailed Analysis Tabs"
@@ -457,8 +473,8 @@ export default function LASUploadPage() {
                   type="button"
                   onClick={() => setActiveTab("curves")}
                   className={`px-4 py-3 text-xs font-mono font-bold border-b-2 transition-all flex items-center space-x-2 shrink-0 ${activeTab === "curves"
-                      ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                    ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
                     }`}
                 >
                   <Table className="w-3.5 h-3.5" />
@@ -468,8 +484,8 @@ export default function LASUploadPage() {
                   type="button"
                   onClick={() => setActiveTab("viewer")}
                   className={`px-4 py-3 text-xs font-mono font-bold border-b-2 transition-all flex items-center space-x-2 shrink-0 ${activeTab === "viewer"
-                      ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                    ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
                     }`}
                 >
                   <Layers className="w-3.5 h-3.5 text-cyan-400" />
@@ -479,8 +495,8 @@ export default function LASUploadPage() {
                   type="button"
                   onClick={() => setActiveTab("anomalies")}
                   className={`px-4 py-3 text-xs font-mono font-bold border-b-2 transition-all flex items-center space-x-2 shrink-0 ${activeTab === "anomalies"
-                      ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                    ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
                     }`}
                 >
                   <AlertTriangle className="w-3.5 h-3.5" />
@@ -490,8 +506,8 @@ export default function LASUploadPage() {
                   type="button"
                   onClick={() => setActiveTab("headers")}
                   className={`px-4 py-3 text-xs font-mono font-bold border-b-2 transition-all flex items-center space-x-2 shrink-0 ${activeTab === "headers"
-                      ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                    ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
                     }`}
                 >
                   <FileText className="w-3.5 h-3.5" />
@@ -501,8 +517,8 @@ export default function LASUploadPage() {
                   type="button"
                   onClick={() => setActiveTab("raw")}
                   className={`px-4 py-3 text-xs font-mono font-bold border-b-2 transition-all flex items-center space-x-2 shrink-0 ${activeTab === "raw"
-                      ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                    ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
                     }`}
                 >
                   <Activity className="w-3.5 h-3.5" />
@@ -552,21 +568,9 @@ export default function LASUploadPage() {
             </section>
 
 
-            <BatchQueueList
-              uploadQueue={uploadQueue}
-              isSaving={isSaving}
-              onUploadAll={handleCommitAll}
-              onCommitAll={handleCommitAll}
-              onLoadFile={loadQueuedFile}
-              onRemoveFile={(id) => setUploadQueue((files) => files.filter((item) => item.id !== id))}
-            />
 
-            <AuditSummaryCards
-              parsedLAS={parsedLAS}
-              qaResult={qaResult}
-            />
 
-            <AIInsightsPanel aiOutput={aiOutput} />
+
           </main>
         )}
 

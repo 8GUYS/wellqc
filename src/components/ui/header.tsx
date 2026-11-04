@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ActivityListItem } from "@/lib/api-types";
 import { safeReadJson } from "@/lib/http-client";
-import { Bell, LogOut, Menu, Radio, User } from "lucide-react";
-import { ThemeSwitcher } from "@/components/theme/theme-switcher";
+import { useRouter, usePathname } from "next/navigation";
+import { Bell, LogOut, Menu, User } from "lucide-react";
+import { TourGuideButton } from "@/components/dashboard/dashboard-tour";
 
 interface HeaderProps {
   currentRole?: string;
@@ -28,6 +29,8 @@ export function Header({
   onLogout,
   onToggleMobileNav,
 }: HeaderProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activities, setActivities] = useState<ActivityListItem[]>([]);
 
@@ -79,15 +82,16 @@ export function Header({
 
       {/* Right section: System telemetry + Notifications + User context */}
       <div className="flex items-center space-x-2 md:space-x-3">
-        {/* Workstation Connection Status */}
-        <div className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-slate-900/60 border border-slate-800 text-[10px] font-mono text-slate-400 shadow-sm">
-          <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
-          <span className="text-slate-300 font-semibold">QA CLUSTER</span>
-          <span className="text-emerald-400 font-bold">ONLINE</span>
-        </div>
-
-        {/* Color Theme Switcher */}
-        <ThemeSwitcher />
+        {/* Interactive Tour Guide Button replacing QA Cluster Online */}
+        <TourGuideButton
+          onClick={() => {
+            if (pathname === "/dashboard") {
+              window.dispatchEvent(new Event("wellqc_launch_tour"));
+            } else {
+              router.push("/dashboard?tour=true");
+            }
+          }}
+        />
 
         {/* Audit / Activity Popover */}
         <div className="relative">

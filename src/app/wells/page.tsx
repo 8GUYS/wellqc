@@ -7,7 +7,6 @@ import { WellListItem } from "@/lib/api-types";
 import { safeReadJson } from "@/lib/http-client";
 import {
   Database,
-  Plus,
   Search,
   Filter,
   ChevronRight,

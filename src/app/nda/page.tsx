@@ -50,7 +50,7 @@ export default function NDAPage() {
         window.dispatchEvent(new Event("wellqc_user_updated"));
       }
 
-      router.replace("/dashboard");
+      router.replace("/upload");
       router.refresh();
     } catch (err) {
       setError("An error occurred while submitting NDA agreement.");

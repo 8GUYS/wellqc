@@ -23,7 +23,7 @@ export function middleware(request: NextRequest) {
 
   // If user is on login/register and already logged in, send to dashboard
   if (authFormPaths.includes(pathname) && hasSession) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/upload", request.url));
   }
 
   // Verification routes and public pages are accessible without session

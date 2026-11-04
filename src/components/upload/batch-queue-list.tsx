@@ -1,5 +1,5 @@
 import { QueuedLASFile } from "@/types/upload";
-import { Database, RefreshCw, X } from "lucide-react";
+import { CheckCircle2, RefreshCw, X } from "lucide-react";
 
 interface BatchQueueListProps {
   uploadQueue: QueuedLASFile[];
@@ -13,12 +13,11 @@ interface BatchQueueListProps {
 export function BatchQueueList({
   uploadQueue,
   isSaving,
-  onCommitAll,
-  onUploadAll,
+  onCommitAll: _onCommitAll,
+  onUploadAll: _onUploadAll,
   onLoadFile,
   onRemoveFile,
 }: BatchQueueListProps) {
-  const handleUploadAll = onUploadAll || onCommitAll;
   if (uploadQueue.length === 0) return null;
 
   return (
@@ -30,14 +29,17 @@ export function BatchQueueList({
             {uploadQueue.length} validated file{uploadQueue.length === 1 ? "" : "s"}. Files upload one at a time to preserve every result.
           </p>
         </div>
-        <button
-          onClick={handleUploadAll}
-          disabled={isSaving || uploadQueue.every((file) => file.status === "saved")}
-          className="flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 font-bold text-xs"
-        >
-          {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
-          <span>{isSaving ? "Uploading queue..." : "Upload all to database"}</span>
-        </button>
+        {uploadQueue.every((file) => file.status === "saved") ? (
+          <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span>All Saved to Database ✓</span>
+          </div>
+        ) : isSaving ? (
+          <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-mono text-xs font-bold">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+            <span>Auto-saving Queue to DB...</span>
+          </div>
+        ) : null}
       </div>
       <div className="divide-y divide-wellqc-border border border-wellqc-border rounded-lg overflow-hidden">
         {uploadQueue.map((file) => (

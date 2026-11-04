@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { CleanedLogViewer } from "@/components/well-log/cleaned-log-viewer";
 import {
@@ -1032,6 +1033,40 @@ export default function QAEngineWorkspace() {
 
       const result = await repairQAEngine(payload);
       setRepairResult(result);
+
+      // Persist cleaned data so it can be exported from the Audit Reports page for each file
+      try {
+        const storedRegistry = JSON.parse(localStorage.getItem("wellqc_cleaned_files_registry") || "{}");
+        const entryKey = wellName || "Uploaded Well";
+        const entryData = {
+          wellId,
+          wellName: entryKey,
+          cleanedLasText: result.cleanedLasText,
+          cleanedCsvText: result.cleanedCsvText,
+          cleanedScore: result.cleanedScore,
+          cleanedGrade: result.cleanedGrade,
+          auditCertificateId: result.auditCertificateId,
+          timestamp: new Date().toISOString(),
+        };
+        storedRegistry[entryKey] = entryData;
+        if (wellId) {
+          storedRegistry[wellId] = entryData;
+        }
+        localStorage.setItem("wellqc_cleaned_files_registry", JSON.stringify(storedRegistry));
+
+        const uploadWs = localStorage.getItem("wellqc_upload_workspace");
+        if (uploadWs) {
+          const parsedWs = JSON.parse(uploadWs);
+          parsedWs.cleanedLasText = result.cleanedLasText;
+          parsedWs.cleanedCsvText = result.cleanedCsvText;
+          parsedWs.cleanedScore = result.cleanedScore;
+          parsedWs.cleanedGrade = result.cleanedGrade;
+          parsedWs.auditCertificateId = result.auditCertificateId;
+          localStorage.setItem("wellqc_upload_workspace", JSON.stringify(parsedWs));
+        }
+      } catch (storageErr) {
+        console.warn("Could not save cleaned file to registry:", storageErr);
+      }
     } catch (err: unknown) {
       setErrorMessage((err instanceof Error && err.message) || "Failed to execute petrophysical repairs.");
     } finally {
@@ -1947,6 +1982,15 @@ export default function QAEngineWorkspace() {
                   </>
                 )}
               </button>
+
+              <Link
+                href="/reports"
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-mono font-bold text-xs transition-all shadow-md flex items-center gap-2"
+                title="View full audit certificate and export from Audit Reports"
+              >
+                <FileText className="w-4 h-4 text-purple-200" />
+                <span>View in Audit Reports →</span>
+              </Link>
             </div>
 
             {/* The Report Table */}

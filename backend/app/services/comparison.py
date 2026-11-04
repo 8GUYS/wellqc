@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from pydantic import BaseModel, Field
 
-from backend.app.services.curve_utils import HARD_NULL_SENTINELS, to_float_array
+from backend.app.services.curve_utils import to_float_array
 
 
 class CurveCorrelationStat(BaseModel):
@@ -58,8 +58,8 @@ class WellComparisonResult(BaseModel):
     resampled_curves_b: Dict[str, List[float]] = Field(default_factory=dict)
 
 
-def _clean_curve_series(depth: np.ndarray, vals: np.ndarray, null_sentinel: float = -999.25) -> Tuple[np.ndarray, np.ndarray]:
-    """Filter out hard null sentinels, NaNs, and infinite values."""
+def _clean_curve_series(depth: np.ndarray, vals: np.ndarray, null_sentinel: Optional[float] = None) -> Tuple[np.ndarray, np.ndarray]:
+    """Filter out the well's own null marker, NaNs, and infinite values."""
     if len(depth) == 0 or len(vals) == 0:
         return np.array([]), np.array([])
 
@@ -68,8 +68,6 @@ def _clean_curve_series(depth: np.ndarray, vals: np.ndarray, null_sentinel: floa
     v = vals[:min_len]
 
     mask = np.isfinite(d) & np.isfinite(v)
-    for sentinel in HARD_NULL_SENTINELS:
-        mask = mask & ~np.isclose(v, sentinel, atol=0.01)
     if null_sentinel is not None:
         mask = mask & ~np.isclose(v, null_sentinel, atol=0.01)
 
@@ -179,6 +177,8 @@ def compare_two_wells(
 
     depth_b_raw = to_float_array(curves_data_b.get("depth", []))
     curves_b_dict = curves_data_b.get("curves", {})
+    null_a = curves_data_a.get("nullValue")
+    null_b = curves_data_b.get("nullValue")
 
     if len(depth_a_raw) == 0 or len(depth_b_raw) == 0:
         return WellComparisonResult(
@@ -262,8 +262,8 @@ def compare_two_wells(
         v_a = to_float_array(curves_a_dict[orig_key_a])
         v_b = to_float_array(curves_b_dict[orig_key_b])
 
-        clean_d_a, clean_v_a = _clean_curve_series(depth_a_raw, v_a)
-        clean_d_b, clean_v_b = _clean_curve_series(depth_b_raw, v_b)
+        clean_d_a, clean_v_a = _clean_curve_series(depth_a_raw, v_a, null_a)
+        clean_d_b, clean_v_b = _clean_curve_series(depth_b_raw, v_b, null_b)
 
         if len(clean_d_a) < 5 or len(clean_d_b) < 5:
             continue
@@ -350,7 +350,7 @@ def compare_two_wells(
     for m in sorted_only_a:
         orig_key_a = keys_a[m]
         v_a = to_float_array(curves_a_dict[orig_key_a])
-        clean_d_a, clean_v_a = _clean_curve_series(depth_a_raw, v_a)
+        clean_d_a, clean_v_a = _clean_curve_series(depth_a_raw, v_a, null_a)
         if len(clean_d_a) == 0:
             continue
 
@@ -394,7 +394,7 @@ def compare_two_wells(
     for m in sorted_only_b:
         orig_key_b = keys_b[m]
         v_b = to_float_array(curves_b_dict[orig_key_b])
-        clean_d_b, clean_v_b = _clean_curve_series(depth_b_raw, v_b)
+        clean_d_b, clean_v_b = _clean_curve_series(depth_b_raw, v_b, null_b)
         if len(clean_d_b) == 0:
             continue
 

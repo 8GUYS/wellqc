@@ -769,8 +769,6 @@ for _k in ("DT",):
     _UNIT_FACTORS[_k] = {"US/M": 1.0 / _US_M_PER_US_FT}
 _UNIT_FACTORS["SP"] = {"V": 1000.0}
 
-_HARD_NULL_SENTINELS = {-999.25, -9999.0, 999.25, -999.9}
-
 
 def _is_null(val: Optional[float], null_value: Optional[float]) -> bool:
     """Mirrors diagnostics.is_null_value; duplicated to keep this module a leaf."""
@@ -784,7 +782,7 @@ def _is_null(val: Optional[float], null_value: Optional[float]) -> bool:
         return True
     if null_value is not None and abs(f - null_value) < 0.01:
         return True
-    return f in _HARD_NULL_SENTINELS
+    return False
 
 
 def unit_factor(raw_unit: str, standard_mnemonic: str) -> float:

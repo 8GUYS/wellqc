@@ -257,7 +257,7 @@ export interface QARepairRequestPayload {
   outlierClipping?: boolean;
   duplicateDepthPruning?: boolean;
   imputationStrategy?: string;
-  duplicateAction?: "REMOVE_SECOND" | "COMPARE_ROWS";
+  duplicateAction?: "REMOVE_SECOND" | "COMPARE_ROWS" | "KEEP_LAST";
   impossibleAction?: "REMOVE" | "CLIP" | "DELETE_ROW";
   approvedFixes?: ApprovedFix[];
 }
@@ -390,5 +390,3 @@ export async function rankGapsQAEngine(payload: {
   }
   return res.json();
 }
-
-

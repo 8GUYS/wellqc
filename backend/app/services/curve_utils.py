@@ -4,8 +4,6 @@ from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
-HARD_NULL_SENTINELS = (-999.25, -9999.0, 999.25, -999.9)
-
 SPIKE_IQR_MULTIPLIER = 3.0
 SPIKE_SIGMA = SPIKE_IQR_MULTIPLIER
 SPIKE_MIN_STD = 0.001
@@ -48,7 +46,7 @@ def is_null_value(val: Optional[float], null_value: Optional[float]) -> bool:
         return True
     if null_value is not None and abs(fval - null_value) < 0.01:
         return True
-    return fval in HARD_NULL_SENTINELS
+    return False
 
 
 def to_float_array(values: Sequence) -> np.ndarray:
@@ -66,14 +64,12 @@ def to_float_array(values: Sequence) -> np.ndarray:
 
 
 def null_mask(values: Sequence, null_value: Optional[float]) -> np.ndarray:
-    """Vectorised null test: NaN/Inf, the file's NULL value, or a common sentinel."""
+    """Vectorised null test: NaN/Inf, or the file's NULL value."""
     arr = to_float_array(values)
     mask = ~np.isfinite(arr)
     if null_value is not None:
         with np.errstate(invalid="ignore"):
             mask |= np.abs(arr - null_value) < 0.01
-    for sentinel in HARD_NULL_SENTINELS:
-        mask |= arr == sentinel
     return mask
 
 
@@ -173,8 +169,6 @@ def find_sonic_events(
             inside[a:b] = True
         spikes = spikes[~inside[spikes]]
     return spikes, skips
-
-
 
 
 def find_flatline_runs(

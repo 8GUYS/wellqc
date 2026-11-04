@@ -1,3 +1,19 @@
+"""
+Fill methods for missing readings, grouped by what they use.
+
+Single-curve methods (LINEAR, SPLINE) use only the curve that has the gap. They draw a line or
+a smooth curve between the readings on either side. They are traditional interpolation and work
+well for short gaps, but they cannot say anything about what happened inside a long gap.
+
+Multi-curve methods (KNN, RANDOM_FOREST, GRADIENT_BOOSTING) also look at the other logs measured
+at the same depths, so they can estimate a long gap that one curve alone cannot fill. RANDOM_FOREST
+and GRADIENT_BOOSTING are machine-learning models trained on the readings that do exist in this
+well, so they need enough real readings and are only chosen by AUTO when they clearly beat the
+simple methods in the benchmark.
+
+AUTO is not a method of its own. It runs the benchmark and picks one of the methods above.
+"""
+
 from __future__ import annotations
 
 import time
@@ -27,13 +43,13 @@ ML_MIN_MANUAL_SAMPLES = 20
 ML_MIN_FEATURE_SAMPLES = 50
 ML_MARGIN = 0.95
 ML_STRATEGIES = ("RANDOM_FOREST", "GRADIENT_BOOSTING")
+SINGLE_CURVE_STRATEGIES = ("LINEAR", "SPLINE")
+MULTI_CURVE_STRATEGIES = ("KNN", "RANDOM_FOREST", "GRADIENT_BOOSTING")
 FLAG_MAX_DISTINCT = 6
 
 _STRATEGY_LABELS: Dict[str, str] = {
     "KNN": "K-Nearest Neighbours (KNN)",
     "LINEAR": "Linear Interpolation (Baseline)",
-    "MEDIAN": "Median Statistical Imputer",
-    "MEAN": "Mean Statistical Imputer",
     "SPLINE": "Monotone Cubic Spline (PCHIP)",
     "RANDOM_FOREST": "Random Forest Regression",
     "GRADIENT_BOOSTING": "Gradient Boosting Regression",
@@ -88,24 +104,6 @@ def impute_linear(series: List[float], null_value: float) -> List[float]:
         return list(series)
     idx = np.arange(arr.size)
     filled = np.interp(idx, idx[valid], arr[valid])
-    return _fill_nulls(series, np.flatnonzero(~valid), filled)
-
-
-def impute_mean(series: List[float], null_value: float) -> List[float]:
-    arr = _nan_array(series, null_value)
-    valid = ~np.isnan(arr)
-    if not valid.any() or valid.all():
-        return list(series)
-    filled = np.full(arr.size, float(arr[valid].mean()))
-    return _fill_nulls(series, np.flatnonzero(~valid), filled)
-
-
-def impute_median(series: List[float], null_value: float) -> List[float]:
-    arr = _nan_array(series, null_value)
-    valid = ~np.isnan(arr)
-    if not valid.any() or valid.all():
-        return list(series)
-    filled = np.full(arr.size, float(np.median(arr[valid])))
     return _fill_nulls(series, np.flatnonzero(~valid), filled)
 
 
@@ -288,10 +286,6 @@ def run_single_strategy(
         return impute_knn(curves, target_mnemonic, null_value, k)
     if strategy == "LINEAR":
         return impute_linear(series, null_value)
-    if strategy == "MEDIAN":
-        return impute_median(series, null_value)
-    if strategy == "MEAN":
-        return impute_mean(series, null_value)
     if strategy == "SPLINE":
         return impute_spline(series, null_value)
     if strategy in ML_STRATEGIES:
@@ -423,9 +417,21 @@ def _benchmark_legacy(
     )
 
 
-def gap_bucket(gap_len: int) -> int:
-    """The benchmark gap size (5, 10, 20, 50 or 100) closest to a real gap of `gap_len` samples."""
-    return min(BENCHMARK_GAP_LENGTHS, key=lambda b: (abs(b - gap_len), b))
+def nearest_benchmark_gap_size(gap_len: int) -> int:
+    """
+    Return the benchmark gap size closest to a real gap.
+
+    The benchmark only tests five gap sizes: 5, 10, 20, 50 and 100 samples. A real gap is rarely
+    exactly one of those, so the result of the nearest tested size is used to choose the method
+    for it. If a real gap is exactly halfway between two tested sizes, the smaller one is returned.
+
+    Examples:
+        a gap of 7 samples returns 5
+        a gap of 8 samples returns 10
+        a gap of 35 samples returns 20 (halfway between 20 and 50, so the smaller)
+        a gap of 300 samples returns 100
+    """
+    return min(BENCHMARK_GAP_LENGTHS, key=lambda size: (abs(size - gap_len), size))
 
 
 def _choose_gap_blocks(valid: np.ndarray, gap_len: int, seed: int) -> Optional[np.ndarray]:
@@ -630,6 +636,7 @@ def recommend_for_gaps(
     cost the same as the distinct sizes among them. A gap that cannot be tested (too little data, or
     a flag curve) gets LINEAR with the reason. Result per gap:
         {"method": str, "bucket": int, "ranking": [(method, nrmse), ...], "reason": str}
+    where "bucket" is the benchmark gap size that was used (see nearest_benchmark_gap_size).
     """
     out: Dict[Tuple[str, int, int], Dict] = {}
     by_curve: Dict[str, List[Tuple[int, int]]] = {}
@@ -637,14 +644,14 @@ def recommend_for_gaps(
         by_curve.setdefault(curve, []).append((s, e))
 
     for curve, spans in by_curve.items():
-        buckets = tuple(sorted({gap_bucket(e - s) for s, e in spans}))
+        gap_sizes = tuple(sorted({nearest_benchmark_gap_size(e - s) for s, e in spans}))
         try:
-            result = benchmark_imputation_methods(depth, curves, curve, null_value, buckets)
+            result = benchmark_imputation_methods(depth, curves, curve, null_value, gap_sizes)
         except Exception:
             result = None
         scored = {g.gapLength: g for g in (result.byGapLength if result else [])}
         for s, e in spans:
-            want = gap_bucket(e - s)
+            want = nearest_benchmark_gap_size(e - s)
             if scored:
                 g = scored.get(want) or min(scored.values(), key=lambda x: (abs(x.gapLength - want), x.gapLength))
                 out[(curve, s, e)] = {

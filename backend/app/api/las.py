@@ -5,6 +5,7 @@ import math
 import re
 import secrets
 import uuid
+import threading
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
@@ -40,7 +41,7 @@ from backend.app.schemas.imputation import (
     MissingValueDiagnostic,
 )
 from backend.app.services.ai_analyzer import generate_ai_analysis
-from backend.app.services.cleaner import clean_las_log_data, CleaningOptions
+from backend.app.services.cleaner import clean_las_log_data, CleaningOptions, NullMarkerMissingError
 from backend.app.services.diagnostics import diagnose_missing_value_causes
 from backend.app.services.imputation import (
     benchmark_imputation_methods,
@@ -136,8 +137,34 @@ def rerun_qa_endpoint(
     qa = analyze_well_log_quality(req.parsed, server_aliases)
     return qa.model_dump()
 
+MAX_RUNNING = 2    # uploads worked on at the same time
+MAX_IN_LINE = 15   # running plus waiting; more than this get "busy"
 
-@router.post("")
+_running = threading.BoundedSemaphore(MAX_RUNNING)
+_count_lock = threading.Lock()
+_in_line = 0
+
+
+def upload_gate():
+    global _in_line
+    with _count_lock:
+        if _in_line >= MAX_IN_LINE:
+            raise HTTPException(
+                status_code=503,
+                detail="Server busy, try again in 30 seconds",
+                headers={"Retry-After": "30"},
+            )
+        _in_line += 1
+    try:
+        _running.acquire()
+        try:
+            yield
+        finally:
+            _running.release()
+    finally:
+        with _count_lock:
+            _in_line -= 1
+@router.post("", dependencies=[Depends(upload_gate)])
 def handle_las(
     req: CommitLASRequest,
     action: Optional[str] = Query(None),
@@ -245,12 +272,15 @@ def clean_las(
     server_aliases = _get_user_aliases(db, current_user)
     parsed = _parse_or_400(content, server_aliases)
     initial_qa = analyze_well_log_quality(parsed, custom_aliases=server_aliases)
-    result = clean_las_log_data(
-        parsed,
-        initial_qa,
-        req.options or CleaningOptions(),
-        custom_aliases=server_aliases,
-    )
+    try:
+        result = clean_las_log_data(
+            parsed,
+            initial_qa,
+            req.options or CleaningOptions(),
+            custom_aliases=server_aliases,
+        )
+    except NullMarkerMissingError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     return {
         "success": True,
@@ -337,11 +367,9 @@ def apply_fixes(
             opt_unitStandardization = True
         elif op in ("KNN_IMPUTATION", "NULLIFY_AND_KNN_IMPUTE"):
             imputation_strategy = "KNN"
-        elif op in ("LINEAR_INTERPOLATION", "NULLIFY_FOR_IMPUTATION", "INTERPOLATE_STUCK_INTERVAL"):
+        elif op in ("LINEAR_INTERPOLATION", "NULLIFY_FOR_IMPUTATION", "INTERPOLATE_STUCK_INTERVAL", "MEDIAN_IMPUTATION"):
             if imputation_strategy == "NONE":
                 imputation_strategy = "LINEAR"
-        elif op in ("MEDIAN_IMPUTATION",):
-            imputation_strategy = "MEDIAN"
         elif op == "AUTO_RECOMMENDED_FIX":
             if anom_type == "DUPLICATE_DEPTH":
                 opt_duplicateDepthPruning = True
@@ -371,11 +399,14 @@ def apply_fixes(
         imputationStrategy=imputation_strategy,
     )
 
-    clean_result = clean_las_log_data(
-        target_las,
-        options=cleaning_options,
-        custom_aliases=server_aliases,
-    )
+    try:
+        clean_result = clean_las_log_data(
+            target_las,
+            options=cleaning_options,
+            custom_aliases=server_aliases,
+        )
+    except NullMarkerMissingError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     # Activity log
     log = ActivityLog(

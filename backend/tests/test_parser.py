@@ -133,3 +133,36 @@ GR.GAPI :
     assert "Multiple data sections found; only the first was read." in result.warnings
     assert len(result.data.depth) == 2
     assert result.data.depth == [100.0, 101.0]
+
+
+def _las_with_null(null_line: str, rows: list) -> str:
+    return (
+        "~Version\n VERS. 2.0 :\n WRAP. NO :\n~Well\n STRT.FT 1000 :\n STOP.FT 1059 :\n STEP.FT 1 :\n"
+        + null_line
+        + "~Curve\n DEPT.FT :\n GR.GAPI :\n~A\n"
+        + "\n".join(rows)
+        + "\n"
+    )
+
+
+def _rows_with_marker(marker: str, count: int, header_marker_rows: int = 0) -> list:
+    rows = [f"{1000 + i} {50 + i % 7}" for i in range(60)]
+    for i in range(count):
+        rows[i + 1] = f"{1001 + i} {marker}"
+    for i in range(header_marker_rows):
+        rows[40 + i] = f"{1040 + i} -9999.25"
+    return rows
+
+
+def test_data_marker_replaces_header_marker_that_never_appears():
+    result = parse_las_content(_las_with_null(" NULL. -9999.25 :\n", _rows_with_marker("-9999.99", 20)))
+    assert result.wellInfo.nullValue == -9999.99
+    assert any("never appears in the data" in w for w in result.warnings)
+
+
+def test_header_marker_kept_when_data_marker_is_rare_or_header_marker_present():
+    rare = parse_las_content(_las_with_null(" NULL. -9999.25 :\n", _rows_with_marker("-9999.99", 19)))
+    assert rare.wellInfo.nullValue == -9999.25
+    assert any("was not treated as null" in w for w in rare.warnings)
+    mixed = parse_las_content(_las_with_null(" NULL. -9999.25 :\n", _rows_with_marker("-9999.99", 30, header_marker_rows=2)))
+    assert mixed.wellInfo.nullValue == -9999.25

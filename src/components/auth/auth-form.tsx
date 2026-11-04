@@ -98,7 +98,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         localStorage.removeItem("wellqc_active_user_id");
       } catch { }
 
-      router.replace("/dashboard");
+      router.replace("/upload");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to continue.");

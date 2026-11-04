@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle2, Database, RefreshCw, Sparkles } from "lucide-react";
+import { CheckCircle2, RefreshCw, Sparkles } from "lucide-react";
 import { ParsedLAS } from "@/lib/las/parser";
 import { QualityAnalysisResult } from "@/lib/las/quality-engine";
 
@@ -23,10 +23,9 @@ export function WellOverviewCard({
   savedSuccess,
   saveError,
   savedWell,
-  onCommitToDatabase,
-  onUploadToDatabase,
+  onCommitToDatabase: _onCommitToDatabase,
+  onUploadToDatabase: _onUploadToDatabase,
 }: WellOverviewCardProps) {
-  const handleUpload = onUploadToDatabase || onCommitToDatabase;
   return (
     <div className="space-y-4">
       <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6 shadow-xl">
@@ -83,16 +82,17 @@ export function WellOverviewCard({
               <span>Repair in QA Engine →</span>
             </Link>
 
-            <button
-              type="button"
-              onClick={handleUpload}
-              disabled={isSaving}
-              className="w-full sm:w-auto flex items-center justify-center space-x-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 transition-all disabled:opacity-60 cursor-pointer"
-              title="Save and index this well in the WellQC database"
-            >
-              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
-              <span>{isSaving ? "Saving to DB..." : savedSuccess ? "Uploaded to Database ✓" : "Upload to Database"}</span>
-            </button>
+            {isSaving ? (
+              <div className="flex items-center justify-center space-x-2 px-4 py-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-mono text-xs font-bold shadow-sm">
+                <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
+                <span>Auto-Saving to DB...</span>
+              </div>
+            ) : (savedSuccess || savedWell) ? (
+              <div className="flex items-center justify-center space-x-2 px-4 py-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold shadow-sm">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Saved to Database ✓</span>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

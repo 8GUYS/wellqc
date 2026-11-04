@@ -60,7 +60,7 @@ function VerifyEmailContent() {
           setCountdown(secondsLeft);
           if (secondsLeft <= 0) {
             clearInterval(interval);
-            router.replace("/dashboard");
+            router.replace("/upload");
             router.refresh();
           }
         }, 1000);
@@ -174,7 +174,7 @@ function VerifyEmailContent() {
             <button
               type="button"
               onClick={() => {
-                router.replace("/dashboard");
+                router.replace("/upload");
                 router.refresh();
               }}
               className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"

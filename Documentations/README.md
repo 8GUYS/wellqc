@@ -52,6 +52,13 @@ WellQC is a full-stack cloud platform that automatically validates, cleans, stan
   - **Anomaly Ribbon**: Depth-indexed flags with interactive tooltips correlating anomalies to wireline depths.
 - **Dual View Modes**: **Classic Paper Log View** and **Dark Subsurface View**.
 
+### 🚀 Streamlined Data Upload Flow & Database Auto-Persistence
+- **Direct Post-Auth Focus**: User login, registration, and email verification immediately route directly to the Data Upload workstation (`/upload`).
+- **Zero-Click Database Auto-Save**: Files dropped or selected into the ingestion dropzone are automatically parsed, validated, and saved to the multi-tenant database without requiring manual button clicks.
+- **Universal Tour Guide Header Trigger**: Replaced static status pills with a permanent top header Tour Guide button that launches an interactive guided onboarding tour from any page.
+- **Dynamic Audit Certificates & Cleaned LAS Exports**: The Audit Reports suite (`/reports`) binds live previews, cryptographic seals, and certified LAS 2.0 downloads directly to whichever file is selected in the batch queue or database table.
+- **Responsive Workspace Palette**: Integrated a compact theme switcher icon in the sidebar footer profile card with responsive, viewport-aware popover positioning.
+
 ### 🧭 Interactive Dashboard Onboarding Tour
 - **Step-by-Step Guided Walkthrough**: Interactive, multi-step product tour guiding new petrophysicists and engineers through the core features of the Command Centre:
   - Welcome & platform architecture introduction
@@ -380,27 +387,27 @@ Payment channels supported: **Verve, Mastercard, Visa**, **Bank Transfer**, **US
 
 | Document | Format / Type | Purpose |
 |---|---|---|
-| [**System Overview & Architecture**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/README.md) | Markdown | Platform features, technology stack, setup guide, and physical curve limits. |
-| [**Agile User Stories & Acceptance Criteria**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/user_stories.md) | Markdown | 22 formal user stories across 13 epics with Gherkin acceptance criteria, personas, and MoSCoW priorities. |
-| [**Master Sprint Plan & Ownership Matrix**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/sprint_plan.md) | Markdown | Master 18-week development roadmap, 9-sprint breakdowns, responsibility matrix, and interactive Mermaid Gantt charts. |
-| [**Visual Kanban Board & Trello Guide**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/trello_kanban_board.md) | Markdown | Interactive visual Kanban board with 1-click import guides and free-tier split batches. |
-| [**Trello CSV Board Import**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/wellqc_trello_import.csv) | CSV | Standard Trello CSV import file (66 cards with descriptions, members, labels, and due dates). |
-| [**Trello Native JSON Board**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/wellqc_trello_board.json) | JSON | Complete native Trello board JSON export (9 sprint lists, colored labels, and cards). |
-| [**Microsoft Project Schedule (MPP)**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/wellqc_project_schedule.mpp) | MPP (Binary) | Native Microsoft Project binary file with pre-configured Gantt timeline, views, and dependencies. |
-| [**Microsoft Project Schedule (XML)**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/wellqc_project_schedule.xml) | XML (MSPDI) | 1-Click native Microsoft Project XML file with complete 76-task WBS hierarchy and predecessor links. |
-| [**Microsoft Project Schedule (CSV)**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/wellqc_project_schedule.csv) | CSV | Standard WBS CSV schedule for Microsoft Project or Excel Gantt import. |
-| [**Database Entity-Relationship Schema**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/database_erd.md) | Markdown | Relational schema diagrams, Prisma & SQLAlchemy models, and index specifications. |
+| [**System Overview & Architecture**](Documentations/README.md) | Markdown | Platform features, technology stack, setup guide, and physical curve limits. |
+| [**Agile User Stories & Acceptance Criteria**](Documentations/user_stories.md) | Markdown | 22 formal user stories across 13 epics with Gherkin acceptance criteria, personas, and MoSCoW priorities. |
+| [**Master Sprint Plan & Ownership Matrix**](Documentations/sprint_plan.md) | Markdown | Master 18-week development roadmap, 9-sprint breakdowns, responsibility matrix, and interactive Mermaid Gantt charts. |
+| [**Visual Kanban Board & Trello Guide**](Documentations/trello_kanban_board.md) | Markdown | Interactive visual Kanban board with 1-click import guides and free-tier split batches. |
+| [**Trello CSV Board Import**](Documentations/wellqc_trello_import.csv) | CSV | Standard Trello CSV import file (66 cards with descriptions, members, labels, and due dates). |
+| [**Trello Native JSON Board**](Documentations/wellqc_trello_board.json) | JSON | Complete native Trello board JSON export (9 sprint lists, colored labels, and cards). |
+| [**Microsoft Project Schedule (MPP)**](Documentations/wellqc_project_schedule.mpp) | MPP (Binary) | Native Microsoft Project binary file with pre-configured Gantt timeline, views, and dependencies. |
+| [**Microsoft Project Schedule (XML)**](Documentations/wellqc_project_schedule.xml) | XML (MSPDI) | 1-Click native Microsoft Project XML file with complete 76-task WBS hierarchy and predecessor links. |
+| [**Microsoft Project Schedule (CSV)**](Documentations/wellqc_project_schedule.csv) | CSV | Standard WBS CSV schedule for Microsoft Project or Excel Gantt import. |
+| [**Database Entity-Relationship Schema**](Documentations/database_erd.md) | Markdown | Relational schema diagrams, Prisma & SQLAlchemy models, and index specifications. |
 
 ---|---|---|
-| [**System Overview & Architecture**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/README.md) | Markdown | Platform features, technology stack, setup guide, and physical curve limits. |
-| [**Agile User Stories & Acceptance Criteria**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/user_stories.md) | Markdown | 22 formal user stories across 11 epics with Gherkin acceptance criteria, personas, and MoSCoW priorities. |
-| [**Master Sprint Plan & Ownership Matrix**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/sprint_plan.md) | Markdown | Master 14-week development roadmap, 7-sprint breakdowns, responsibility matrix, and Gantt charts. |
-| [**Visual Kanban Board & Trello Guide**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/trello_kanban_board.md) | Markdown | Interactive visual Kanban board with 1-click import guides for Trello. |
-| [**Trello CSV Board Import**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/wellqc_trello_import.csv) | CSV | Standard Trello CSV import file (50 cards with descriptions, members, labels, and due dates). |
-| [**Trello Native JSON Board**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/wellqc_trello_board.json) | JSON | Complete native Trello board JSON export (7 sprint lists, colored labels, and cards). |
-| [**Microsoft Project Schedule (CSV)**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/wellqc_project_schedule.csv) | CSV | Standard WBS CSV schedule for Microsoft Project or Excel Gantt import. |
-| [**Microsoft Project Schedule (XML)**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/wellqc_project_schedule.xml) | XML (MSPDI) | 1-Click native Microsoft Project XML file with complete task dependencies and predecessor links. |
-| [**Database Entity-Relationship Schema**](file:///c:/Users/Ekwebelam%20C%20Williams/Desktop/NDI-G5/wellqc/Documentations/database_erd.md) | Markdown | Relational schema diagrams, Prisma & SQLAlchemy models, and index specifications. |
+| [**System Overview & Architecture**](Documentations/README.md) | Markdown | Platform features, technology stack, setup guide, and physical curve limits. |
+| [**Agile User Stories & Acceptance Criteria**](Documentations/user_stories.md) | Markdown | 22 formal user stories across 11 epics with Gherkin acceptance criteria, personas, and MoSCoW priorities. |
+| [**Master Sprint Plan & Ownership Matrix**](Documentations/sprint_plan.md) | Markdown | Master 14-week development roadmap, 7-sprint breakdowns, responsibility matrix, and Gantt charts. |
+| [**Visual Kanban Board & Trello Guide**](Documentations/trello_kanban_board.md) | Markdown | Interactive visual Kanban board with 1-click import guides for Trello. |
+| [**Trello CSV Board Import**](Documentations/wellqc_trello_import.csv) | CSV | Standard Trello CSV import file (50 cards with descriptions, members, labels, and due dates). |
+| [**Trello Native JSON Board**](Documentations/wellqc_trello_board.json) | JSON | Complete native Trello board JSON export (7 sprint lists, colored labels, and cards). |
+| [**Microsoft Project Schedule (CSV)**](Documentations/wellqc_project_schedule.csv) | CSV | Standard WBS CSV schedule for Microsoft Project or Excel Gantt import. |
+| [**Microsoft Project Schedule (XML)**](Documentations/wellqc_project_schedule.xml) | XML (MSPDI) | 1-Click native Microsoft Project XML file with complete task dependencies and predecessor links. |
+| [**Database Entity-Relationship Schema**](Documentations/database_erd.md) | Markdown | Relational schema diagrams, Prisma & SQLAlchemy models, and index specifications. |
 
 ---
 

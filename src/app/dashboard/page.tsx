@@ -61,7 +61,23 @@ export default function DashboardPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [filterScope, setFilterScope] = useState<"ALL" | "COMMITTED" | "ATTENTION">("ALL");
-  const [isTourOpen, setIsTourOpen] = useState(false);
+  const [isTourOpen, setIsTourOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return new URLSearchParams(window.location.search).get("tour") === "true";
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  });
+
+  // Listen for Tour Guide triggers from header button
+  useEffect(() => {
+    const handleLaunchTour = () => setIsTourOpen(true);
+    window.addEventListener("wellqc_launch_tour", handleLaunchTour);
+    return () => window.removeEventListener("wellqc_launch_tour", handleLaunchTour);
+  }, []);
   const [paymentNotice, setPaymentNotice] = useState<{ status: string; plan?: string; ref?: string } | null>(() => {
     if (typeof window !== "undefined") {
       try {

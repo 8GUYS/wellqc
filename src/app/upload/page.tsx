@@ -234,8 +234,50 @@ export default function LASUploadPage() {
       if (validFiles.length !== files.length) {
         setSaveError(`${files.length - validFiles.length} file(s) were skipped because they are invalid or over 20 MB.`);
       }
+
+      // Auto-save files directly to the database upon upload/drag-and-drop
+      setIsSaving(true);
+      const committed: QueuedLASFile[] = [];
+      for (let i = 0; i < validFiles.length; i++) {
+        const item = validFiles[i];
+        try {
+          const res = await commitFile(item.name, item.content);
+          committed.push({
+            ...item,
+            status: "saved",
+            savedWell: res.well,
+          });
+          if (i === 0) {
+            setSavedSuccess(true);
+            setSavedWell(res.well);
+            try {
+              const activeUserId = localStorage.getItem("wellqc_active_user_id") || undefined;
+              localStorage.setItem(
+                "wellqc_latest_committed_well",
+                JSON.stringify({
+                  userId: activeUserId,
+                  wellId: res.well.id,
+                  wellName: res.well.name,
+                  qualityScore: res.well.qualityScore,
+                  curveSummaries: item.qa.curveSummaries,
+                  timestamp: Date.now(),
+                }),
+              );
+            } catch {}
+          }
+        } catch (commitErr) {
+          console.warn("Auto-save to database failed for", item.name, commitErr);
+          committed.push({
+            ...item,
+            status: "error",
+            error: commitErr instanceof Error ? commitErr.message : "Failed to save to database",
+          });
+        }
+      }
+      setUploadQueue(committed);
     } finally {
       setIsProcessing(false);
+      setIsSaving(false);
     }
   };
 

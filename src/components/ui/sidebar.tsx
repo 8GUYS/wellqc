@@ -20,6 +20,7 @@ import {
   FileText,
 } from "lucide-react";
 import { WellQCIcon } from "./wellqc-logo";
+import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 
 interface SidebarProps {
   currentRole: string;
@@ -293,73 +294,82 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
         </button>
       </div>
 
-      {/* User Profile Card & Telemetry Footer */}
+      {/* User Profile Card & Telemetry Footer with Theme Switcher Icon */}
       <div className="p-2.5 border-t border-wellqc-border bg-slate-950/60">
         {collapsed ? (
-          <Link
-            href="/profile"
-            onClick={onCloseMobileNav}
-            title={`${userProfile.name} • ${userProfile.department}`}
-            className="flex justify-center group"
-          >
-            <div className="relative">
-              {userProfile.avatarUrl ? (
-                <img
-                  src={userProfile.avatarUrl}
-                  alt={userProfile.name}
-                  className="w-9 h-9 rounded-full object-cover ring-2 ring-cyan-500/40 group-hover:ring-cyan-400 transition-all shadow-md"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = "none";
-                  }}
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700/80 flex items-center justify-center ring-1 ring-slate-700 group-hover:ring-cyan-400 group-hover:border-cyan-500/40 transition-all shadow-md">
-                  <User className="w-4 h-4 text-slate-400 group-hover:text-cyan-300" />
-                </div>
-              )}
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-950" />
-            </div>
-          </Link>
+          <div className="flex flex-col items-center space-y-2.5">
+            <Link
+              href="/profile"
+              onClick={onCloseMobileNav}
+              title={`${userProfile.name} • ${userProfile.department}`}
+              className="flex justify-center group"
+            >
+              <div className="relative">
+                {userProfile.avatarUrl ? (
+                  <img
+                    src={userProfile.avatarUrl}
+                    alt={userProfile.name}
+                    className="w-9 h-9 rounded-full object-cover ring-2 ring-cyan-500/40 group-hover:ring-cyan-400 transition-all shadow-md"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700/80 flex items-center justify-center ring-1 ring-slate-700 group-hover:ring-cyan-400 group-hover:border-cyan-500/40 transition-all shadow-md">
+                    <User className="w-4 h-4 text-slate-400 group-hover:text-cyan-300" />
+                  </div>
+                )}
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-950" />
+              </div>
+            </Link>
+            <ThemeSwitcher iconOnly dropUp align="left" />
+          </div>
         ) : (
-          <Link
-            href="/profile"
-            onClick={onCloseMobileNav}
-            className="flex items-center space-x-3 p-2 rounded-xl hover:bg-slate-800/60 transition-all group"
-          >
-            <div className="relative shrink-0">
-              {userProfile.avatarUrl ? (
-                <img
-                  src={userProfile.avatarUrl}
-                  alt={userProfile.name}
-                  className="w-9 h-9 rounded-full object-cover ring-2 ring-cyan-500/40 group-hover:ring-cyan-300 transition-all shadow-md"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = "none";
-                  }}
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700/80 flex items-center justify-center ring-1 ring-slate-700 group-hover:ring-cyan-400 group-hover:border-cyan-500/40 transition-all shadow-md">
-                  <User className="w-4 h-4 text-slate-400 group-hover:text-cyan-300" />
-                </div>
-              )}
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-950" />
-            </div>
+          <div className="flex items-center justify-between gap-1.5">
+            <Link
+              href="/profile"
+              onClick={onCloseMobileNav}
+              className="flex items-center space-x-3 p-1.5 rounded-xl hover:bg-slate-800/60 transition-all group flex-1 min-w-0"
+            >
+              <div className="relative shrink-0">
+                {userProfile.avatarUrl ? (
+                  <img
+                    src={userProfile.avatarUrl}
+                    alt={userProfile.name}
+                    className="w-9 h-9 rounded-full object-cover ring-2 ring-cyan-500/40 group-hover:ring-cyan-300 transition-all shadow-md"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700/80 flex items-center justify-center ring-1 ring-slate-700 group-hover:ring-cyan-400 group-hover:border-cyan-500/40 transition-all shadow-md">
+                    <User className="w-4 h-4 text-slate-400 group-hover:text-cyan-300" />
+                  </div>
+                )}
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-950" />
+              </div>
 
-            <div className="flex-1 min-w-0 text-left">
-              <div className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors truncate">
-                {userProfile.name}
+              <div className="flex-1 min-w-0 text-left">
+                <div className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors truncate">
+                  {userProfile.name}
+                </div>
+                <div className="text-[10px] text-slate-400 truncate">
+                  {userProfile.department}
+                </div>
+                <div className="flex items-center space-x-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[9px] font-mono text-emerald-400 font-bold uppercase">
+                    Connected
+                  </span>
+                  <span className="text-[9px] font-mono text-slate-500">• v2.4</span>
+                </div>
               </div>
-              <div className="text-[10px] text-slate-400 truncate">
-                {userProfile.department}
-              </div>
-              <div className="flex items-center space-x-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[9px] font-mono text-emerald-400 font-bold uppercase">
-                  Connected
-                </span>
-                <span className="text-[9px] font-mono text-slate-500">• v2.4</span>
-              </div>
+            </Link>
+
+            <div className="shrink-0">
+              <ThemeSwitcher iconOnly dropUp align="left" />
             </div>
-          </Link>
+          </div>
         )}
       </div>
     </aside>

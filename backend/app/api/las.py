@@ -515,27 +515,3 @@ def get_las_download_url(
         return {"content": las.rawContent, "source": "db"}
     raise HTTPException(status_code=404, detail="File content not available.")
 
-@router.get("/{las_file_id}/download-url")
-def get_las_download_url(
-    las_file_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Returns a presigned Cloudflare R2 URL to download the original LAS file (valid 1 hour).
-    Falls back to returning the raw content inline if the file predates R2 migration.
-    """
-    from backend.app.services import r2_storage
-    las = db.query(LASFile).filter(
-        LASFile.id == las_file_id,
-        LASFile.ownerId == current_user.id
-    ).first()
-    if not las:
-        raise HTTPException(status_code=404, detail="LAS file not found.")
-    if las.r2Key:
-        url = r2_storage.generate_presigned_download_url(las.r2Key)
-        if url:
-            return {"url": url, "source": "r2"}
-    if las.rawContent:
-        return {"content": las.rawContent, "source": "db"}
-    raise HTTPException(status_code=404, detail="File content not available.")

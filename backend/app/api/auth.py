@@ -68,7 +68,7 @@ def _delete_session_cookie(response: Response) -> None:
     )
 
 
-@router.post("/login", dependencies=[Depends(RateLimitDependency(max_requests=10, window_seconds=60, action="login"))])
+@router.post("/login", dependencies=[Depends(RateLimitDependency(max_requests=5, window_seconds=60, action="login"))])
 def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
     safe_email = req.email.strip().lower() if req.email else ""
     user = db.query(User).filter(User.email == safe_email).first() if safe_email else None

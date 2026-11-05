@@ -51,11 +51,11 @@ export default function OfflinePage() {
             <span>Check Connection</span>
           </button>
           <Link
-            href="/dashboard"
+            href="/upload"
             className="py-2.5 px-4 rounded-xl text-xs font-semibold bg-wellqc-card hover:bg-slate-800 text-slate-300 hover:text-white border border-wellqc-border transition-colors flex items-center justify-center space-x-1.5"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Return to Dashboard</span>
+            <span>Return to Workstation</span>
           </Link>
         </div>
       </div>

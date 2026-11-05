@@ -8,6 +8,12 @@
 
 const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN || "";
 
+type SentryLike = {
+  captureException: (error: unknown, hint?: { extra?: Record<string, unknown> }) => void;
+};
+
+type WindowWithSentry = Window & { Sentry?: SentryLike };
+
 export function reportError(error: unknown, context?: Record<string, unknown>) {
   if (typeof window !== "undefined") {
     console.error("[WellQC Observability] Client error captured:", error, context);
@@ -19,8 +25,8 @@ export function reportError(error: unknown, context?: Record<string, unknown>) {
 
   try {
     // If Sentry is installed / loaded globally
-    const win = typeof window !== "undefined" ? (window as any) : null;
-    if (win && win.Sentry) {
+    const win = typeof window !== "undefined" ? (window as WindowWithSentry) : null;
+    if (win?.Sentry) {
       win.Sentry.captureException(error, { extra: context });
     }
   } catch (err) {

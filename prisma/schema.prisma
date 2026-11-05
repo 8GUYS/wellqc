@@ -105,6 +105,7 @@ model LASFile {
   depthUnit    String          @default("FT")
   rawHeader    String
   rawContent   String?         @db.Text
+  r2Key        String?         // Cloudflare R2 object key; null means content is in rawContent column
   curveCount   Int             @default(0)
   pointCount   Int             @default(0)
   status       String          @default("PROCESSED") // UPLOADED, PARSING, PROCESSED, ERROR

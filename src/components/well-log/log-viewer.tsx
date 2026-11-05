@@ -5,8 +5,6 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  FileText,
-  Layout,
   LineChart,
   Columns,
   Table,
@@ -189,7 +187,7 @@ export function WellLogViewer({
   const [internalLayoutMode, setInternalLayoutMode] = useState<"GRAPH" | "SPLIT" | "TABLE">(
     externalLayoutMode || initialLayoutMode
   );
-  const [viewMode] = useState<"CLASSIC_PAPER" | "DARK_MODERN">("CLASSIC_PAPER");
+  const [viewMode] = useState<"CLASSIC_PAPER" | "DARK_MODERN">(initialViewMode);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [selectedDepth, setSelectedDepth] = useState<number | null>(null);
   const [scrollTop, setScrollTop] = useState(0);

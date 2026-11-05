@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { ParsedLAS } from "@/lib/las/parser";
-import { QualityAnalysisResult } from "@/lib/las/quality-engine";
+import { QualityAnalysisResult, CurveHealthSummary, AnomalyReportItem } from "@/lib/las/quality-engine";
 import { AIAnalysisOutput } from "@/lib/las/ai-analyzer";
 import { analyzeLAS } from "@/lib/las/api";
 import { reconstructRawLASText } from "@/lib/las/exporter";
@@ -473,7 +473,9 @@ export default function LASUploadPage() {
           depthUnit,
         },
         curves: Object.keys(curvesData.curves || {}).map((m) => {
-          const summary = data.curveSummaries?.find((c: any) => c.mnemonic === m);
+          const summary = (data.curveSummaries as CurveHealthSummary[] | undefined)?.find(
+            (c) => c.mnemonic === m
+          );
           return {
             mnemonic: m,
             unit: summary?.unit || "",
@@ -487,13 +489,23 @@ export default function LASUploadPage() {
         warnings: [],
       };
 
-      const anomalies = Array.isArray(data.anomalies) ? data.anomalies : [];
-      const criticalCount = anomalies.filter((a: any) => a.severity === "CRITICAL").length;
-      const warningCount = anomalies.filter((a: any) => a.severity === "WARNING" || a.severity === "MODERATE").length;
+      const anomalies: AnomalyReportItem[] = Array.isArray(data.anomalies) ? data.anomalies : [];
+      const criticalCount = anomalies.filter((a) => a.severity === "CRITICAL").length;
+      const warningCount = anomalies.filter(
+        (a) => a.severity === "WARNING" || (a.severity as string) === "MODERATE"
+      ).length;
+
+      const qualityGrade: QualityAnalysisResult["qualityGrade"] =
+        well.qualityGrade === "EXCELLENT" ||
+        well.qualityGrade === "GOOD" ||
+        well.qualityGrade === "POOR" ||
+        well.qualityGrade === "CRITICAL"
+          ? well.qualityGrade
+          : "GOOD";
 
       const reconstructedQA: QualityAnalysisResult = {
         overallScore: typeof well.qualityScore === "number" ? well.qualityScore : 75,
-        qualityGrade: (well.qualityGrade || "GOOD") as any,
+        qualityGrade,
         completenessScore: 88,
         consistencyScore: 92,
         anomalyCount: anomalies.length,
@@ -504,10 +516,17 @@ export default function LASUploadPage() {
         missingStandardCurves: [],
       };
 
+      const riskRating: AIAnalysisOutput["riskRating"] =
+        well.qualityGrade === "CRITICAL"
+          ? "CRITICAL"
+          : well.qualityGrade === "POOR"
+            ? "HIGH"
+            : "LOW";
+
       const reconstructedAI: AIAnalysisOutput = {
         summary: data.aiSummary || "Interpretation-ready well log dataset loaded from database repository.",
         recommendations: Array.isArray(data.recommendations) ? data.recommendations : [],
-        riskRating: (well.qualityGrade === "CRITICAL" ? "CRITICAL" : well.qualityGrade === "POOR" ? "HIGH" : "LOW") as any,
+        riskRating,
         confidenceScore: 0.94,
         flaggedIntervals: [],
       };

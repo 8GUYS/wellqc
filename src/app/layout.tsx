@@ -1,4 +1,3 @@
-import Script from "next/script";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/theme-provider";
@@ -108,20 +107,29 @@ export default function RootLayout({
           }}
         />
         {process.env.NEXT_PUBLIC_SENTRY_DSN && (
-          <Script
-            src="https://browser.sentry-cdn.com/8.38.0/bundle.min.js"
-            strategy="afterInteractive"
-            crossOrigin="anonymous"
-            onLoad={() => {
-              if (typeof window !== "undefined" && (window as any).Sentry) {
-                (window as any).Sentry.init({
-                  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-                  environment: process.env.NODE_ENV,
-                  tracesSampleRate: 0.1,
-                });
-              }
-            }}
-          />
+          <>
+            <script
+              src="https://browser.sentry-cdn.com/8.38.0/bundle.min.js"
+              crossOrigin="anonymous"
+              defer
+            />
+            <script
+              id="sentry-browser-init"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.addEventListener('load', function() {
+                    if (window.Sentry) {
+                      window.Sentry.init({
+                        dsn: ${JSON.stringify(process.env.NEXT_PUBLIC_SENTRY_DSN)},
+                        environment: ${JSON.stringify(process.env.NODE_ENV || 'production')},
+                        tracesSampleRate: 0.1
+                      });
+                    }
+                  });
+                `,
+              }}
+            />
+          </>
         )}
       </head>
       <body className="bg-wellqc-dark text-wellqc-text min-h-screen font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200">

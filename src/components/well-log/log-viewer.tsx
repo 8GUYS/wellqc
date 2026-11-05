@@ -15,6 +15,10 @@ import {
   Check,
   Search,
   X,
+  Crosshair,
+  AlertTriangle,
+  CheckCircle2,
+  Activity,
 } from "lucide-react";
 import { WellLogDataTable } from "./log-data-table";
 import { STANDARD_CURVES, standardiseMnemonic } from "@/lib/las/standardiser";
@@ -139,14 +143,32 @@ function getDefaultSelectedCurves(available: string[]): string[] {
   return prioritized.length > 0 ? prioritized : available.slice(0, 3);
 }
 
-// Binary search: first index in an ascending sorted array whose value is >= target.
+// Helper to detect null or missing values in well log series
+export function isNullOrGap(val: number | null | undefined): boolean {
+  return (
+    val === null ||
+    val === undefined ||
+    isNaN(val) ||
+    !isFinite(val) ||
+    val === -999.25 ||
+    val === -9999 ||
+    val === -999 ||
+    val <= -999
+  );
+}
+
+// Binary search with nearest-neighbor snapping for accurate depth coordinate mapping
 function findDepthIndex(target: number, arr: number[]): number {
+  if (arr.length === 0) return 0;
   let lo = 0;
   let hi = arr.length - 1;
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
     if (arr[mid] < target) lo = mid + 1;
     else hi = mid;
+  }
+  if (lo > 0 && Math.abs(arr[lo - 1] - target) < Math.abs(arr[lo] - target)) {
+    return lo - 1;
   }
   return lo;
 }
@@ -171,6 +193,13 @@ export function WellLogViewer({
   const [zoomLevel, setZoomLevel] = useState(1);
   const [selectedDepth, setSelectedDepth] = useState<number | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
+
+  // Live Wireline Hover & Depth Inspection State
+  const [hoverDepth, setHoverDepth] = useState<number | null>(null);
+  const [hoverSampleIdx, setHoverSampleIdx] = useState<number | null>(null);
+  const [hoverClientPos, setHoverClientPos] = useState<{ x: number; y: number } | null>(null);
+  const [hoverTrackKey, setHoverTrackKey] = useState<string | null>(null);
+  const [isHovering, setIsHovering] = useState<boolean>(false);
 
   // Dropdown selector state
   const [isTrackDropdownOpen, setIsTrackDropdownOpen] = useState(false);
@@ -607,6 +636,323 @@ export function WellLogViewer({
     });
   }, [allCurveKeys, curveSearchQuery, curveMetaMap]);
 
+  // Hover & Real-time inspection event handlers
+  const handleTrackMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>, trackKey?: string) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const scrollY = e.currentTarget.scrollTop;
+      const clientYInContent = e.clientY - rect.top + scrollY;
+      const rawDepth = minDepth + ((clientYInContent - 30) / (svgHeight - 60)) * depthSpan;
+      const clampedDepth = Math.max(minDepth, Math.min(maxDepth, rawDepth));
+      const idx = findDepthIndex(clampedDepth, depthArr);
+      const resolvedDepth = depthArr[idx] ?? clampedDepth;
+
+      setIsHovering(true);
+      setHoverDepth(resolvedDepth);
+      setHoverSampleIdx(idx);
+      setHoverClientPos({ x: e.clientX, y: e.clientY });
+      if (trackKey) setHoverTrackKey(trackKey);
+    },
+    [minDepth, maxDepth, depthSpan, svgHeight, depthArr]
+  );
+
+  const handleTrackMouseLeave = useCallback(() => {
+    setIsHovering(false);
+    setHoverDepth(null);
+    setHoverSampleIdx(null);
+    setHoverClientPos(null);
+    setHoverTrackKey(null);
+  }, []);
+
+  const handleTrackTouchMove = useCallback(
+    (e: React.TouchEvent<HTMLDivElement>, trackKey?: string) => {
+      if (e.touches.length === 0) return;
+      const touch = e.touches[0];
+      const rect = e.currentTarget.getBoundingClientRect();
+      const scrollY = e.currentTarget.scrollTop;
+      const clientYInContent = touch.clientY - rect.top + scrollY;
+      const rawDepth = minDepth + ((clientYInContent - 30) / (svgHeight - 60)) * depthSpan;
+      const clampedDepth = Math.max(minDepth, Math.min(maxDepth, rawDepth));
+      const idx = findDepthIndex(clampedDepth, depthArr);
+      const resolvedDepth = depthArr[idx] ?? clampedDepth;
+
+      setIsHovering(true);
+      setHoverDepth(resolvedDepth);
+      setHoverSampleIdx(idx);
+      setHoverClientPos({ x: touch.clientX, y: touch.clientY });
+      if (trackKey) setHoverTrackKey(trackKey);
+    },
+    [minDepth, maxDepth, depthSpan, svgHeight, depthArr]
+  );
+
+  const handleTrackClick = useCallback(() => {
+    if (hoverDepth !== null) {
+      setSelectedDepth((prev) => (prev === hoverDepth ? null : hoverDepth));
+    }
+  }, [hoverDepth]);
+
+  // Derived telemetry metrics for the hovered depth & sample
+  const hoverTelemetry = useMemo(() => {
+    if (
+      hoverSampleIdx === null ||
+      hoverDepth === null ||
+      hoverSampleIdx < 0 ||
+      hoverSampleIdx >= depthArr.length
+    ) {
+      return null;
+    }
+
+    const currentDepth = depthArr[hoverSampleIdx] ?? hoverDepth;
+    const curveReadings = selectedTracks.map((track) => {
+      const val = track.series[hoverSampleIdx];
+      const isNull = isNullOrGap(val);
+      const inGap = track.visibleGaps.find(
+        (g) => currentDepth >= g.startDepth && currentDepth <= g.endDepth
+      );
+      const anomaly = track.curveAnomalies.find(
+        (a) => currentDepth >= a.depthStart && currentDepth <= (a.depthEnd ?? a.depthStart)
+      );
+
+      return {
+        key: track.key,
+        mnemonic: track.meta.mnemonic,
+        name: track.meta.name,
+        unit: track.meta.unit,
+        val,
+        isNull,
+        inGap,
+        anomaly,
+        colorPaper: track.meta.colorPaper,
+        colorDark: track.meta.colorDark,
+        minVal: track.meta.minVal,
+        maxVal: track.meta.maxVal,
+        isLogScale: track.meta.isLogScale,
+      };
+    });
+
+    const nullCount = curveReadings.filter((c) => c.isNull).length;
+    const hasAnyNull = nullCount > 0;
+    const anomaliesAtDepth = anomalies.filter(
+      (a) => currentDepth >= a.depthStart && currentDepth <= (a.depthEnd ?? a.depthStart)
+    );
+
+    return {
+      depth: currentDepth,
+      sampleIdx: hoverSampleIdx,
+      readings: curveReadings,
+      hasAnyNull,
+      nullCount,
+      anomaliesAtDepth,
+    };
+  }, [hoverSampleIdx, hoverDepth, depthArr, selectedTracks, anomalies]);
+
+  const renderTelemetryHudBar = () => {
+    const isDark = viewMode === "DARK_MODERN";
+
+    if (!hoverTelemetry) {
+      return (
+        <div
+          className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-mono transition-all duration-200 border ${
+            isDark
+              ? "bg-wellqc-panel/90 border-wellqc-border text-slate-300"
+              : "bg-slate-100 border-slate-300 text-slate-700 font-sans font-medium"
+          }`}
+        >
+          <div className="flex items-center space-x-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+            <span className="font-bold">Real-Time Wireline Telemetry:</span>
+            <span className="text-slate-400 font-normal hidden sm:inline">
+              Hover cursor over any wireline curve to inspect live values, locate null intervals (-999.25), and audit anomalies.
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-2 text-[11px]">
+            {selectedDepth !== null ? (
+              <div className="flex items-center space-x-1.5 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 px-2 py-0.5 rounded-lg">
+                <Crosshair className="w-3 h-3" />
+                <span>Locked Depth: {selectedDepth.toFixed(1)} {depthUnit}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDepth(null)}
+                  className="hover:text-red-400 ml-1 text-slate-400"
+                  title="Clear locked depth"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <span className="text-[10px] text-slate-400 italic">Click log to lock depth</span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className={`flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-mono transition-all duration-150 border shadow-lg ${
+          isDark
+            ? "bg-slate-900/95 border-cyan-500/40 text-white"
+            : "bg-white border-2 border-red-600 text-black font-sans"
+        }`}
+      >
+        {/* Depth & Sample Indicator */}
+        <div className="flex items-center space-x-2.5 shrink-0">
+          <div
+            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg font-black text-xs ${
+              hoverTelemetry.hasAnyNull
+                ? isDark
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                  : "bg-amber-100 text-amber-950 border border-amber-400"
+                : isDark
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
+                : "bg-slate-900 text-white"
+            }`}
+          >
+            <Crosshair className="w-3.5 h-3.5" />
+            <span className="font-mono text-sm tracking-wide">
+              {hoverTelemetry.depth.toFixed(2)} {depthUnit}
+            </span>
+          </div>
+
+          <span className="text-[11px] text-slate-400 font-mono hidden md:inline">
+            Point #{hoverTelemetry.sampleIdx + 1} of {totalPoints.toLocaleString()}
+            {hoverTrackKey && (
+              <span className="text-cyan-400 ml-1.5 font-bold">[{hoverTrackKey}]</span>
+            )}
+          </span>
+        </div>
+
+        {/* Live Active Curve Readings */}
+        <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+          {hoverTelemetry.readings.map((r) => {
+            return (
+              <div
+                key={r.key}
+                className={`flex items-center space-x-1.5 px-2 py-0.5 rounded-lg border text-xs transition-all ${
+                  r.isNull
+                    ? isDark
+                      ? "bg-red-950/80 border-red-500/80 text-red-200 animate-pulse font-bold"
+                      : "bg-red-50 border-2 border-red-600 text-red-700 font-bold"
+                    : isDark
+                    ? "bg-slate-800/80 border-slate-700 text-slate-200"
+                    : "bg-slate-50 border border-slate-300 text-slate-900"
+                }`}
+              >
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: isDark ? r.colorDark : r.colorPaper }}
+                />
+                <span className="font-bold uppercase">{r.mnemonic}:</span>
+                {r.isNull ? (
+                  <span className="font-mono font-black text-red-400 flex items-center space-x-1">
+                    <AlertTriangle className="w-3 h-3 text-red-400" />
+                    <span>NULL ({r.val !== undefined && r.val !== null ? r.val : "-999.25"})</span>
+                  </span>
+                ) : (
+                  <span className="font-mono font-extrabold text-cyan-400 dark:text-cyan-300">
+                    {r.val.toFixed(2)} <span className="text-[10px] text-slate-400">{r.unit}</span>
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Status Callout Badge */}
+        <div className="flex items-center space-x-2 shrink-0">
+          {hoverTelemetry.hasAnyNull ? (
+            <span className="px-2 py-1 rounded-lg bg-red-500/20 text-red-300 border border-red-500/40 text-[11px] font-bold flex items-center space-x-1.5 animate-pulse">
+              <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+              <span>{hoverTelemetry.nullCount} NULL VALUE{hoverTelemetry.nullCount > 1 ? "S" : ""}</span>
+            </span>
+          ) : hoverTelemetry.anomaliesAtDepth.length > 0 ? (
+            <span className="px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-bold flex items-center space-x-1.5">
+              <Activity className="w-3.5 h-3.5 text-amber-400" />
+              <span>{hoverTelemetry.anomaliesAtDepth[0].anomalyType.replace(/_/g, " ")}</span>
+            </span>
+          ) : (
+            <span className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold flex items-center space-x-1 hidden lg:flex">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>VALID READINGS</span>
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderFloatingTooltip = () => {
+    if (!isHovering || !hoverClientPos || !hoverTelemetry) return null;
+
+    const left = Math.min(
+      hoverClientPos.x + 18,
+      typeof window !== "undefined" ? window.innerWidth - 260 : 800
+    );
+    const top = Math.min(
+      hoverClientPos.y + 12,
+      typeof window !== "undefined" ? window.innerHeight - 280 : 600
+    );
+
+    return (
+      <div
+        className="fixed pointer-events-none z-50 bg-slate-950/95 backdrop-blur-md border border-slate-700/80 text-white rounded-xl shadow-2xl p-3 min-w-[220px] max-w-xs space-y-2 text-xs font-mono transition-transform duration-75 select-none animate-in fade-in zoom-in-95 duration-100"
+        style={{ left: `${left}px`, top: `${top}px` }}
+      >
+        <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+          <div className="flex items-center space-x-1.5">
+            <Crosshair className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="font-extrabold text-white text-sm">
+              {hoverTelemetry.depth.toFixed(2)} {depthUnit}
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-400">
+            #{hoverTelemetry.sampleIdx + 1}
+          </span>
+        </div>
+
+        <div className="space-y-1">
+          {hoverTelemetry.readings.map((r) => (
+            <div key={r.key} className="flex items-center justify-between gap-2 text-[11px]">
+              <div className="flex items-center space-x-1.5 min-w-0">
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: r.colorDark }}
+                />
+                <span className="font-bold text-slate-200 truncate">{r.mnemonic}:</span>
+              </div>
+
+              {r.isNull ? (
+                <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-black border border-red-500/40 text-[10px] animate-pulse flex items-center space-x-1">
+                  <AlertTriangle className="w-2.5 h-2.5 text-red-400" />
+                  <span>NULL ({r.val !== undefined && r.val !== null ? r.val : "-999.25"})</span>
+                </span>
+              ) : (
+                <span className="font-bold text-cyan-300">
+                  {r.val.toFixed(2)} <span className="text-[10px] text-slate-400">{r.unit}</span>
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {hoverTelemetry.hasAnyNull && (
+          <div className="pt-1.5 border-t border-slate-800 text-[10px] text-amber-400 font-sans flex items-center space-x-1">
+            <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+            <span>Missing petrophysical data (-999.25) at this depth</span>
+          </div>
+        )}
+
+        {hoverTelemetry.anomaliesAtDepth.length > 0 && (
+          <div className="pt-1.5 border-t border-slate-800 text-[10px] text-rose-400 font-sans flex items-center space-x-1">
+            <Activity className="w-3 h-3 text-rose-400 shrink-0" />
+            <span>Anomaly: {hoverTelemetry.anomaliesAtDepth[0].anomalyType.replace(/_/g, " ")}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Graphical Log Rendering
   const renderGraphLog = () => {
     const paneHeight = Math.min(svgHeight, VIEWPORT_HEIGHT);
@@ -635,6 +981,9 @@ export function WellLogViewer({
               <span className="text-[10px] text-slate-600">WellQC Telemetry</span>
             </div>
           </div>
+
+          {/* Real-time Wireline Telemetry HUD */}
+          <div className="mb-2">{renderTelemetryHudBar()}</div>
 
           {/* Log Track Header Box */}
           <div className="flex border-2 border-black bg-white text-black font-sans font-bold text-center text-xs min-w-[580px]">
@@ -714,7 +1063,12 @@ export function WellLogViewer({
           {/* Main Log Grid Body — fixed-height scroll viewport (windowed rendering) */}
           <div
             onScroll={handleTrackScroll}
-            className="relative border-2 border-t-0 border-black bg-white overflow-y-auto overflow-x-hidden min-w-[580px]"
+            onMouseMove={(e) => handleTrackMouseMove(e)}
+            onMouseLeave={handleTrackMouseLeave}
+            onTouchMove={(e) => handleTrackTouchMove(e)}
+            onTouchEnd={handleTrackMouseLeave}
+            onClick={handleTrackClick}
+            className="relative border-2 border-t-0 border-black bg-white overflow-y-auto overflow-x-hidden min-w-[580px] cursor-crosshair"
             style={{ height: `${paneHeight}px` }}
           >
             <div className="relative" style={{ height: `${svgHeight}px` }}>
@@ -740,6 +1094,24 @@ export function WellLogViewer({
                   <span className="bg-cyan-600 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
                     Target Depth: {selectedDepth.toFixed(1)} {depthUnit}
                   </span>
+                </div>
+              )}
+
+              {/* Hover Crosshair Guide Line spanning all tracks */}
+              {hoverDepth !== null && (
+                <div
+                  className="absolute left-0 right-0 border-b-2 border-red-600/90 z-30 pointer-events-none flex items-center justify-between"
+                  style={{ top: `${mapDepthToY(hoverDepth)}px`, transform: "translateY(-50%)" }}
+                >
+                  <div className="bg-red-600 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-r shadow-md flex items-center space-x-1.5">
+                    <Crosshair className="w-3 h-3 text-white" />
+                    <span>{hoverDepth.toFixed(2)} {depthUnit}</span>
+                    {hoverTelemetry?.hasAnyNull && (
+                      <span className="bg-amber-400 text-black px-1 rounded text-[9px] font-black uppercase">
+                        NULL DETECTED
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -792,7 +1164,61 @@ export function WellLogViewer({
                         strokeLinecap="round"
                         points={track.points}
                       />
+
+                      {/* Hover Point on Curve */}
+                      {hoverDepth !== null && (() => {
+                        const reading = hoverTelemetry?.readings.find((r) => r.key === track.key);
+                        if (!reading || reading.isNull || reading.val === undefined) return null;
+                        const x = mapValueToX(reading.val, track.meta.minVal, track.meta.maxVal, 100, track.meta.isLogScale);
+                        const y = mapDepthToY(hoverDepth);
+                        return (
+                          <circle
+                            cx={x}
+                            cy={y}
+                            r="4"
+                            fill={track.meta.colorPaper}
+                            stroke="#ffffff"
+                            strokeWidth="2"
+                            className="pointer-events-none"
+                          />
+                        );
+                      })()}
                     </svg>
+
+                    {/* Hover Value Badge & Explicit Null Value Callout on Line */}
+                    {hoverDepth !== null && (() => {
+                      const reading = hoverTelemetry?.readings.find((r) => r.key === track.key);
+                      if (!reading) return null;
+                      const y = mapDepthToY(hoverDepth);
+
+                      if (reading.isNull) {
+                        return (
+                          <div
+                            className="absolute left-1 right-1 bg-red-600 text-white border-2 border-black px-1.5 py-0.5 rounded shadow-lg text-[10px] font-black font-sans flex items-center justify-center space-x-1 z-30 pointer-events-none animate-pulse"
+                            style={{ top: `${y}px`, transform: "translateY(-50%)" }}
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                            <span className="truncate">
+                              ⚠️ NULL VALUE ({reading.val !== undefined && reading.val !== null ? reading.val : "-999.25"})
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      const x = mapValueToX(reading.val, track.meta.minVal, track.meta.maxVal, 100, track.meta.isLogScale);
+                      return (
+                        <div
+                          className="absolute font-mono font-black text-[10px] px-1.5 py-0.5 rounded shadow z-30 pointer-events-none text-white whitespace-nowrap"
+                          style={{
+                            left: `${Math.min(75, Math.max(8, x))}%`,
+                            top: `${y - 20}px`,
+                            backgroundColor: track.meta.colorPaper,
+                          }}
+                        >
+                          {reading.val.toFixed(2)} {track.meta.unit}
+                        </div>
+                      );
+                    })()}
 
                     {/* Missing Gaps Callouts */}
                     {track.visibleGaps.map((gap, i) => {
@@ -841,6 +1267,9 @@ export function WellLogViewer({
     // Modern Dark Mode
     return (
       <div className="bg-wellqc-card border border-wellqc-border rounded-xl p-5 shadow-2xl space-y-4">
+        {/* Real-time Wireline Telemetry HUD */}
+        {renderTelemetryHudBar()}
+
         {selectedDepth !== null && (
           <div className="p-2.5 bg-cyan-500/10 border border-cyan-500/30 rounded-lg flex items-center justify-between text-xs font-mono text-cyan-300">
             <span>Synchronized Depth Marker:</span>
@@ -918,9 +1347,14 @@ export function WellLogViewer({
                 </div>
 
                 <div
-                  className="relative bg-wellqc-dark rounded-lg overflow-y-auto overflow-x-hidden p-2 border border-wellqc-border"
+                  className="relative bg-wellqc-dark rounded-lg overflow-y-auto overflow-x-hidden p-2 border border-wellqc-border cursor-crosshair"
                   style={{ height: `${Math.min(svgHeight, VIEWPORT_HEIGHT)}px` }}
                   onScroll={handleTrackScroll}
+                  onMouseMove={(e) => handleTrackMouseMove(e, track.key)}
+                  onMouseLeave={handleTrackMouseLeave}
+                  onTouchMove={(e) => handleTrackTouchMove(e, track.key)}
+                  onTouchEnd={handleTrackMouseLeave}
+                  onClick={handleTrackClick}
                 >
                   <div style={{ height: `${svgHeight}px`, position: "relative" }}>
                     {/* Logarithmic Guide Lines */}
@@ -930,6 +1364,19 @@ export function WellLogViewer({
                         <div className="border-r border-red-500/10 h-full w-[25%]" />
                         <div className="border-r border-red-500/10 h-full w-[25%]" />
                         <div className="h-full w-[25%]" />
+                      </div>
+                    )}
+
+                    {/* Synchronized Crosshair on Dark Track */}
+                    {hoverDepth !== null && (
+                      <div
+                        className="absolute left-0 right-0 border-b border-cyan-400/80 z-30 pointer-events-none flex items-center justify-between"
+                        style={{ top: `${mapDepthToY(hoverDepth)}px`, transform: "translateY(-50%)" }}
+                      >
+                        <div className="bg-cyan-500 text-slate-950 text-[9px] font-mono font-black px-1.5 py-0.5 rounded shadow flex items-center space-x-1">
+                          <Crosshair className="w-2.5 h-2.5" />
+                          <span>{hoverDepth.toFixed(1)} {depthUnit}</span>
+                        </div>
                       </div>
                     )}
 
@@ -945,7 +1392,61 @@ export function WellLogViewer({
                         vectorEffect="non-scaling-stroke"
                         points={track.points}
                       />
+
+                      {/* Hover Point on Curve */}
+                      {hoverDepth !== null && (() => {
+                        const reading = hoverTelemetry?.readings.find((r) => r.key === track.key);
+                        if (!reading || reading.isNull || reading.val === undefined) return null;
+                        const x = mapValueToX(reading.val, track.meta.minVal, track.meta.maxVal, 100, track.meta.isLogScale);
+                        const y = mapDepthToY(hoverDepth);
+                        return (
+                          <circle
+                            cx={x}
+                            cy={y}
+                            r="4"
+                            fill={track.meta.colorDark}
+                            stroke="#030712"
+                            strokeWidth="1.5"
+                            className="pointer-events-none"
+                          />
+                        );
+                      })()}
                     </svg>
+
+                    {/* Hover Value Badge & Explicit Null Value Callout on Dark Line */}
+                    {hoverDepth !== null && (() => {
+                      const reading = hoverTelemetry?.readings.find((r) => r.key === track.key);
+                      if (!reading) return null;
+                      const y = mapDepthToY(hoverDepth);
+
+                      if (reading.isNull) {
+                        return (
+                          <div
+                            className="absolute left-2 right-2 bg-red-950/95 border border-red-500 text-red-200 px-2 py-1 rounded shadow-lg text-[10px] font-mono font-bold flex items-center justify-center space-x-1.5 z-30 pointer-events-none animate-pulse"
+                            style={{ top: `${y}px`, transform: "translateY(-50%)" }}
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                            <span className="truncate">
+                              NULL VALUE ({reading.val !== undefined && reading.val !== null ? reading.val : "-999.25"})
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      const x = mapValueToX(reading.val, track.meta.minVal, track.meta.maxVal, 100, track.meta.isLogScale);
+                      return (
+                        <div
+                          className="absolute font-mono font-black text-[10px] px-1.5 py-0.5 rounded shadow-lg z-30 pointer-events-none text-slate-950 whitespace-nowrap"
+                          style={{
+                            left: `${Math.min(75, Math.max(8, x))}%`,
+                            top: `${y - 22}px`,
+                            backgroundColor: track.meta.colorDark,
+                          }}
+                        >
+                          {reading.val.toFixed(2)} {track.meta.unit}
+                        </div>
+                      );
+                    })()}
 
                     {/* Missing Gaps */}
                     {track.visibleGaps.map((gap, idx) => {
@@ -1347,6 +1848,9 @@ export function WellLogViewer({
           onDepthSelect={(d) => setSelectedDepth(d)}
         />
       )}
+
+      {/* Interactive Cursor Floating Inspection Tooltip */}
+      {renderFloatingTooltip()}
     </div>
   );
 }

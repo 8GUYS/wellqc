@@ -52,6 +52,13 @@ WellQC is a full-stack cloud platform that automatically validates, cleans, stan
   - **Anomaly Ribbon**: Depth-indexed flags with interactive tooltips correlating anomalies to wireline depths.
 - **Dual View Modes**: **Classic Paper Log View** and **Dark Subsurface View**.
 
+### 🚀 Streamlined Data Upload Flow & Database Auto-Persistence
+- **Direct Post-Auth Focus**: User login, registration, and email verification immediately route directly to the Data Upload workstation (`/upload`).
+- **Zero-Click Database Auto-Save**: Files dropped or selected into the ingestion dropzone are automatically parsed, validated, and saved to the multi-tenant database without requiring manual button clicks.
+- **Universal Tour Guide Header Trigger**: Replaced static status pills with a permanent top header Tour Guide button that launches an interactive guided onboarding tour from any page.
+- **Dynamic Audit Certificates & Cleaned LAS Exports**: The Audit Reports suite (`/reports`) binds live previews, cryptographic seals, and certified LAS 2.0 downloads directly to whichever file is selected in the batch queue or database table.
+- **Responsive Workspace Palette**: Integrated a compact theme switcher icon in the sidebar footer profile card with responsive, viewport-aware popover positioning.
+
 ### 🧭 Interactive Dashboard Onboarding Tour
 - **Step-by-Step Guided Walkthrough**: Interactive, multi-step product tour guiding new petrophysicists and engineers through the core features of the Command Centre:
   - Welcome & platform architecture introduction

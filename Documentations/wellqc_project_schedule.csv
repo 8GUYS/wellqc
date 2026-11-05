@@ -1,5 +1,5 @@
 ID,Outline_Level,Task_Name,Duration,Start_Date,Finish_Date,Predecessors,Resource_Names,Percent_Complete
-1,1,WellQC Platform Development,90d,2026-07-20,2026-11-27,,,78%
+1,1,WellQC Platform Development,90d,2026-07-20,2026-11-27,,,80.5%
 2,2,"Sprint 1: Discovery, Architecture & Core Stack",10d,2026-07-20,2026-07-31,,,100%
 3,3,Petrophysical Domain Modeling & Curve Physical Limits,5d,2026-07-20,2026-07-24,,"DA1, DA2",100%
 4,3,LAS 2.0 Parser Engine & Line Splitter Validation,6d,2026-07-22,2026-07-29,3,SE1,100%

@@ -55,7 +55,7 @@ export function LandingNavbar() {
 
           {/* CTA Action Buttons + Theme Switcher */}
           <div className="hidden md:flex items-center gap-3">
-            <ThemeSwitcher />
+            <ThemeSwitcher iconOnly />
             <Link
               href="/login"
               className="nav-link-item text-sm font-semibold text-slate-900 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/60 px-3.5 py-1.5 rounded-lg transition-colors"
@@ -73,7 +73,7 @@ export function LandingNavbar() {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center gap-2">
-            <ThemeSwitcher />
+            <ThemeSwitcher iconOnly />
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg focus:outline-none"

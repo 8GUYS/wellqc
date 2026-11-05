@@ -733,11 +733,57 @@ A story is accepted as done when:
     Given a user navigating to `/dashboard`
     When the user has not dismissed the welcome banner
     Then the "Welcome to WellQC Command Center" banner is displayed with a "Take 1-Min Tour" button
-    And clicking "Take 1-Min Tour" or the permanent "Tour Guide" button launches the 6-step guided walkthrough
+    And clicking "Take 1-Min Tour" or the permanent "Tour Guide" button in the global header launches the 6-step guided walkthrough
     And a darkened spotlight overlay focuses on the current target element with smooth auto-scrolling
     And an animated tooltip displays step descriptions, progress badge (e.g. "Step 2 of 6"), "Back", "Next", and "Exit Tour"
     And pressing the "Escape" key closes the tour and restores full interactivity
     And completing or exiting the tour persists dismissal to localStorage safely via React 19 useSyncExternalStore
+  ```
+
+#### US-NAV-01: Post-Auth Data Upload Routing & Streamlined Direct Flow
+- **As an** Active Geoscientist or Petrophysicist (PER-1, PER-2),
+- **I want** the application to automatically route me to the Data Upload workstation (`/upload`) immediately upon login, registration, or email verification,
+- **So that** I can immediately drag and drop or audit well logs without having to manually navigate away from an initial overview dashboard.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 7 · SE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Authenticated user routing
+    Given an unauthenticated user logging in or creating an account
+    When credentials pass validation and session tokens are set
+    Then the system redirects the user directly to `/upload`
+    And middleware enforces `/upload` as the default authenticated home view
+  ```
+
+#### US-ING-05: Zero-Click Instant Database Auto-Persistence on File Ingestion
+- **As a** Subsurface Data Engineer (PER-2),
+- **I want** uploaded LAS files to automatically save to the database upon drag-and-drop or file selection,
+- **So that** I do not have to manually click "Upload to Database" or "Upload all to database" buttons for every file.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 7 · SE1 / SE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Dragging and dropping well files into the upload workspace
+    Given a user on the `/upload` workstation
+    When one or more LAS files are dropped into the dropzone or selected
+    Then each file is immediately validated and committed to the backend database asynchronously
+    And status updates to "Saved to Database ✓" without requiring manual button clicks
+  ```
+
+#### US-RPT-03: Real-Time Dynamic Audit Certificate Preview & Export for Selected Well Files
+- **As a** Petrophysicist or Quality Auditor (PER-1, PER-4),
+- **I want** the Certificate Preview modal and PDF print generator to display authentic data for whichever well file I select in the reports table,
+- **So that** I can audit individual well assets with accurate UWI identifiers, depth bounds, and real anomaly records without placeholder dummy data.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 7 · DA4 / SE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Selecting and previewing a well certificate in Audit Reports
+    Given a user on `/reports` with multiple uploaded or database wells
+    When the user clicks a row or checks a well asset in the table
+    Then the top card updates to display the selected asset name, quality grade, and score
+    And clicking "Preview Certificate" opens the certificate populated with that exact well's real metadata, depth range, and flagged anomalies
+    And clicking "Download Cleaned LAS" downloads the certified CWLS LAS 2.0 file for that specific well
   ```
 
 ---
@@ -783,7 +829,10 @@ A story is accepted as done when:
 | **US-CMP-02** | Multi-Channel Pearson Correlation & Structural Lag Shift | Must Have | Sprint 7 | SE1 | `backend/app/services/comparison.py`, `src/app/comparison/` |
 | **US-CMP-03** | Hybrid Formation Tops Alignment & Provenance Verification | Must Have | Sprint 7 | DA1 & SE1 | `backend/app/models/models.py`, `backend/app/api/wells.py`, `comparison/page.tsx` |
 | **US-CMP-04** | Interactive Multi-Well Workstation UI & Visual Overlays | Must Have | Sprint 7 | SE2 | `src/app/comparison/page.tsx`, `src/components/ui/sidebar.tsx` |
-| **US-DSB-01** | Interactive Dashboard Onboarding Tour Guide | Must Have | Sprint 7 | SE2 | `src/components/dashboard/dashboard-tour.tsx`, `src/app/dashboard/` |
+| **US-DSB-01** | Interactive Dashboard Onboarding Tour Guide | Must Have | Sprint 7 | SE2 | `src/components/dashboard/dashboard-tour.tsx`, `src/components/ui/header.tsx` |
+| **US-NAV-01** | Post-Auth Direct Data Upload Routing | Must Have | Sprint 7 | SE2 | `middleware.ts`, `src/components/auth/auth-form.tsx` |
+| **US-ING-05** | Zero-Click Instant Database Auto-Persistence | Must Have | Sprint 7 | SE1 / SE2 | `src/app/upload/page.tsx`, `src/components/upload/` |
+| **US-RPT-03** | Dynamic Selected File Audit Certificate & Cleaned Export | Must Have | Sprint 7 | DA4 / SE2 | `src/app/reports/page.tsx`, `audit-certificate-modal.tsx` |
 
 ---
 

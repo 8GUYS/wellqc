@@ -7,7 +7,17 @@ import { Palette, Check, Sliders, Sparkles, ChevronRight } from "lucide-react";
 import { useTheme, ThemeConfig } from "./theme-provider";
 import { ThemeCustomizerModal } from "./theme-customizer-modal";
 
-export function ThemeSwitcher() {
+interface ThemeSwitcherProps {
+  iconOnly?: boolean;
+  dropUp?: boolean;
+  align?: "left" | "right" | "auto";
+}
+
+export function ThemeSwitcher({
+  iconOnly = false,
+  dropUp = false,
+  align = "auto",
+}: ThemeSwitcherProps = {}) {
   const { theme, setTheme, themes, currentTheme } = useTheme();
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [open, setOpen] = useState(false);
@@ -46,29 +56,58 @@ export function ThemeSwitcher() {
   return (
     <>
       <div className="relative" ref={containerRef}>
-        <button
-          onClick={() => setOpen((prev) => !prev)}
-          className="flex items-center space-x-1.5 px-2.5 py-1 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white bg-slate-100/80 hover:bg-slate-200/80 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 rounded-lg border border-slate-300/80 dark:border-slate-800 transition-colors text-xs font-mono shadow-sm"
-          aria-label="Switch Workstation Color Theme"
-          title={`Active Theme: ${displayTheme.name}. Click to change.`}
-          suppressHydrationWarning
-        >
-          <Palette className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-          <span
-            className="w-2.5 h-2.5 rounded-full border border-slate-400 dark:border-slate-600 shrink-0"
-            style={{ backgroundColor: displayTheme.colors.accent }}
-            suppressHydrationWarning
-          />
-          <span
-            className="hidden sm:inline text-[11px] font-medium text-slate-800 dark:text-slate-200"
+        {iconOnly ? (
+          <button
+            onClick={() => setOpen((prev) => !prev)}
+            className="p-2 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white bg-slate-100/80 hover:bg-slate-200/80 dark:bg-slate-900/80 dark:hover:bg-slate-800/80 rounded-xl border border-slate-300/80 dark:border-slate-700/80 transition-all flex items-center justify-center relative group shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+            aria-label="Switch Workstation Color Theme"
+            title={`Active Theme: ${displayTheme.name}. Click to change.`}
             suppressHydrationWarning
           >
-            {displayTheme.name}
-          </span>
-        </button>
+            <Palette className="w-4 h-4 text-cyan-600 dark:text-cyan-400 group-hover:rotate-12 transition-transform duration-200" />
+            <span
+              className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border border-white dark:border-slate-950 shrink-0 shadow-sm"
+              style={{ backgroundColor: displayTheme.colors.accent }}
+              suppressHydrationWarning
+            />
+          </button>
+        ) : (
+          <button
+            onClick={() => setOpen((prev) => !prev)}
+            className="flex items-center space-x-1.5 px-2.5 py-1 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white bg-slate-100/80 hover:bg-slate-200/80 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 rounded-lg border border-slate-300/80 dark:border-slate-800 transition-colors text-xs font-mono shadow-sm"
+            aria-label="Switch Workstation Color Theme"
+            title={`Active Theme: ${displayTheme.name}. Click to change.`}
+            suppressHydrationWarning
+          >
+            <Palette className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+            <span
+              className="w-2.5 h-2.5 rounded-full border border-slate-400 dark:border-slate-600 shrink-0"
+              style={{ backgroundColor: displayTheme.colors.accent }}
+              suppressHydrationWarning
+            />
+            <span
+              className="hidden sm:inline text-[11px] font-medium text-slate-800 dark:text-slate-200"
+              suppressHydrationWarning
+            >
+              {displayTheme.name}
+            </span>
+          </button>
+        )}
 
         {open && (
-          <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-sm bg-wellqc-panel border border-wellqc-border rounded-2xl shadow-2xl p-2.5 z-50 text-slate-800 dark:text-slate-200 font-mono animate-in fade-in zoom-in-95 duration-100 max-h-[82vh] overflow-y-auto">
+          <div
+            className={`${
+              dropUp
+                ? align === "left"
+                  ? "fixed bottom-20 left-4 right-4 mx-auto sm:mx-0 sm:absolute sm:bottom-full sm:mb-2 sm:left-0 sm:right-auto sm:w-80"
+                  : align === "right"
+                  ? "fixed bottom-20 left-4 right-4 mx-auto sm:mx-0 sm:absolute sm:bottom-full sm:mb-2 sm:right-0 sm:left-auto sm:w-80"
+                  : "fixed bottom-20 left-4 right-4 mx-auto sm:mx-0 sm:absolute sm:bottom-full sm:mb-2 sm:left-0 sm:right-auto sm:w-80"
+                : align === "left"
+                ? "fixed top-16 left-4 right-4 mx-auto sm:mx-0 sm:absolute sm:top-full sm:mt-2 sm:left-0 sm:right-auto sm:w-80"
+                : "fixed top-16 left-4 right-4 mx-auto sm:mx-0 sm:absolute sm:top-full sm:mt-2 sm:right-0 sm:left-auto sm:w-80"
+            } max-w-sm bg-wellqc-panel border border-wellqc-border rounded-2xl shadow-2xl p-2.5 z-[60] text-slate-800 dark:text-slate-200 font-mono animate-in fade-in zoom-in-95 duration-100 max-h-[82vh] overflow-y-auto`}
+          >
             {/* Dropdown Header */}
             <div className="px-2 py-1.5 border-b border-wellqc-border flex items-center justify-between text-xs">
               <span className="font-semibold text-slate-900 dark:text-slate-100 flex items-center space-x-1.5">

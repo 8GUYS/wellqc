@@ -189,7 +189,7 @@ export function WellLogViewer({
   const [internalLayoutMode, setInternalLayoutMode] = useState<"GRAPH" | "SPLIT" | "TABLE">(
     externalLayoutMode || initialLayoutMode
   );
-  const [viewMode, setViewMode] = useState<"CLASSIC_PAPER" | "DARK_MODERN">(initialViewMode);
+  const [viewMode] = useState<"CLASSIC_PAPER" | "DARK_MODERN">("CLASSIC_PAPER");
   const [zoomLevel, setZoomLevel] = useState(1);
   const [selectedDepth, setSelectedDepth] = useState<number | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -541,14 +541,16 @@ export function WellLogViewer({
           visEndIdx
         );
 
-        const curveAnomalies = visibleSpikeAnomalies.filter((a) => {
-          const aMnem = a.curveMnemonic?.toUpperCase() || "";
-          return (
-            aMnem === key.toUpperCase() ||
-            aMnem === meta.mnemonic.toUpperCase() ||
-            standardiseMnemonic(aMnem).standardMnemonic === meta.mnemonic
-          );
-        });
+        const curveAnomalies = visibleSpikeAnomalies
+          .filter((a) => a.anomalyType !== "IMPOSSIBLE_VALUE")
+          .filter((a) => {
+            const aMnem = a.curveMnemonic?.toUpperCase() || "";
+            return (
+              aMnem === key.toUpperCase() ||
+              aMnem === meta.mnemonic.toUpperCase() ||
+              standardiseMnemonic(aMnem).standardMnemonic === meta.mnemonic
+            );
+          });
 
         return {
           key,
@@ -1560,16 +1562,8 @@ export function WellLogViewer({
                 <div className="p-2 bg-wellqc-dark/60 flex items-center gap-1.5 text-[11px]">
                   <button
                     type="button"
-                    onClick={handleResetDefaultCurves}
-                    className="flex-1 px-2 py-1 rounded-lg bg-wellqc-panel hover:bg-wellqc-card border border-wellqc-border text-slate-300 hover:text-white transition-colors text-center"
-                    title="Restore standard 3-track setup (GR, RT, DT)"
-                  >
-                    Standard 3
-                  </button>
-                  <button
-                    type="button"
                     onClick={handleSelectAllCurves}
-                    className="flex-1 px-2 py-1 rounded-lg bg-wellqc-panel hover:bg-wellqc-card border border-wellqc-border text-slate-300 hover:text-white transition-colors text-center"
+                    className="flex-1 px-2.5 py-1.5 rounded-lg bg-wellqc-panel hover:bg-wellqc-card border border-wellqc-border text-slate-300 hover:text-white transition-colors text-center font-medium"
                     title="Display all available curves"
                   >
                     Select All ({allCurveKeys.length})
@@ -1577,7 +1571,7 @@ export function WellLogViewer({
                   <button
                     type="button"
                     onClick={handleClearAllCurves}
-                    className="px-2 py-1 rounded-lg bg-wellqc-panel hover:bg-wellqc-card border border-wellqc-border text-slate-400 hover:text-red-400 transition-colors text-center"
+                    className="flex-1 px-2.5 py-1.5 rounded-lg bg-wellqc-panel hover:bg-wellqc-card border border-wellqc-border text-slate-400 hover:text-red-400 transition-colors text-center font-medium"
                     title="Deselect all curves"
                   >
                     Clear
@@ -1694,7 +1688,7 @@ export function WellLogViewer({
             )}
           </div>
 
-          {/* Layout Mode Switcher Toggle (Graph vs Split vs Table) */}
+          {/* Layout Mode Switcher Toggle (Log Plot, Data Table, Split View) */}
           <div className="flex items-center bg-wellqc-card border border-wellqc-border rounded-xl p-1 shadow-inner">
             <button
               onClick={() => handleLayoutModeChange("GRAPH")}
@@ -1710,19 +1704,6 @@ export function WellLogViewer({
             </button>
 
             <button
-              onClick={() => handleLayoutModeChange("SPLIT")}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
-                layoutMode === "SPLIT"
-                  ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
-                  : "text-slate-400 hover:text-white"
-              }`}
-              title="Show graphical log and tabular data side-by-side"
-            >
-              <Columns className="w-3.5 h-3.5" />
-              <span>Split View</span>
-            </button>
-
-            <button
               onClick={() => handleLayoutModeChange("TABLE")}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
                 layoutMode === "TABLE"
@@ -1734,38 +1715,20 @@ export function WellLogViewer({
               <Table className="w-3.5 h-3.5" />
               <span>Data Table</span>
             </button>
+
+            <button
+              onClick={() => handleLayoutModeChange("SPLIT")}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
+                layoutMode === "SPLIT"
+                  ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
+                  : "text-slate-400 hover:text-white"
+              }`}
+              title="Show graphical log and tabular data side-by-side"
+            >
+              <Columns className="w-3.5 h-3.5" />
+              <span>Split View</span>
+            </button>
           </div>
-
-          {/* Graphical Theme Switcher (Only visible when Graph or Split is active) */}
-          {layoutMode !== "TABLE" && (
-            <div className="flex items-center bg-wellqc-card border border-wellqc-border rounded-xl p-1 shadow-inner">
-              <button
-                onClick={() => setViewMode("CLASSIC_PAPER")}
-                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg font-bold transition-all ${
-                  viewMode === "CLASSIC_PAPER"
-                    ? "bg-red-600 text-white shadow-md shadow-red-600/30"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="Switch to Classic Borehole Paper Log styling"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Paper Log</span>
-              </button>
-
-              <button
-                onClick={() => setViewMode("DARK_MODERN")}
-                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg font-bold transition-all ${
-                  viewMode === "DARK_MODERN"
-                    ? "bg-cyan-500 text-black shadow-md shadow-cyan-500/30"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="Switch to Dark Subsurface styling"
-              >
-                <Layout className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Dark Subsurface</span>
-              </button>
-            </div>
-          )}
 
           {/* Zoom & Track Controls (For Graph View) */}
           {layoutMode !== "TABLE" && (

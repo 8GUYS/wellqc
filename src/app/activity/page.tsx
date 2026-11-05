@@ -4,19 +4,43 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { ActivityListItem } from "@/lib/api-types";
 import { safeReadJson } from "@/lib/http-client";
-import { History, Search, RefreshCw } from "lucide-react";
+import { History, Search, RefreshCw, ShieldAlert, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 export default function ActivityLogPage() {
   const [activities, setActivities] = useState<ActivityListItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadActivity() {
+    async function checkAuthAndLoad() {
       try {
+        // Verify user role
+        const meRes = await fetch("/api/auth/me", { cache: "no-store" });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          const role = (meData?.user?.role || "").toUpperCase();
+          if (role !== "ADMIN") {
+            if (!cancelled) {
+              setIsAdmin(false);
+              setIsLoading(false);
+            }
+            return;
+          }
+          if (!cancelled) setIsAdmin(true);
+        } else {
+          if (!cancelled) {
+            setIsAdmin(false);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        // Fetch audit logs for admin
         const response = await fetch("/api/activity", { cache: "no-store" });
         const res = await safeReadJson<{ activities: ActivityListItem[] }>(response, "Unable to load activity.");
 
@@ -38,7 +62,7 @@ export default function ActivityLogPage() {
       }
     }
 
-    loadActivity();
+    checkAuthAndLoad();
 
     return () => {
       cancelled = true;
@@ -55,21 +79,48 @@ export default function ActivityLogPage() {
     );
   });
 
+  if (isAdmin === false) {
+    return (
+      <AppShell>
+        <div className="p-12 bg-wellqc-panel border border-red-500/30 rounded-2xl text-center space-y-4 max-w-lg mx-auto mt-12 shadow-2xl font-mono">
+          <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto text-red-400">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">Administrator Access Required</h2>
+            <p className="text-xs text-slate-400 mt-1">
+              The Platform Audit Trail and security event logs are restricted exclusively to administrators.
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link
+              href="/upload"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs hover:bg-cyan-400 transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Return to Data Upload Workstation</span>
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-wellqc-panel/60 border border-wellqc-border p-5 rounded-2xl">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-blue-500/20 text-cyan-300 border border-cyan-500/40">
-                Module 09 - Audit Trail & Security
+              <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                Admin Audit Trail &amp; Security Logs
               </span>
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight mt-1">
-              Platform Activity & Audit Logs
+              Platform Activity &amp; Audit Logs
             </h1>
             <p className="text-xs text-wellqc-muted font-mono mt-0.5">
-              Real activity from database commits, LAS uploads, exports, and well-management actions.
+              Live enterprise telemetry from database commits, LAS uploads, quality repairs, and security actions across all accounts.
             </p>
           </div>
         </div>
@@ -102,7 +153,7 @@ export default function ActivityLogPage() {
               <History className="w-8 h-8 text-cyan-400 mx-auto" />
               <div className="text-sm font-bold text-white">No activity yet</div>
               <p className="text-xs text-wellqc-muted font-mono">
-                Commit a LAS file or create a well asset to populate the audit log.
+                Platform actions and user operations will appear here automatically.
               </p>
             </div>
           ) : (

@@ -30,10 +30,16 @@ def get_activity(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    user_role = (current_user.role or "").upper()
+    if user_role != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Audit trail logs are restricted to platform administrators.",
+        )
+
     try:
         activities = (
             db.query(ActivityLog)
-            .filter(ActivityLog.userId == current_user.id)
             .order_by(desc(ActivityLog.createdAt))
             .limit(100)
             .all()

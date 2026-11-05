@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     R2_SECRET_ACCESS_KEY: str = os.getenv("R2_SECRET_ACCESS_KEY", "")
     R2_BUCKET_NAME: str = os.getenv("R2_BUCKET_NAME", "wellqc-las-files")
 
+    # Observability & Error Tracking
+    SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")
+
     # Database
     DATABASE_URL: str = (
         os.getenv("POSTGRES_URL")

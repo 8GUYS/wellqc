@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from backend.app.core.database import get_db
+from backend.app.core.ssrf import enforce_safe_url
 from backend.app.core.dependencies import get_current_admin_user
 from backend.app.core.security import normalize_role
 from backend.app.models.models import (

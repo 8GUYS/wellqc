@@ -62,6 +62,13 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
     RESEND_FROM_EMAIL: str = os.getenv("RESEND_FROM_EMAIL", "WellQC <onboarding@resend.dev>")
     
+    # Cloudflare R2 Blob Storage
+    # Leave these blank in local dev -- the app will fall back to storing rawContent in the DB.
+    R2_ACCOUNT_ID: str = os.getenv("R2_ACCOUNT_ID", "")
+    R2_ACCESS_KEY_ID: str = os.getenv("R2_ACCESS_KEY_ID", "")
+    R2_SECRET_ACCESS_KEY: str = os.getenv("R2_SECRET_ACCESS_KEY", "")
+    R2_BUCKET_NAME: str = os.getenv("R2_BUCKET_NAME", "wellqc-las-files")
+
     # Database
     DATABASE_URL: str = (
         os.getenv("POSTGRES_URL")

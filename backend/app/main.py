@@ -175,6 +175,21 @@ class SQLInjectionAndFormSecurityMiddleware(BaseHTTPMiddleware):
 
 
 # Instantiate FastAPI application with metadata for OpenAPI / Swagger documentation
+# Initialise Sentry error tracking if configured (zero impact if SENTRY_DSN is absent)
+if getattr(settings, "SENTRY_DSN", ""):
+    try:
+        import sentry_sdk
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            environment=settings.ENVIRONMENT,
+            traces_sample_rate=0.2 if settings.ENVIRONMENT == "production" else 1.0,
+            profiles_sample_rate=0.1 if settings.ENVIRONMENT == "production" else 0.0,
+            send_default_pii=False,
+        )
+        logger.info("Sentry error tracking initialised.")
+    except Exception as exc:
+        logger.warning(f"Sentry init notice: {exc}")
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
@@ -191,6 +206,12 @@ async def global_exception_handler(request: Request, exc: Exception):
     and returns a structured JSON payload. Masks internal database/SQLAlchemy errors
     to prevent error-based SQL injection leakage.
     """
+    if getattr(settings, "SENTRY_DSN", ""):
+        try:
+            import sentry_sdk
+            sentry_sdk.capture_exception(exc)
+        except Exception:
+            pass
     logger.error(f"Global unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
     exc_str = str(exc)
     is_db_error = any(

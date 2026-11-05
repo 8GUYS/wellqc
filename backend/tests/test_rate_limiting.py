@@ -25,3 +25,17 @@ def test_rate_limiter_blocks_excessive_requests():
     limiter.reset()
     clean_res = client.post("/api/auth/forgot-password", json={"email": "ratelimit_tester@wellqc.com"})
     assert clean_res.status_code == 200
+
+def test_login_rate_limiter_blocks_after_5_attempts():
+    """Verify that login is rate-limited to 5 attempts/min per IP."""
+    limiter.reset()
+
+    for _ in range(5):
+        res = client.post("/api/auth/login", json={"email": "nonexistent@wellqc.com", "password": "wrong"})
+        assert res.status_code == 401
+
+    blocked = client.post("/api/auth/login", json={"email": "nonexistent@wellqc.com", "password": "wrong"})
+    assert blocked.status_code == 429
+    assert "Too many requests for login" in blocked.json()["detail"]
+    assert "Retry-After" in blocked.headers
+    limiter.reset()

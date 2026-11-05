@@ -105,7 +105,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
       title: "Workstation",
       items: [
         { label: "Data Upload", href: "/upload", icon: UploadCloud, badge: "CWLS 2.0" },
-        { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, isLive: true },
+        // { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, isLive: true },
         { label: "Well Assets", href: "/wells", icon: Database },
 
       ],
@@ -149,7 +149,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
           }`}
       >
         <Link
-          href="/dashboard"
+          href="/upload"
           onClick={onCloseMobileNav}
           className="flex items-center space-x-3 group overflow-hidden"
           title="WellQC Enterprise Subsurface Workstation"

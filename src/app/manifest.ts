@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "WellQC Petrophysical Studio",
     short_name: "WellQC",
     description: "Enterprise AI-Powered Well Log Quality Assurance & Standardisation Platform",
-    start_url: "/dashboard",
+    start_url: "/upload",
     display: "standalone",
     background_color: "#090d16",
     theme_color: "#0071e3",
@@ -44,10 +44,10 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: "Asset Dashboard",
-        short_name: "Dashboard",
-        description: "View corporate well inventory & quality scores",
-        url: "/dashboard",
+        name: "Data Upload",
+        short_name: "Upload",
+        description: "Upload and analyze well log datasets",
+        url: "/upload",
         icons: [{ src: "/brand/icon-192.png", sizes: "192x192" }],
       },
       {

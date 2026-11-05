@@ -420,12 +420,23 @@ Payment channels supported: **Verve, Mastercard, Visa**, **Bank Transfer**, **US
 
 ---
 
-## 🏗️ Build for Production
+## 🏗️ Build & Deploy for Production
 
 ```bash
+# Build frontend
 npm run build
 npm start
+
+# Run backend
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
+
+---
+
+## 🚨 Operations & Runbook
+
+For production incident response, database restoration from R2 archives, and zero-downtime rollback procedures on Render & Vercel, refer to:
+👉 [**WellQC Master Operations Runbook**](Documentations/WellQC_Operations_Runbook.md)
 
 ---
 

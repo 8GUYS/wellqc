@@ -1,3 +1,4 @@
+import Script from "next/script";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/theme-provider";
@@ -106,6 +107,22 @@ export default function RootLayout({
             __html: THEME_INIT_SCRIPT,
           }}
         />
+        {process.env.NEXT_PUBLIC_SENTRY_DSN && (
+          <Script
+            src="https://browser.sentry-cdn.com/8.38.0/bundle.min.js"
+            strategy="afterInteractive"
+            crossOrigin="anonymous"
+            onLoad={() => {
+              if (typeof window !== "undefined" && (window as any).Sentry) {
+                (window as any).Sentry.init({
+                  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+                  environment: process.env.NODE_ENV,
+                  tracesSampleRate: 0.1,
+                });
+              }
+            }}
+          />
+        )}
       </head>
       <body className="bg-wellqc-dark text-wellqc-text min-h-screen font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
         <ThemeProvider>

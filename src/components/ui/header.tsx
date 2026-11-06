@@ -86,11 +86,7 @@ export function Header({
         {/* Interactive Tour Guide Button */}
         <TourGuideButton
           onClick={() => {
-            if (pathname === "/upload") {
-              window.dispatchEvent(new Event("wellqc_launch_tour"));
-            } else {
-              router.push("/upload");
-            }
+            window.dispatchEvent(new Event("wellqc_launch_tour"));
           }}
         />
 

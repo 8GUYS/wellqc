@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Database,
   UploadCloud,
   Layers,
   ShieldCheck,
@@ -101,11 +100,11 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
   // Structured Categorized Navigation Sections
   const navSections: NavSection[] = [
     {
-      title: "Workstation",
+      title: "Data Management",
       items: [
         { label: "Data Upload", href: "/upload", icon: UploadCloud, badge: "CWLS 2.0" },
         // { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, isLive: true },
-        { label: "Well Assets", href: "/wells", icon: Database },
+        // { label: "Well Assets", href: "/wells", icon: Database },
 
       ],
     },
@@ -122,19 +121,26 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
       title: "Governance & Audit",
       items: [
         { label: "Audit Reports", href: "/reports", icon: FileText, badge: "NUPRC" },
-        { label: "Audit Trail", href: "/activity", icon: History },
         { label: "User Profile", href: "/profile", icon: User },
       ],
     },
   ];
 
   if (currentRole === "ADMIN") {
-    navSections[2].items.push({
-      label: "Admin Panel",
-      href: "/admin",
-      icon: Settings,
-      badge: "ROOT",
-    });
+    navSections[2].items.push(
+      {
+        label: "Audit Trail",
+        href: "/activity",
+        icon: History,
+        badge: "ADMIN",
+      },
+      {
+        label: "Admin Panel",
+        href: "/admin",
+        icon: Settings,
+        badge: "ROOT",
+      }
+    );
   }
 
   const sidebarContent = (

@@ -72,11 +72,11 @@ export default function WellDetailPage({ params }: { params: Promise<{ id: strin
       <div className="space-y-6">
         <div>
           <Link
-            href="/wells"
+            href="/upload"
             className="inline-flex items-center space-x-2 text-xs font-mono text-cyan-400 hover:underline"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Well Master Index</span>
+            <span>Back to Upload Workstation</span>
           </Link>
         </div>
 

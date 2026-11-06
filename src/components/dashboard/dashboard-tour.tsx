@@ -531,11 +531,11 @@ export function DashboardTour({
                 <span>Basin Analytics</span>
               </Link>
               <Link
-                href="/wells"
+                href="/upload"
                 onClick={handleComplete}
                 className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors border border-slate-700"
               >
-                <span>Well Registry</span>
+                <span>Uploaded Files</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>

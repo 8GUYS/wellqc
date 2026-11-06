@@ -45,8 +45,8 @@
 - [x] ⚠️ Error messages mask internal DB/stack details in production
 - [x] ⚠️ Secrets in environment variables, not committed to git
 - [x] ⚠️ Production refuses to start with weak/default AUTH_SECRET
-- [ ] ⚠️ Rate limiting on login endpoint (max 5 attempts/min per IP)
-- [ ] ⚠️ SSRF protection on any endpoint that accepts a URL parameter
+- [x] ⚠️ Rate limiting on login endpoint (max 5 attempts/min per IP)
+- [x] ⚠️ SSRF protection on any endpoint that accepts a URL parameter
 
 ### 🏗️ Infrastructure
 - [x] App deployed and publicly accessible
@@ -63,7 +63,7 @@
 - [x] ownerId indexed on every tenant-scoped table
 - [x] Connection pooling configured (pool_size, max_overflow, pool_recycle, pool_pre_ping)
 - [x] Database schema version-controlled via Prisma migrations
-- [ ] ⚠️ Automated nightly database backup (pg_dump to Cloudflare R2 or S3)
+- [x] ⚠️ Automated nightly database backup (pg_dump to Cloudflare R2 or S3)
 - [ ] Backup restore tested at least once manually
 
 ### 🧪 Testing & CI/CD
@@ -78,15 +78,27 @@
 
 ### 📋 Basic Operations
 - [x] Health check endpoint (`GET /health` returns 200 with status)
-- [ ] Uptime monitor configured (UptimeRobot or Better Uptime — free tier)
-- [ ] Error tracking configured (Sentry free tier)
+- [x] Uptime monitor configured (UptimeRobot or Better Uptime — free tier)
+- [x] Error tracking configured (Sentry free tier)
 - [ ] 🔁 Check error logs at least once a week
-- [ ] README documents how to run, deploy, and roll back
-- [ ] Runbook: what to do if the site goes down
+- [x] README documents how to run, deploy, and roll back
+- [x] Runbook: what to do if the site goes down
 
 ### 🗂️ File Storage
 - [x] ⚠️ LAS file content stored in Cloudflare R2 (not in PostgreSQL rows) — do this before 50 users to avoid storage cost explosion
 - [x] Database stores only the R2 object key, not the file bytes
+
+### 💳 Freemium / Feature Gate
+- [ ] Free tier hard cap: 2 LAS file uploads per account (uses existing `freeChecksUsed` counter)
+- [ ] Free tier anomaly view: only first N anomalies shown per file (rest locked server-side) — awaiting team threshold decision
+- [ ] Server-side truncation: anomaly list capped before response leaves backend (not client-side blur)
+- [ ] Response shape for FREE users: `anomalies` array contains first N only, plus `anomaliesLocked` and `totalAnomalyCount` fields
+- [ ] Full anomaly list unlocked for PRO users (tier check on every QA response)
+- [ ] File cleaning / auto-fix endpoint gated behind PRO tier
+- [ ] Report download (PDF/JSON) gated behind PRO tier
+- [ ] Curve visualisation remains fully free (no gate)
+- [ ] Paywall UI: locked anomalies shown as blurred/locked rows with upgrade CTA
+- [ ] Upgrade flow tested end-to-end: free → Paystack → PRO tier unlocked
 
 ---
 
@@ -482,7 +494,7 @@ Use this table to get a fast view of where you are. Update it at the start of ea
 
 | Stage | Total Items | Done | Partial | Missing | % Complete |
 |---|---|---|---|---|---|
-| Stage 0 (0–100 MAU) | 34 | 20 | 0 | 14 | 59% |
+| Stage 0 (0–100 MAU) | 44 | 27 | 0 | 17 | 61% |
 | Stage 1 (100–1K MAU) | 28 | 0 | 0 | 28 | 0% |
 | Stage 2 (1K–10K MAU) | 52 | 0 | 0 | 52 | 0% |
 | Stage 3 (10K–100K MAU) | 58 | 0 | 0 | 58 | 0% |

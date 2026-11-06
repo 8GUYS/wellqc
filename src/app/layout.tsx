@@ -106,6 +106,31 @@ export default function RootLayout({
             __html: THEME_INIT_SCRIPT,
           }}
         />
+        {process.env.NEXT_PUBLIC_SENTRY_DSN && (
+          <>
+            <script
+              src="https://browser.sentry-cdn.com/8.38.0/bundle.min.js"
+              crossOrigin="anonymous"
+              defer
+            />
+            <script
+              id="sentry-browser-init"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.addEventListener('load', function() {
+                    if (window.Sentry) {
+                      window.Sentry.init({
+                        dsn: ${JSON.stringify(process.env.NEXT_PUBLIC_SENTRY_DSN)},
+                        environment: ${JSON.stringify(process.env.NODE_ENV || 'production')},
+                        tracesSampleRate: 0.1
+                      });
+                    }
+                  });
+                `,
+              }}
+            />
+          </>
+        )}
       </head>
       <body className="bg-wellqc-dark text-wellqc-text min-h-screen font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
         <ThemeProvider>

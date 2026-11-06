@@ -58,7 +58,7 @@ export function Header({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [currentUser.role]);
 
   const avatarSrc = currentUser.avatarUrl || "";
 

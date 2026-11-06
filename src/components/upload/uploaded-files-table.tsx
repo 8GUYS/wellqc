@@ -18,7 +18,6 @@ import {
   AlertTriangle,
   X,
   User,
-  ArrowUpRight,
 } from "lucide-react";
 
 interface UploadedFilesTableProps {
@@ -60,7 +59,31 @@ export function UploadedFilesTable({
   };
 
   useEffect(() => {
-    loadWells();
+    let ignore = false;
+    async function fetchWells() {
+      try {
+        const response = await fetch("/api/wells", { cache: "no-store" });
+        const res = await safeReadJson<{ wells: WellListItem[] }>(response, "Unable to load uploaded files.");
+        if (ignore) return;
+        if (!res.ok || !res.data) {
+          throw new Error(res.error || "Unable to load uploaded well files.");
+        }
+        setWells(res.data.wells || []);
+      } catch (err) {
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : "Failed to load uploaded files.");
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    fetchWells();
+    return () => {
+      ignore = true;
+    };
   }, [refreshTrigger]);
 
   const handleDeleteWell = async (well: WellListItem) => {

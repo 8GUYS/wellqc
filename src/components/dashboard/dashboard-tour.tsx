@@ -15,8 +15,6 @@ import {
   Layers,
   Wrench,
   ShieldCheck,
-  FileCheck2,
-  ExternalLink,
 } from "lucide-react";
 
 export interface TourStep {
@@ -209,9 +207,13 @@ export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
 
   // Reset to first step whenever reopened
   useEffect(() => {
+    let ignore = false;
     if (isOpen) {
-      setCurrentStepIndex(0);
+      Promise.resolve().then(() => {
+        if (!ignore) setCurrentStepIndex(0);
+      });
     }
+    return () => { ignore = true; };
   }, [isOpen]);
 
   const handleComplete = useCallback(() => {

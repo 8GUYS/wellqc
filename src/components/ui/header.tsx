@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ActivityListItem } from "@/lib/api-types";
 import { safeReadJson } from "@/lib/http-client";
-import { useRouter, usePathname } from "next/navigation";
 import { Bell, LogOut, Menu, User } from "lucide-react";
 import { TourGuideButton } from "@/components/dashboard/dashboard-tour";
 
@@ -29,8 +28,6 @@ export function Header({
   onLogout,
   onToggleMobileNav,
 }: HeaderProps) {
-  const router = useRouter();
-  const pathname = usePathname();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activities, setActivities] = useState<ActivityListItem[]>([]);
 
@@ -86,11 +83,7 @@ export function Header({
         {/* Interactive Tour Guide Button */}
         <TourGuideButton
           onClick={() => {
-            if (pathname === "/upload") {
-              window.dispatchEvent(new Event("wellqc_launch_tour"));
-            } else {
-              router.push("/upload");
-            }
+            window.dispatchEvent(new Event("wellqc_launch_tour"));
           }}
         />
 

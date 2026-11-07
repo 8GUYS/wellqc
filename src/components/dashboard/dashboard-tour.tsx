@@ -10,22 +10,24 @@ import {
   Compass,
   CheckCircle2,
   ArrowRight,
-  Sliders,
-  Filter,
-  BarChart3,
-  TrendingUp,
-  PlusCircle,
-  GitCompare,
-  PieChart,
+  UploadCloud,
+  Activity,
+  Layers,
+  Wrench,
+  ShieldCheck,
 } from "lucide-react";
 
 export interface TourStep {
   id: string;
-  targetId?: string; // HTML element ID to spotlight; if omitted, modal is centered
   title: string;
-  badge?: string;
+  badge: string;
   description: string;
-  icon?: React.ReactNode;
+  icon: React.ReactNode;
+  highlights?: string[];
+  actionLink?: {
+    href: string;
+    label: string;
+  };
   tips?: string;
   preferredPlacement?: "bottom" | "top" | "center";
 }
@@ -33,80 +35,133 @@ export interface TourStep {
 const TOUR_STEPS: TourStep[] = [
   {
     id: "welcome",
-    title: "Welcome to WellQC Asset Platform",
+    title: "Welcome to WellQC Studio",
     badge: "Getting Started",
     icon: <Sparkles className="w-5 h-5 text-cyan-400" />,
     description:
-      "WellQC automates petrophysical LAS log quality assurance, standardises curve mnemonics, detects sensor anomalies, and produces interpretation-ready well datasets. Let's take a quick 1-minute guided tour of your command centre!",
+      "WellQC Studio is an enterprise petrophysical quality assurance and compliance platform. It standardises vendor curve mnemonics, detects sensor anomalies, applies non-destructive repairs, and generates NUPRC-compliant digital certificates for subsurface assets.",
+    highlights: [
+      "API RP 66 Mnemonic Standardisation",
+      "Physics-based Anomaly & Sensor Fault Detection",
+      "Non-Destructive Spline & KNN Null Imputation",
+      "Form WQC-08-A NUPRC Compliance Digital Certificates",
+    ],
+    tips: "Use the Left (←) and Right (→) arrow keys to navigate steps, or press Esc to exit at any time.",
     preferredPlacement: "center",
   },
   {
-    id: "dashboard-mode",
-    targetId: "tour-dashboard-mode",
-    title: "1. Tailor Your Telemetry View",
-    badge: "Display Modes",
-    icon: <Sliders className="w-5 h-5 text-cyan-400" />,
+    id: "data-management",
+    title: "1. Data Management & LAS Ingestion",
+    badge: "Module 1: Ingestion",
+    icon: <UploadCloud className="w-5 h-5 text-cyan-400" />,
     description:
-      "Switch between 3 specialised operational views: Executive (Calm) for C-suite KPIs and risk summaries, Operational for fleet distributions, and Full Telemetry for all 18 engineering metrics and scan tables.",
-    tips: "Try clicking the mode buttons below to preview each layout live!",
-    preferredPlacement: "bottom",
+      "Drag-and-drop raw LAS 2.0 or 3.0 well files into your workstation. The parser automatically validates section syntax (~VERSION, ~WELL, ~CURVE, ~ASCII), verifies depth increments, and immediately saves verified assets into your secure local database.",
+    highlights: [
+      "Frictionless Drag & Drop or File Browser Ingestion",
+      "Real-time Syntax, Header & Null Value Verification",
+      "Database Wells Registry with Direct QA Repair Shortcuts",
+    ],
+    actionLink: {
+      href: "/upload",
+      label: "Open Ingestion Workstation",
+    },
+    tips: "Review your saved wells at the bottom of the Upload page to immediately inspect logs or send them to the QA Engine.",
+    preferredPlacement: "center",
   },
   {
-    id: "scope-filter",
-    targetId: "tour-scope-filter",
-    title: "2. Filter Assets By Verification Health",
-    badge: "Asset Scopes",
-    icon: <Filter className="w-5 h-5 text-cyan-400" />,
+    id: "wireline-viewer",
+    title: "2. Calibrated Wireline Log Viewer & Telemetry",
+    badge: "Module 2: Visualisation",
+    icon: <Activity className="w-5 h-5 text-cyan-400" />,
     description:
-      "Filter your subsurface portfolio by verification health: All Wells for the complete catalog, Uploaded Wells for production-ready datasets, and Flagged Wells for assets requiring automated remediation.",
-    tips: "Toggle between asset scopes below to see your KPI cards adapt dynamically.",
-    preferredPlacement: "bottom",
+      "Inspect high-resolution multi-track wireline curves in calibrated Classic Paper Log view. Toggle between Log Plot, raw Data Table, and Split View. Interactive depth crosshairs display instantaneous depth, curve readings, and engineering units in real time.",
+    highlights: [
+      "Calibrated Log Plot, Data Table & Split View Layouts",
+      "Interactive Depth Crosshairs with Instantaneous Readings",
+      "Selective Multi-Track Display with One-Click Curve Selection",
+    ],
+    tips: "Use 'Select All' or 'Clear' in the curve selector to focus on specific petrophysical tracks (GR, RES, SONIC, DENS).",
+    preferredPlacement: "center",
   },
   {
-    id: "kpi-grid",
-    targetId: "tour-kpi-grid",
-    title: "3. Fleet Health & QA Index Cards",
-    badge: "Quality Index",
-    icon: <BarChart3 className="w-5 h-5 text-cyan-400" />,
+    id: "mnemonic-standardisation",
+    title: "3. Mnemonic Standardisation Engine",
+    badge: "Module 3: Normalisation",
+    icon: <Layers className="w-5 h-5 text-cyan-400" />,
     description:
-      "Review your corporate Composite Quality Score, verified LAS volumes, and high-impact severity alert cards highlighting critical vs moderate faults.",
-    preferredPlacement: "bottom",
+      "Harmonise disparate oilfield service vendor curve mnemonics (e.g., Schlumberger, Baker Hughes, Halliburton) to API RP 66 standard classes. Detect unrecognised aliases and map them with 1-click confidence into canonical petrophysical curves.",
+    highlights: [
+      "Automated Mapping to API RP 66 Industry Standard",
+      "Vendor Alias Normalisation (e.g. GR_EDTC → GR, ILD → RES)",
+      "Bulk Normalisation for Harmonised Basin Analytics",
+    ],
+    actionLink: {
+      href: "/standardisation",
+      label: "Open Standardisation Engine",
+    },
+    tips: "Standardising curve names ensures your automated petrophysical scripts and ML models run reliably across all wells.",
+    preferredPlacement: "center",
   },
   {
-    id: "trend-section",
-    targetId: "tour-trend-section",
-    title: "4. Composite Dial & Ingestion Trends",
-    badge: "Analytics Engine",
-    icon: <TrendingUp className="w-5 h-5 text-cyan-400" />,
+    id: "qa-engine",
+    title: "4. Quality Engine & Non-Destructive Repair",
+    badge: "Module 4: Remediation",
+    icon: <Wrench className="w-5 h-5 text-cyan-400" />,
     description:
-      "Track your API RP 66 benchmark quality gauge alongside 7-day ingestion volume trajectories and active ML auto-clean engine throughput.",
-    preferredPlacement: "top",
+      "Remediate data quality faults through an interactive 4-step workflow: Review flagged anomalies, select recommended fixes via the toggleable Suggested Fixes menu (Despiking, Outlier Clipping, Spline/KNN Null Imputation), preview before/after curves, and export clean LAS files.",
+    highlights: [
+      "Step 1: Automated Physical Bounds & Spike Diagnostics",
+      "Step 2: Toggleable Suggested Fixes Dropdown Menu",
+      "Step 3: Interactive Before vs After Diff Preview",
+      "Step 4: Non-Destructive Repair with Interpretation-Ready Export",
+    ],
+    actionLink: {
+      href: "/qa-engine",
+      label: "Launch Quality Engine",
+    },
+    tips: "Original raw logs remain untouched in the database; repaired files are exported with full audit lineage.",
+    preferredPlacement: "center",
   },
   {
-    id: "actions",
-    targetId: "tour-actions",
-    title: "5. Ingest New Logs & Well Registry",
-    badge: "Actions & Tools",
-    icon: <PlusCircle className="w-5 h-5 text-cyan-400" />,
+    id: "compliance-reports",
+    title: "5. NUPRC Compliance & Digital Certificates",
+    badge: "Module 5: Governance",
+    icon: <ShieldCheck className="w-5 h-5 text-cyan-400" />,
     description:
-      "Click '+' to upload and inspect raw LAS files, test curves against physical limits, preview multi-curve wireline tracks, and upload validated datasets into your database.",
-    preferredPlacement: "bottom",
+      "Generate official Form WQC-08-A digital certificates conforming to Nigerian Upstream Petroleum Regulatory Commission (NUPRC) and Petroleum Industry Act (PIA 2021) guidelines. Every certificate incorporates cryptographic SHA-256 signatures for tamper-proof submission.",
+    highlights: [
+      "Official Form WQC-08-A Regulatory Certificate Format",
+      "Cryptographic SHA-256 Hash Verification Stamp",
+      "Comprehensive Pass/Fail Audit Logs & One-Click PDF Export",
+    ],
+    actionLink: {
+      href: "/reports",
+      label: "View Compliance Reports",
+    },
+    tips: "Certificates can be shared directly with regulators and verified against the unique digital validation signature.",
+    preferredPlacement: "center",
   },
   {
     id: "completed",
-    title: "You're Ready to Explore WellQC!",
+    title: "You're Ready to Use WellQC Studio!",
     badge: "Tour Complete",
     icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" />,
     description:
-      "You now know your way around the platform. You can relaunch this walkthrough anytime by clicking the 'Tour Guide' button in the dashboard header.",
+      "You now know your way around WellQC Studio. You can relaunch this guide anytime by clicking the 'Tour Guide' button in the top navigation bar. Jump directly into any workspace below:",
+    highlights: [
+      "Data Ingestion & Well Database: /upload",
+      "Mnemonic Normalisation: /standardisation",
+      "Quality Engine Remediation: /qa-engine",
+      "Compliance Certificates: /reports",
+    ],
     preferredPlacement: "center",
   },
 ];
 
-const TOUR_STORAGE_KEY = "wellqc_dashboard_tour_completed_v1";
+const TOUR_STORAGE_KEY = "wellqc_studio_tour_completed_v2";
 
 function subscribeToTourStorage(callback: () => void) {
-  if (typeof window === "undefined") return () => {};
+  if (typeof window === "undefined") return () => { };
   window.addEventListener("storage", callback);
   window.addEventListener("wellqc_tour_updated", callback);
   return () => {
@@ -136,94 +191,36 @@ export function useIsTourCompleted(): boolean {
   );
 }
 
-interface DashboardTourProps {
+export interface DashboardTourProps {
   isOpen: boolean;
   onClose: () => void;
   onStart?: () => void;
-  currentMode?: "executive" | "workstation" | "telemetry";
-  onSelectMode?: (mode: "executive" | "workstation" | "telemetry") => void;
-  currentScope?: "ALL" | "COMMITTED" | "ATTENTION";
-  onSelectScope?: (scope: "ALL" | "COMMITTED" | "ATTENTION") => void;
 }
 
-export function DashboardTour({
-  isOpen,
-  onClose,
-  currentMode,
-  onSelectMode,
-  currentScope,
-  onSelectScope,
-}: DashboardTourProps) {
+export function DashboardTour({ isOpen, onClose }: DashboardTourProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
-  const [effectivePlacement, setEffectivePlacement] = useState<"top" | "bottom" | "center">("bottom");
   const cardRef = useRef<HTMLDivElement>(null);
 
   const currentStep = TOUR_STEPS[currentStepIndex] || TOUR_STEPS[0];
   const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === TOUR_STEPS.length - 1;
 
-  // Measure and scroll target element into view
-  const updateTargetRect = useCallback(() => {
-    if (!currentStep.targetId) {
-      setTargetRect(null);
-      setEffectivePlacement("center");
-      return;
-    }
-
-    const el =
-      document.getElementById(currentStep.targetId) ||
-      (currentStep.targetId === "tour-trend-section"
-        ? document.getElementById("tour-trend-section-alt")
-        : null);
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      setTargetRect(rect);
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-
-      // Determine smart auto-flip placement
-      const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800;
-      const estimatedCardHeight = 340;
-      const spaceBelow = viewportHeight - rect.bottom;
-      const spaceAbove = rect.top;
-
-      let placement = currentStep.preferredPlacement || "bottom";
-      if (placement === "bottom" && spaceBelow < estimatedCardHeight + 20 && spaceAbove > spaceBelow) {
-        placement = "top";
-      } else if (placement === "top" && spaceAbove < estimatedCardHeight + 20 && spaceBelow > spaceAbove) {
-        placement = "bottom";
-      }
-      setEffectivePlacement(placement);
-    } else {
-      setTargetRect(null);
-      setEffectivePlacement("center");
-    }
-  }, [currentStep.targetId, currentStep.preferredPlacement]);
-
+  // Reset to first step whenever reopened
   useEffect(() => {
-    if (!isOpen) return;
-
-    // Small delay to allow scroll and rendering
-    const timer = setTimeout(() => {
-      updateTargetRect();
-    }, 150);
-
-    const handleResize = () => updateTargetRect();
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("scroll", handleResize, { passive: true });
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("scroll", handleResize);
-    };
-  }, [isOpen, currentStepIndex, updateTargetRect]);
+    let ignore = false;
+    if (isOpen) {
+      Promise.resolve().then(() => {
+        if (!ignore) setCurrentStepIndex(0);
+      });
+    }
+    return () => { ignore = true; };
+  }, [isOpen]);
 
   const handleComplete = useCallback(() => {
     try {
       localStorage.setItem(TOUR_STORAGE_KEY, "true");
       window.dispatchEvent(new Event("wellqc_tour_updated"));
-    } catch {}
+    } catch { }
     onClose();
   }, [onClose]);
 
@@ -231,7 +228,7 @@ export function DashboardTour({
     try {
       localStorage.setItem(TOUR_STORAGE_KEY, "true");
       window.dispatchEvent(new Event("wellqc_tour_updated"));
-    } catch {}
+    } catch { }
     onClose();
   }, [onClose]);
 
@@ -256,11 +253,11 @@ export function DashboardTour({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         handleDismiss();
-      } else if (e.key === "ArrowRight" || e.key === " ") {
+      } else if (e.key === "ArrowRight") {
         if (!isLastStep) {
           e.preventDefault();
           setCurrentStepIndex((prev) => prev + 1);
-        } else if (e.key === " ") {
+        } else {
           e.preventDefault();
           handleComplete();
         }
@@ -278,90 +275,20 @@ export function DashboardTour({
 
   if (!isOpen) return null;
 
-  // Compute tooltip card position relative to target or viewport center
-  const getCardPositionStyle = (): React.CSSProperties => {
-    if (!targetRect || effectivePlacement === "center") {
-      return {
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        position: "fixed",
-      };
-    }
-
-    const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1200;
-    const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800;
-
-    // Mobile layout: dock nicely at bottom as a floating sheet
-    if (viewportWidth < 640) {
-      return {
-        bottom: "16px",
-        left: "12px",
-        right: "12px",
-        position: "fixed",
-        width: "auto",
-        maxWidth: "none",
-      };
-    }
-
-    const cardWidth = 440;
-    const estimatedHeight = 330;
-    const padding = 16;
-
-    let left = targetRect.left + targetRect.width / 2 - cardWidth / 2;
-    // Keep inside horizontal viewport
-    left = Math.max(padding, Math.min(left, viewportWidth - cardWidth - padding));
-
-    let top = 0;
-    if (effectivePlacement === "top") {
-      top = Math.max(padding, targetRect.top - estimatedHeight - 16);
-    } else {
-      top = Math.min(viewportHeight - estimatedHeight - padding, targetRect.bottom + 16);
-    }
-
-    return {
-      top: `${Math.round(top)}px`,
-      left: `${Math.round(left)}px`,
-      position: "fixed",
-    };
-  };
-
   const progressPercentage = Math.round(((currentStepIndex + 1) / TOUR_STEPS.length) * 100);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden font-sans select-none pointer-events-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto font-sans select-none pointer-events-auto flex items-center justify-center p-4">
       {/* Dark backdrop with blur */}
       <div
         onClick={handleDismiss}
-        className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px] transition-opacity duration-300"
+        className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity duration-300"
       />
-
-      {/* Target Element Spotlight Cutout Ring */}
-      {targetRect && (
-        <div
-          className="fixed rounded-2xl border-2 border-cyan-400 pointer-events-none transition-all duration-300 ease-out z-50 shadow-[0_0_0_9999px_rgba(2,6,23,0.72),0_0_30px_rgba(6,182,212,0.5)] ring-4 ring-cyan-500/20"
-          style={{
-            top: `${Math.max(0, targetRect.top - 6)}px`,
-            left: `${Math.max(0, targetRect.left - 6)}px`,
-            width: `${targetRect.width + 12}px`,
-            height: `${targetRect.height + 12}px`,
-          }}
-        >
-          {/* Subtle pulsing beacon pill */}
-          <span className="absolute -top-3 -right-2 flex h-5 w-5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-5 w-5 bg-cyan-500 border border-slate-900 text-[10px] text-slate-950 font-bold items-center justify-center font-mono">
-              {currentStepIndex}
-            </span>
-          </span>
-        </div>
-      )}
 
       {/* Floating Tour Guide Dialog Card */}
       <div
         ref={cardRef}
-        style={getCardPositionStyle()}
-        className="w-[92vw] sm:w-[440px] bg-slate-900/95 dark:bg-slate-900/95 border border-cyan-500/40 rounded-3xl shadow-2xl z-[60] overflow-hidden text-slate-100 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full max-w-lg bg-slate-900 border border-cyan-500/40 rounded-3xl shadow-2xl z-[60] overflow-hidden text-slate-100 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 my-auto"
       >
         {/* Animated Linear Progress Bar */}
         <div className="h-1.5 w-full bg-slate-800/80 overflow-hidden">
@@ -374,15 +301,15 @@ export function DashboardTour({
         {/* Top Header Strip */}
         <div className="p-4 bg-gradient-to-r from-cyan-950/40 via-slate-900 to-slate-900 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
-            <span className="p-1.5 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+            <span className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
               {currentStep.icon || <Compass className="w-4 h-4" />}
             </span>
             <div>
               <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-cyan-400 block">
-                {currentStep.badge || "WellQC Walkthrough"}
+                {currentStep.badge || "WellQC Studio"}
               </span>
               <span className="text-xs font-mono text-slate-300 font-medium">
-                Step {currentStepIndex + 1} of {TOUR_STEPS.length} · {progressPercentage}%
+                Step {currentStepIndex + 1} of {TOUR_STEPS.length} · {progressPercentage}% Complete
               </span>
             </div>
           </div>
@@ -397,146 +324,92 @@ export function DashboardTour({
         </div>
 
         {/* Content Body */}
-        <div className="p-5 space-y-3.5">
-          <h3 className="text-base font-extrabold text-white tracking-tight leading-snug">
-            {currentStep.title}
-          </h3>
+        <div className="p-5 space-y-4">
+          <div>
+            <h3 className="text-base font-extrabold text-white tracking-tight leading-snug">
+              {currentStep.title}
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed mt-2">
+              {currentStep.description}
+            </p>
+          </div>
 
-          <p className="text-xs text-slate-300 leading-relaxed">
-            {currentStep.description}
-          </p>
-
-          {/* Interactive Live Preview Controls for Step 1 (Dashboard Modes) */}
-          {currentStep.id === "dashboard-mode" && onSelectMode && (
-            <div className="pt-1 pb-1">
-              <div className="text-[10px] text-cyan-400 font-mono font-bold uppercase tracking-wider mb-1.5 flex items-center space-x-1">
-                <Sparkles className="w-3 h-3" />
-                <span>Interactive Preview — Try It Live:</span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
-                <button
-                  type="button"
-                  onClick={() => onSelectMode("executive")}
-                  className={`px-2 py-1.5 rounded-lg border font-bold transition-all text-center ${
-                    currentMode === "executive"
-                      ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-sm"
-                      : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300"
-                  }`}
-                >
-                  Executive
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSelectMode("workstation")}
-                  className={`px-2 py-1.5 rounded-lg border font-bold transition-all text-center ${
-                    currentMode === "workstation"
-                      ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-sm"
-                      : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300"
-                  }`}
-                >
-                  Operational
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSelectMode("telemetry")}
-                  className={`px-2 py-1.5 rounded-lg border font-bold transition-all text-center ${
-                    currentMode === "telemetry"
-                      ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-sm"
-                      : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300"
-                  }`}
-                >
-                  Full Telemetry
-                </button>
+          {/* Key Feature Highlights */}
+          {currentStep.highlights && currentStep.highlights.length > 0 && (
+            <div className="space-y-1.5 bg-slate-950/60 p-3 rounded-2xl border border-slate-800">
+              <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-slate-400 block mb-1">
+                Key Capabilities:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {currentStep.highlights.map((highlight, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center space-x-2 text-[11px] font-mono text-slate-300"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
+                    <span className="truncate">{highlight}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Interactive Live Preview Controls for Step 2 (Asset Filter Scopes) */}
-          {currentStep.id === "scope-filter" && onSelectScope && (
-            <div className="pt-1 pb-1">
-              <div className="text-[10px] text-cyan-400 font-mono font-bold uppercase tracking-wider mb-1.5 flex items-center space-x-1">
-                <Sparkles className="w-3 h-3" />
-                <span>Interactive Preview — Try It Live:</span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
-                <button
-                  type="button"
-                  onClick={() => onSelectScope("ALL")}
-                  className={`px-2 py-1.5 rounded-lg border font-bold transition-all text-center ${
-                    currentScope === "ALL"
-                      ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-sm"
-                      : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300"
-                  }`}
-                >
-                  All Wells
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSelectScope("COMMITTED")}
-                  className={`px-2 py-1.5 rounded-lg border font-bold transition-all text-center ${
-                    currentScope === "COMMITTED"
-                      ? "bg-cyan-500 text-slate-950 border-cyan-400 shadow-sm"
-                      : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300"
-                  }`}
-                >
-                  Uploaded Wells
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSelectScope("ATTENTION")}
-                  className={`px-2 py-1.5 rounded-lg border font-bold transition-all text-center ${
-                    currentScope === "ATTENTION"
-                      ? "bg-rose-600 text-white border-rose-400 shadow-sm"
-                      : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300"
-                  }`}
-                >
-                  Flagged Wells
-                </button>
-              </div>
+          {/* Direct Workspace Action Link */}
+          {currentStep.actionLink && (
+            <div className="pt-1">
+              <Link
+                href={currentStep.actionLink.href}
+                onClick={handleComplete}
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-mono text-xs font-bold transition-all group"
+              >
+                <span>{currentStep.actionLink.label}</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
             </div>
           )}
 
+          {/* Helpful Tips */}
           {currentStep.tips && (
             <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-[11px] text-cyan-300 font-mono flex items-start space-x-2">
               <span className="font-bold shrink-0">💡 Tip:</span>
-              <span>{currentStep.tips}</span>
+              <span className="leading-snug">{currentStep.tips}</span>
             </div>
           )}
 
           {/* Quick links on completion step */}
           {isLastStep && (
-            <div className="grid grid-cols-2 gap-2 pt-2">
+            <div className="grid grid-cols-2 gap-2 pt-1">
               <Link
                 href="/upload"
                 onClick={handleComplete}
                 className="p-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center justify-center space-x-1.5 transition-all shadow-md active:scale-95"
               >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>Ingest First Log</span>
+                <UploadCloud className="w-3.5 h-3.5" />
+                <span>Ingest LAS File</span>
               </Link>
               <Link
-                href="/comparison"
+                href="/standardisation"
                 onClick={handleComplete}
                 className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors border border-slate-700"
               >
-                <GitCompare className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Well Comparison</span>
+                <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Standardisation</span>
               </Link>
               <Link
-                href="/analytics"
+                href="/qa-engine"
                 onClick={handleComplete}
-                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors border border-slate-700"
+                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors border border-slate-700"
               >
-                <PieChart className="w-3.5 h-3.5 text-sky-400" />
-                <span>Basin Analytics</span>
+                <Wrench className="w-3.5 h-3.5 text-amber-400" />
+                <span>Quality Engine</span>
               </Link>
               <Link
-                href="/upload"
+                href="/reports"
                 onClick={handleComplete}
-                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors border border-slate-700"
+                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors border border-slate-700"
               >
-                <span>Uploaded Files</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Form WQC-08-A</span>
               </Link>
             </div>
           )}
@@ -544,7 +417,7 @@ export function DashboardTour({
 
         {/* Navigation Controls Footer */}
         <div className="p-4 bg-slate-950/60 border-t border-slate-800/80 flex items-center justify-between">
-          {/* Keyboard Hotkeys Legend on Desktop, Dots on Mobile */}
+          {/* Keyboard Hotkeys Legend */}
           <div className="hidden sm:flex items-center space-x-1.5 text-[10px] text-slate-400 font-mono">
             <span className="flex items-center space-x-1">
               <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">Esc</kbd>
@@ -559,19 +432,18 @@ export function DashboardTour({
           </div>
 
           {/* Progress Dots */}
-          <div className="flex sm:hidden items-center space-x-1.5">
+          <div className="flex items-center space-x-1.5">
             {TOUR_STEPS.map((step, idx) => (
               <button
                 key={step.id}
                 onClick={() => setCurrentStepIndex(idx)}
-                className={`w-2 h-2 rounded-full transition-all ${
-                  idx === currentStepIndex
-                    ? "w-4 bg-cyan-400"
+                className={`h-2 rounded-full transition-all ${idx === currentStepIndex
+                    ? "w-5 bg-cyan-400"
                     : idx < currentStepIndex
-                    ? "bg-cyan-700"
-                    : "bg-slate-700 hover:bg-slate-600"
-                }`}
-                title={`Go to Step ${idx + 1}: ${step.title}`}
+                      ? "w-2 bg-cyan-700"
+                      : "w-2 bg-slate-700 hover:bg-slate-600"
+                  }`}
+                title={`Step ${idx + 1}: ${step.title}`}
               />
             ))}
           </div>
@@ -604,6 +476,9 @@ export function DashboardTour({
   );
 }
 
+// Backward-compatible alias
+export const WorkstationTour = DashboardTour;
+
 /**
  * Welcoming Onboarding Banner shown for users who have not taken or completed the tour yet.
  */
@@ -616,7 +491,7 @@ export function OnboardingWelcomeBanner({ onStartTour }: { onStartTour: () => vo
     try {
       localStorage.setItem(TOUR_STORAGE_KEY, "dismissed");
       window.dispatchEvent(new Event("wellqc_tour_updated"));
-    } catch {}
+    } catch { }
   };
 
   if (isCompleted || isLocallyDismissed) return null;
@@ -629,10 +504,10 @@ export function OnboardingWelcomeBanner({ onStartTour }: { onStartTour: () => vo
         </div>
         <div>
           <span className="font-bold text-white text-xs block font-sans">
-            Welcome to WellQC! New here?
+            Welcome to WellQC Studio!
           </span>
           <span className="text-slate-300 text-[11px] leading-tight">
-            Take a quick 1-minute guided tour to explore automated QA diagnostics, multi-track wireline views, and fleet verification.
+            Take a quick 1-minute guided tour of LAS ingestion, wireline telemetry, standardisation, and NUPRC compliance.
           </span>
         </div>
       </div>
@@ -667,7 +542,7 @@ export function TourGuideButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all shadow-sm font-mono text-[11px] font-bold active:scale-95 group"
-      title="Launch Interactive Dashboard Tour"
+      title="Launch Interactive WellQC Studio Tour"
     >
       <Compass className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 group-hover:rotate-45 transition-transform" />
       <span>Tour Guide</span>

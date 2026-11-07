@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Header } from "@/components/ui/header";
+import { DashboardTour } from "@/components/dashboard/dashboard-tour";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -20,6 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ndaAcceptedAt?: string | null;
   } | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isTourOpen, setIsTourOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -49,7 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             localStorage.removeItem("wellqc_latest_committed_well");
           }
           localStorage.setItem("wellqc_active_user_id", user.id);
-        } catch {}
+        } catch { }
 
         const resolvedAvatar = user.avatarUrl || "";
 
@@ -82,12 +84,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [router, pathname]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get("tour") === "true") {
+        Promise.resolve().then(() => {
+          if (!ignore) setIsTourOpen(true);
+        });
+      }
+    }
+
+    const handleLaunchTour = () => {
+      setIsTourOpen(true);
+    };
+
+    window.addEventListener("wellqc_launch_tour", handleLaunchTour);
+    return () => {
+      ignore = true;
+      window.removeEventListener("wellqc_launch_tour", handleLaunchTour);
+    };
+  }, []);
+
   const handleLogout = async () => {
     try {
       localStorage.removeItem("wellqc_upload_workspace");
       localStorage.removeItem("wellqc_latest_committed_well");
       localStorage.removeItem("wellqc_active_user_id");
-    } catch {}
+    } catch { }
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/");
     router.refresh();
@@ -115,6 +140,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+      <DashboardTour isOpen={isTourOpen} onClose={() => setIsTourOpen(false)} />
     </div>
   );
 }

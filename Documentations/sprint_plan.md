@@ -259,7 +259,12 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
   - **P1 — Unsupervised ML Lithology Clustering on GR-RHOB-NPHI:** K-Means and Gaussian Mixture Model (GMM) clustering algorithms on Gamma Ray, Bulk Density, and Neutron Porosity crossplots to classify sand, shale, and carbonate intervals.
   - **P2 — Real-Time Wellsite Telemetry Streaming Ingestion:** Ingestion adapter supporting WITSML 1.4 / 2.0 and OPC-UA socket streams for live rig-to-cloud quality scoring.
   - **P3 — Advanced Reservoir Rock Physics Module:** Automated computation of Water Saturation ($S_w$ via Archie and Simandoux equations), Absolute & Effective Permeability ($k$ via Timur/Coates models), and Net-to-Gross (NTG) pay intervals.
-* **SE2 (Enterprise Frontend & SSO Integration Lead):**
+* **SE2 (Enterprise Frontend, Payments & SSO Integration Lead):**
+  - **P0 — Paystack Multi-Channel Payment Gateway & Subscription Portal:**
+    - Full-stack Paystack integration supporting Nigerian Naira (NGN) and international USD checkout (Cards, Bank Transfer, USSD).
+    - In-app Subscription Pricing Modal & Upgrade Gatekeeper on QA Engine remediation paywall.
+    - Asynchronous webhook listener (`POST /api/payments/webhook`) with HMAC-SHA512 cryptographic signature verification and idempotent `PaymentTransaction` logging.
+    - Automated license provisioning atomically upgrading tenant tier (`FREE` → `PRO` / `ENTERPRISE`) with complete audit trail.
   - **P1 — Enterprise Single Sign-On (SSO):** SAML 2.0 / OpenID Connect integration for corporate identity providers (Microsoft Azure Active Directory / Entra ID, Okta, Google Workspace).
   - **P2 — Operator Pilot Workstation Customization:** White-label reporting themes and customizable audit certificate templates for enterprise exploration partners.
 * **DA1 & DA2 (Petrophysical Rock Physics Calibration):**
@@ -424,6 +429,7 @@ gantt
     Milestone: Core Feature Complete & Verified:milestone, m7, 2026-10-29, 0d
 
     section Sprint 8: Production Deployment & Pilot [UPCOMING]
+    Paystack Payment Portal & Gateway (SE2,CE2):s8_0, 2026-11-02, 2026-11-06
     Multi-Region Cloud & Kubernetes Scale (CE1):s8_1, 2026-11-02, 2026-11-06
     Live NUPRC Operator Pilot Validation (DA4,SE2):s8_2, 2026-11-03, 2026-11-10
     WITSML / OPC-UA Real-Time Streaming (SE1,CE2):s8_3, 2026-11-04, 2026-11-11

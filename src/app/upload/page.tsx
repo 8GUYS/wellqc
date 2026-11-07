@@ -737,7 +737,7 @@ export default function LASUploadPage() {
         )}
 
         {/* Uploaded Well Files Catalog */}
-        <div className="pt-6 border-t border-wellqc-border">
+        <div id="database-wells-catalog" className="pt-6 border-t border-wellqc-border scroll-mt-6">
           <UploadedFilesTable
             refreshTrigger={wellsRefreshKey}
             onSelectWell={handleSelectDatabaseWell}

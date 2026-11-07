@@ -7,12 +7,10 @@ import { useRouter } from "next/navigation";
  * ============================================================================
  * WellQC Subsurface Platform - Dashboard Route
  * ============================================================================
- * NOTE: The Dashboard has been commented out / bypassed per application workflow
- * requirements, designating the Data Upload Workstation (/upload) as the primary focus.
+ * NOTE: The legacy dashboard has been removed, designating the Data Upload
+ * Workstation (/upload) as the primary entry point and command centre.
  *
  * Any direct navigation to /dashboard is seamlessly forwarded to /upload.
- * The full original dashboard implementation is preserved in:
- * `src/app/dashboard/dashboard.backup.tsx`
  * ============================================================================
  */
 export default function DashboardPage() {

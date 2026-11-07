@@ -85,10 +85,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [router, pathname]);
 
   useEffect(() => {
+    let ignore = false;
+
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
       if (searchParams.get("tour") === "true") {
-        setIsTourOpen(true);
+        Promise.resolve().then(() => {
+          if (!ignore) setIsTourOpen(true);
+        });
       }
     }
 
@@ -98,6 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     window.addEventListener("wellqc_launch_tour", handleLaunchTour);
     return () => {
+      ignore = true;
       window.removeEventListener("wellqc_launch_tour", handleLaunchTour);
     };
   }, []);

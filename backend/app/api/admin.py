@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from backend.app.core.database import get_db
+from backend.app.core.config import settings
 from backend.app.core.ssrf import enforce_safe_url
 from backend.app.core.dependencies import get_current_admin_user
 from backend.app.core.security import normalize_role
@@ -317,7 +318,8 @@ def update_email_settings(
             detail="Provider must be EMAILJS, RESEND, or DEV_LOGGER.",
         )
 
-    frontend_url_clean = (payload.frontend_url or existing.get("frontend_url") or "https://wellqc.vercel.app").strip().rstrip("/")
+    raw_frontend_url = (payload.frontend_url or existing.get("frontend_url") or "https://wellqc.vercel.app").strip().rstrip("/")
+    frontend_url_clean = enforce_safe_url(raw_frontend_url, allow_private=(settings.ENVIRONMENT == "development"))
 
     # Security: Provider secrets (private keys) must NOT be written to the database.
     # Secrets stay exclusively in environment variables to prevent duplication across database branches.
@@ -575,11 +577,9 @@ def create_webhook(
     import json
 
     name = payload.name.strip()
-    url = payload.url.strip()
-    if not name or not url:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name and destination URL are required.")
-    if not url.startswith(("http://", "https://")):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook URL must begin with http:// or https://")
+    if not name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook name is required.")
+    url = enforce_safe_url(payload.url)
     if not payload.events:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one event trigger must be selected.")
 

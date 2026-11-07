@@ -38,6 +38,7 @@ export function Header({
     let cancelled = false;
 
     async function loadActivities() {
+      if ((currentUser.role || "").toUpperCase() !== "ADMIN") return;
       try {
         const response = await fetch("/api/activity", { cache: "no-store" });
         const res = await safeReadJson<{ activities: ActivityListItem[] }>(response);
@@ -57,7 +58,7 @@ export function Header({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [currentUser.role]);
 
   const avatarSrc = currentUser.avatarUrl || "";
 
@@ -85,56 +86,54 @@ export function Header({
         {/* Interactive Tour Guide Button */}
         <TourGuideButton
           onClick={() => {
-            if (pathname === "/upload") {
-              window.dispatchEvent(new Event("wellqc_launch_tour"));
-            } else {
-              router.push("/upload");
-            }
+            window.dispatchEvent(new Event("wellqc_launch_tour"));
           }}
         />
 
-        {/* Audit / Activity Popover */}
-        <div className="relative">
-          <button
-            onClick={() => setNotificationsOpen(!notificationsOpen)}
-            className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors relative"
-            aria-label="Activity Feed"
-          >
-            <Bell className="w-3.5 h-3.5" />
-            {activities.length > 0 && (
-              <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-cyan-400" />
-            )}
-          </button>
+        {/* Audit / Activity Popover - Admin Only */}
+        {(currentUser.role || "").toUpperCase() === "ADMIN" && (
+          <div className="relative">
+            <button
+              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors relative"
+              aria-label="Activity Feed"
+            >
+              <Bell className="w-3.5 h-3.5" />
+              {activities.length > 0 && (
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-cyan-400" />
+              )}
+            </button>
 
-          {notificationsOpen && (
-            <div className="absolute right-0 mt-1.5 w-[calc(100vw-2rem)] sm:w-80 max-w-sm bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3 z-50 text-slate-200 font-mono">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs font-semibold">
-                <span>Recent Audit Trail</span>
-                <span className="text-[10px] text-cyan-400">{activities.length} Events</span>
-              </div>
-              <div className="py-2 space-y-2 text-xs max-h-64 overflow-y-auto">
-                {activities.length === 0 ? (
-                  <div className="p-2 text-center text-slate-500 text-[11px]">
-                    No activities recorded.
-                  </div>
-                ) : (
-                  activities.map((activity) => (
-                    <div
-                      key={activity.id}
-                      className="p-2 rounded-xl bg-slate-950/60 border border-slate-800 space-y-0.5"
-                    >
-                      <div className="font-semibold text-slate-300 text-[11px]">
-                        {activity.action.replace(/_/g, " ")}
-                      </div>
-                      <div className="text-slate-500 text-[10px] truncate">{activity.details}</div>
-                      <div className="text-[9px] text-slate-600">{activity.timestamp}</div>
+            {notificationsOpen && (
+              <div className="absolute right-0 mt-1.5 w-[calc(100vw-2rem)] sm:w-80 max-w-sm bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3 z-50 text-slate-200 font-mono">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs font-semibold">
+                  <span>Recent Audit Trail</span>
+                  <span className="text-[10px] text-cyan-400">{activities.length} Events</span>
+                </div>
+                <div className="py-2 space-y-2 text-xs max-h-64 overflow-y-auto">
+                  {activities.length === 0 ? (
+                    <div className="p-2 text-center text-slate-500 text-[11px]">
+                      No activities recorded.
                     </div>
-                  ))
-                )}
+                  ) : (
+                    activities.map((activity) => (
+                      <div
+                        key={activity.id}
+                        className="p-2 rounded-xl bg-slate-950/60 border border-slate-800 space-y-0.5"
+                      >
+                        <div className="font-semibold text-slate-300 text-[11px]">
+                          {activity.action.replace(/_/g, " ")}
+                        </div>
+                        <div className="text-slate-500 text-[10px] truncate">{activity.details}</div>
+                        <div className="text-[9px] text-slate-600">{activity.timestamp}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* User Profile Context */}
         <div className="flex items-center space-x-2 pl-2 border-l border-wellqc-border">

@@ -54,3 +54,29 @@ def test_ssrf_allows_valid_public_urls():
     for url in good_urls:
         res = validate_safe_url(url)
         assert res == url
+
+def test_admin_create_webhook_ssrf_blocked():
+    """Verify that attempting to register an internal IP webhook URL triggers HTTP 400."""
+    from fastapi.testclient import TestClient
+    from backend.app.main import app
+    from backend.app.core.dependencies import get_current_admin_user
+    from backend.app.models.models import User
+
+    # Mock admin user dependency
+    mock_admin = User(id="admin_1", email="admin@wellqc.com", role="ADMIN", isEmailVerified=True)
+    app.dependency_overrides[get_current_admin_user] = lambda: mock_admin
+
+    client = TestClient(app)
+    try:
+        res = client.post(
+            "/api/admin/webhooks",
+            json={
+                "name": "Malicious Webhook",
+                "url": "http://127.0.0.1:8000/internal-drain",
+                "events": ["LAS_UPLOADED"]
+            }
+        )
+        assert res.status_code == 400
+        assert "SSRF Security Violation" in res.json()["detail"]
+    finally:
+        app.dependency_overrides.pop(get_current_admin_user, None)

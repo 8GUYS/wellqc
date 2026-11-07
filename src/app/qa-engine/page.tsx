@@ -39,6 +39,7 @@ import {
   RotateCcw,
   X,
   FileDown,
+  ChevronDown,
 } from "lucide-react";
 
 // The four problems dealt with on the Quality Engine page
@@ -992,7 +993,7 @@ export default function QAEngineWorkspace() {
 
   // Single Row Approve flow
   const handleOpenRowApprove = (id: string, pType: TargetProblemType) => {
-    setOpenRowApproveId(id);
+    setOpenRowApproveId((prevId) => (prevId === id ? null : id));
     const recFromAuto = gapRecommendations[id]?.bestMethod;
     const methods = CLEANING_METHODS[pType];
     const defaultMethodId = recFromAuto || methods[0].id;
@@ -1625,9 +1626,19 @@ export default function QAEngineWorkspace() {
                             <button
                               type="button"
                               onClick={() => handleOpenRowApprove(a.id!, pType)}
-                              className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 text-xs font-mono font-bold transition-all"
+                              className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold transition-all flex items-center gap-1.5 ${
+                                isOpenPanel
+                                  ? "bg-emerald-500/30 text-emerald-200 border-emerald-500/60 shadow-sm"
+                                  : "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border-emerald-500/40"
+                              }`}
+                              title={isOpenPanel ? "Collapse suggested fix panel" : "View suggested repair method"}
                             >
-                              Approve fix
+                              <span>Suggested fix</span>
+                              <ChevronDown
+                                className={`w-3.5 h-3.5 text-emerald-300 transition-transform duration-200 ${
+                                  isOpenPanel ? "rotate-180" : ""
+                                }`}
+                              />
                             </button>
                             <button
                               type="button"

@@ -19,6 +19,7 @@ from backend.app.api import (
     auth,
     dashboard,
     las,
+    payments,
     qa_engine,
     standardisation,
     user,
@@ -259,6 +260,7 @@ app.include_router(activity.router)       # /api/activity: Audit trail and secur
 app.include_router(qa_engine.router)      # /api/qa-engine: QA Engine rules and petrophysical repairs
 app.include_router(user.router)           # /api/user: User profile, settings, API tokens
 app.include_router(admin.router)          # /api/admin: Tenant administration & user management
+app.include_router(payments.router)       # /api/payments: Paystack checkout, webhook, plans catalog
 
 @app.get("/health", include_in_schema=False)
 @app.get("/api/health", tags=["system"], summary="Service Health Probe")

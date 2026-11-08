@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ActivityListItem } from "@/lib/api-types";
 import { safeReadJson } from "@/lib/http-client";
-import { Bell, LogOut, Menu, User } from "lucide-react";
+import { Bell, LogOut, Menu, User, Sparkles } from "lucide-react";
 import { TourGuideButton } from "@/components/dashboard/dashboard-tour";
 
 interface HeaderProps {
@@ -80,6 +80,23 @@ export function Header({
 
       {/* Right section: System telemetry + Notifications + User context */}
       <div className="flex items-center space-x-2 md:space-x-3">
+        {/* Tier Upgrade Badge / Action */}
+        {(currentUser.tier || "FREE").toUpperCase() === "FREE" ? (
+          <Link
+            href="/pricing"
+            className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-cyan-500/15 to-blue-500/15 hover:from-cyan-500/25 hover:to-blue-500/25 text-cyan-300 border border-cyan-500/30 hover:border-cyan-400 font-mono text-[10px] font-bold transition-all shadow-sm group"
+            title="Upgrade to WellQC Pro via Paystack"
+          >
+            <Sparkles className="w-3 h-3 text-cyan-400 group-hover:rotate-12 transition-transform" />
+            <span>Upgrade</span>
+          </Link>
+        ) : (
+          <span className="flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-mono text-[9px] font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span>{(currentUser.tier || "PRO").toUpperCase()}</span>
+          </span>
+        )}
+
         {/* Interactive Tour Guide Button */}
         <TourGuideButton
           onClick={() => {

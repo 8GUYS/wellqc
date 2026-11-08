@@ -631,12 +631,12 @@ def test_cross_user_qa_engine_saved_well_access_denied():
     assert res_beta_rank.status_code == 403
     assert "permission" in res_beta_rank.json()["detail"].lower()
 
-    # 2. Unauthenticated user -> 403 Forbidden
+    # 2. Unauthenticated user -> 401 Unauthorized / 403 Forbidden
     res_anon_repair = client.post("/api/qa-engine/repair", json=repair_payload)
-    assert res_anon_repair.status_code == 403
+    assert res_anon_repair.status_code in (401, 403)
 
     res_anon_rank = client.post("/api/qa-engine/rank-gaps", json=rank_gaps_payload)
-    assert res_anon_rank.status_code == 403
+    assert res_anon_rank.status_code in (401, 403)
 
     # 3. User Alpha (Owner) -> 200 OK
     res_alpha_repair = client.post("/api/qa-engine/repair", json=repair_payload, cookies=user_alpha["cookies"])

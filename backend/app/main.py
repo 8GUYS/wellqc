@@ -48,6 +48,32 @@ async def lifespan(app: FastAPI):
                 conn.execute(text('ALTER TABLE "User" ADD COLUMN "isEmailVerified" BOOLEAN NOT NULL DEFAULT false;'))
             if "emailVerifiedAt" not in cols:
                 conn.execute(text('ALTER TABLE "User" ADD COLUMN "emailVerifiedAt" TIMESTAMP(3);'))
+            if "paystackCustomerCode" not in cols:
+                conn.execute(text('ALTER TABLE "User" ADD COLUMN "paystackCustomerCode" TEXT;'))
+            if "paystackSubscriptionCode" not in cols:
+                conn.execute(text('ALTER TABLE "User" ADD COLUMN "paystackSubscriptionCode" TEXT;'))
+
+            has_payment_tx = conn.execute(text(
+                """select to_regclass('public."PaymentTransaction"') is not null""")).scalar()
+            if not has_payment_tx:
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS "PaymentTransaction" (
+                        "id" TEXT NOT NULL PRIMARY KEY,
+                        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+                        "reference" TEXT NOT NULL UNIQUE,
+                        "amount" INTEGER NOT NULL,
+                        "currency" TEXT NOT NULL DEFAULT 'NGN',
+                        "plan" TEXT NOT NULL,
+                        "status" TEXT NOT NULL DEFAULT 'PENDING',
+                        "channel" TEXT,
+                        "metadataPayload" JSONB,
+                        "paidAt" TIMESTAMP(3),
+                        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                '''))
+                conn.execute(text('CREATE INDEX IF NOT EXISTS "PaymentTransaction_userId_idx" ON "PaymentTransaction"("userId");'))
+                conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "PaymentTransaction_reference_key" ON "PaymentTransaction"("reference");'))
             if not has_setting:
                 conn.execute(text('''
                     CREATE TABLE "SystemSetting" (

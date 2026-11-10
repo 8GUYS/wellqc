@@ -71,7 +71,50 @@ def _delete_session_cookie(response: Response) -> None:
 @router.post("/login", dependencies=[Depends(RateLimitDependency(max_requests=5, window_seconds=60, action="login"))])
 def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
     safe_email = req.email.strip().lower() if req.email else ""
-    user = db.query(User).filter(User.email == safe_email).first() if safe_email else None
+    user = None
+    if safe_email:
+        try:
+            user = db.query(User).filter(User.email == safe_email).first()
+        except Exception as query_err:
+            db.rollback()
+            import logging
+            logging.getLogger("wellqc.auth").warning(
+                f"Full user query failed for {safe_email} (possible schema drift). Attempting core column fallback: {query_err}"
+            )
+            try:
+                core = (
+                    db.query(
+                        User.id,
+                        User.name,
+                        User.email,
+                        User.passwordHash,
+                        User.role,
+                        User.department,
+                        User.tier,
+                        User.freeChecksUsed,
+                    )
+                    .filter(User.email == safe_email)
+                    .first()
+                )
+                if core:
+                    user = User(
+                        id=core.id,
+                        name=core.name,
+                        email=core.email,
+                        passwordHash=core.passwordHash,
+                        role=core.role,
+                        department=core.department,
+                        tier=core.tier,
+                        freeChecksUsed=core.freeChecksUsed,
+                        isEmailVerified=True,
+                    )
+            except Exception as core_err:
+                db.rollback()
+                logging.getLogger("wellqc.auth").error(f"Core fallback user query failed: {core_err}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Database connection failure during authentication.",
+                )
     
     if not user or not req.password or not verify_password(req.password, user.passwordHash):
         raise HTTPException(

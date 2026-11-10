@@ -29,7 +29,7 @@ from sqlalchemy import (
     Index,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, deferred
 from backend.app.core.database import Base
 
 def gen_uuid() -> str:
@@ -67,8 +67,8 @@ class User(Base):
     freeChecksUsed = Column(Integer, default=0, nullable=False)
     stripeCustomerId = Column(String, unique=True, nullable=True)
     stripeSubscriptionId = Column(String, unique=True, nullable=True)
-    paystackCustomerCode = Column(String, unique=True, nullable=True)
-    paystackSubscriptionCode = Column(String, unique=True, nullable=True)
+    paystackCustomerCode = deferred(Column(String, unique=True, nullable=True))
+    paystackSubscriptionCode = deferred(Column(String, unique=True, nullable=True))
 
     createdAt = Column(DateTime, default=now_utc, nullable=False)
     updatedAt = Column(DateTime, default=now_utc, onupdate=now_utc, nullable=False)

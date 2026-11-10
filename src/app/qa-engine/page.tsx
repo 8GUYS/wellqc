@@ -2282,22 +2282,22 @@ export default function QAEngineWorkspace() {
                     ? "bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/50"
                     : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-emerald-950/40"
                 }`}
-                title="Save calibrated, repaired curves directly into your persistent Well Assets database"
+                title="Save calibrated, repaired curves directly into your persistent Well Assets"
               >
                 {isUploadingToDb ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                    <span>Uploading to Database...</span>
+                    <span>Saving...</span>
                   </>
                 ) : uploadSuccessWell ? (
                   <>
                     <CheckCircle2 className="w-4 h-4 text-white" />
-                    <span>Uploaded to Database (Re-upload)</span>
+                    <span>Saved (Re-save)</span>
                   </>
                 ) : (
                   <>
                     <Database className="w-4 h-4 text-slate-950" />
-                    <span>Upload Cleaned Log to Database</span>
+                    <span>Save Cleaned Log</span>
                   </>
                 )}
               </button>
@@ -2360,13 +2360,13 @@ export default function QAEngineWorkspace() {
                   </div>
                   <div>
                     <div className="font-bold text-white flex items-center gap-2">
-                      <span>Cleaned Log Uploaded to Database Successfully!</span>
+                      <span>Cleaned Log Saved Successfully!</span>
                       <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold uppercase">
                         ACTIVE ASSET
                       </span>
                     </div>
                     <p className="text-slate-300 text-[11px] mt-0.5">
-                      Persisted as <strong className="text-emerald-300">{uploadSuccessWell.name}</strong> in your central Well Assets repository.
+                      Saved as <strong className="text-emerald-300">{uploadSuccessWell.name}</strong> in your central Well Assets.
                     </p>
                   </div>
                 </div>

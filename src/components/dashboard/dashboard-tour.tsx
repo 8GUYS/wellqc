@@ -721,7 +721,7 @@ function IngestionSimulator() {
             </div>
             <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-1.5">
               <Check className="w-3 h-3 shrink-0" />
-              <span>Saved to Database</span>
+              <span>Saved ✓</span>
             </div>
           </div>
           <button

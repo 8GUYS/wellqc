@@ -67,6 +67,8 @@ class User(Base):
     freeChecksUsed = Column(Integer, default=0, nullable=False)
     stripeCustomerId = Column(String, unique=True, nullable=True)
     stripeSubscriptionId = Column(String, unique=True, nullable=True)
+    paystackCustomerCode = Column(String, unique=True, nullable=True)
+    paystackSubscriptionCode = Column(String, unique=True, nullable=True)
 
     createdAt = Column(DateTime, default=now_utc, nullable=False)
     updatedAt = Column(DateTime, default=now_utc, onupdate=now_utc, nullable=False)
@@ -77,6 +79,7 @@ class User(Base):
     apiTokens = relationship("APIToken", back_populates="user", passive_deletes=True)
     webhooks = relationship("Webhook", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     customAliases = relationship("CustomAlias", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    paymentTransactions = relationship("PaymentTransaction", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class Field(Base):
@@ -335,4 +338,30 @@ class FormationMarker(Base):
     __table_args__ = (
         UniqueConstraint("wellId", "formationName", name="FormationMarker_wellId_formationName_key"),
     )
+
+
+class PaymentTransaction(Base):
+    """
+    PaymentTransaction Model.
+    Tracks Paystack checkout sessions, references, settlements, and subscription plan upgrades.
+    """
+    __tablename__ = "PaymentTransaction"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    userId = Column(String, ForeignKey("User.id", ondelete="CASCADE"), nullable=False, index=True)
+    reference = Column(String, unique=True, nullable=False, index=True)
+    amount = Column(Integer, nullable=False)  # in kobo (NGN) or cents (USD)
+    currency = Column(String, default="NGN", nullable=False)
+    plan = Column(String, nullable=False)  # e.g. "PRO", "ENTERPRISE", "CREDITS"
+    status = Column(String, default="PENDING", nullable=False, index=True)  # PENDING, SUCCESS, FAILED, ABANDONED
+    channel = Column(String, nullable=True)  # card, bank_transfer, ussd, mobile_money
+    paystackCustomerCode = Column(String, nullable=True)
+    paidAt = Column(DateTime, nullable=True)
+    metadataPayload = Column(Text, nullable=True)
+
+    createdAt = Column(DateTime, default=now_utc, nullable=False)
+    updatedAt = Column(DateTime, default=now_utc, onupdate=now_utc, nullable=False)
+
+    user = relationship("User", back_populates="paymentTransactions")
+
 

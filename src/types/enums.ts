@@ -84,3 +84,124 @@ export const AnomalyType = {
   MISSING_CORE_CURVE: "MISSING_CORE_CURVE",
 } as const;
 export type AnomalyType = (typeof AnomalyType)[keyof typeof AnomalyType];
+
+// ─── Payment & Billing Enums ──────────────────────────────────────────────────
+
+export const PaymentStatus = {
+  PENDING: "PENDING",
+  SUCCESS: "SUCCESS",
+  FAILED: "FAILED",
+  ABANDONED: "ABANDONED",
+} as const;
+export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus];
+export const TransactionStatus = PaymentStatus;
+export type TransactionStatus = PaymentStatus;
+
+export const PaymentChannel = {
+  CARD: "card",
+  BANK_TRANSFER: "bank_transfer",
+  USSD: "ussd",
+  MOBILE_MONEY: "mobile_money",
+  QR: "qr",
+  EFT: "eft",
+} as const;
+export type PaymentChannel = (typeof PaymentChannel)[keyof typeof PaymentChannel];
+
+export const BillingInterval = {
+  MONTHLY: "monthly",
+  ANNUALLY: "annually",
+  ONE_TIME: "one-time",
+} as const;
+export type BillingInterval = (typeof BillingInterval)[keyof typeof BillingInterval];
+
+// ─── File & Asset Operational Statuses ────────────────────────────────────────
+
+export const LASFileStatus = {
+  PENDING: "PENDING",
+  PROCESSED: "PROCESSED",
+  FAILED: "FAILED",
+  COMMITTED: "COMMITTED",
+} as const;
+export type LASFileStatus = (typeof LASFileStatus)[keyof typeof LASFileStatus];
+
+export const UploadStatus = {
+  READY: "ready",
+  SAVING: "saving",
+  SAVED: "saved",
+  ERROR: "error",
+  PROCESSING: "processing",
+  PENDING: "pending",
+} as const;
+export type UploadStatus = (typeof UploadStatus)[keyof typeof UploadStatus];
+
+export const CurveStatus = {
+  VALID: "VALID",
+  WARNING: "WARNING",
+  CORRUPTED: "CORRUPTED",
+  FLAGGED: "FLAGGED",
+} as const;
+export type CurveStatus = (typeof CurveStatus)[keyof typeof CurveStatus];
+
+export const AnomalyStatus = {
+  OPEN: "OPEN",
+  RESOLVED: "RESOLVED",
+  IGNORED: "IGNORED",
+  REVIEWED: "REVIEWED",
+} as const;
+export type AnomalyStatus = (typeof AnomalyStatus)[keyof typeof AnomalyStatus];
+
+// ─── Stratigraphy & Multi-Well Comparison Enums ───────────────────────────────
+
+export const FormationMarkerSource = {
+  INTERPRETER: "INTERPRETER",
+  BIOSTRATIGRAPHY: "BIOSTRATIGRAPHY",
+  CORE: "CORE",
+  SEISMIC: "SEISMIC",
+  ESTIMATED: "ESTIMATED",
+  VERIFIED: "VERIFIED",
+} as const;
+export type FormationMarkerSource = (typeof FormationMarkerSource)[keyof typeof FormationMarkerSource];
+
+export const StratigraphicContinuity = {
+  HIGH: "HIGH",
+  MODERATE: "MODERATE",
+  LOW: "LOW",
+  DISCONTINUOUS: "DISCONTINUOUS",
+} as const;
+export type StratigraphicContinuity = (typeof StratigraphicContinuity)[keyof typeof StratigraphicContinuity];
+
+export const ComparisonMatchGrade = {
+  EXCELLENT_MATCH: "EXCELLENT_MATCH",
+  GOOD_MATCH: "GOOD_MATCH",
+  MODERATE_MATCH: "MODERATE_MATCH",
+  POOR_MATCH: "POOR_MATCH",
+} as const;
+export type ComparisonMatchGrade = (typeof ComparisonMatchGrade)[keyof typeof ComparisonMatchGrade];
+
+export const CurveAvailability = {
+  BOTH: "BOTH",
+  WELL_A_ONLY: "WELL_A_ONLY",
+  WELL_B_ONLY: "WELL_B_ONLY",
+} as const;
+export type CurveAvailability = (typeof CurveAvailability)[keyof typeof CurveAvailability];
+
+// ─── Governance & Audit Action Enums ──────────────────────────────────────────
+
+export const ActivityAction = {
+  LOGIN: "LOGIN",
+  LOGOUT: "LOGOUT",
+  REGISTER: "REGISTER",
+  UPLOAD_LAS: "UPLOAD_LAS",
+  COMMIT_WELL: "COMMIT_WELL",
+  EXPORT_LAS: "EXPORT_LAS",
+  EXPORT_CSV: "EXPORT_CSV",
+  EXPORT_PDF: "EXPORT_PDF",
+  QA_REPAIR: "QA_REPAIR",
+  STANDARDISE: "STANDARDISE",
+  PAYMENT_INITIALIZE: "PAYMENT_INITIALIZE",
+  PAYMENT_SUCCESS: "PAYMENT_SUCCESS",
+  ADMIN_VERIFY_EMAIL: "ADMIN_VERIFY_EMAIL",
+  ADMIN_UPDATE_USER: "ADMIN_UPDATE_USER",
+  ADMIN_DELETE_USER: "ADMIN_DELETE_USER",
+} as const;
+export type ActivityAction = (typeof ActivityAction)[keyof typeof ActivityAction];

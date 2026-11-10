@@ -228,6 +228,11 @@ def commit_las_file_transaction(
         )
         db.add(anom_rec)
 
+    # Increment user's free checks counter if on Free tier
+    if (user.tier or "FREE").upper() == "FREE" and normalize_role(user.role) != "ADMIN":
+        user.freeChecksUsed = (user.freeChecksUsed or 0) + 1
+        db.add(user)
+
     # Activity log
     log = ActivityLog(
         userName=user.name,

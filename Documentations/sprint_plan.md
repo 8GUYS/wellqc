@@ -251,15 +251,27 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
 
 ---
 
-### 🟡 SPRINT 8 (Weeks 15–16: Nov 02 – Nov 13, 2026): Production Deployment, NUPRC Operator Pilot & Cloud Scale [UPCOMING]
+### 🟡 SPRINT 8 (Weeks 15–16: Nov 02 – Nov 13, 2026): Production Deployment, Commercial Licensing & Cloud Scale [IN PROGRESS]
 
-* **Theme:** Enterprise cloud containerization, multi-operator pilot onboarding, real-time wellsite telemetry streaming, advanced reservoir rock physics, unsupervised lithology classification, asynchronous cloud background workers, and single sign-on (SSO) governance.
-* **Current Progress:** **Upcoming (0%)** — Sprints 1–7 fully landed; Sprint 8 execution commences November 02, 2026.
-* **SE1 (Core Engine, ML & Rock Physics Lead):**
-  - **P1 — Unsupervised ML Lithology Clustering on GR-RHOB-NPHI:** K-Means and Gaussian Mixture Model (GMM) clustering algorithms on Gamma Ray, Bulk Density, and Neutron Porosity crossplots to classify sand, shale, and carbonate intervals.
-  - **P2 — Real-Time Wellsite Telemetry Streaming Ingestion:** Ingestion adapter supporting WITSML 1.4 / 2.0 and OPC-UA socket streams for live rig-to-cloud quality scoring.
-  - **P3 — Advanced Reservoir Rock Physics Module:** Automated computation of Water Saturation ($S_w$ via Archie and Simandoux equations), Absolute & Effective Permeability ($k$ via Timur/Coates models), and Net-to-Gross (NTG) pay intervals.
-* **SE2 (Enterprise Frontend & SSO Integration Lead):**
+* **Theme:** Paystack monetization & subscription gateway, freemium 3-file hard cap, administrative asset deletion governance, Pro feature gating, enterprise cloud containerization, multi-operator pilot onboarding, and universal offline PWA workstation.
+* **Current Progress:** **85% Complete** — Full Paystack checkout gateway (NGN & USD) with zero-key sandbox testing fallback landed; Freemium 3-LAS file hard cap enforced on backend and frontend; Admin-only well deletion governance active; Wireline Log Viewer and Quality Anomalies gated for Free users; Universal PWA offline rig mode available for all tiers; Reports navigation standardized.
+* **SE2 (Enterprise Frontend, Payments & Monetization Lead):**
+  - **P0 — Paystack Multi-Channel Payment Gateway & Subscription Portal (Completed):**
+    - Full-stack Paystack integration supporting Nigerian Naira (NGN) and international USD checkout (Cards, Bank Transfer, USSD).
+    - In-app Subscription Pricing Modal (`PaystackUpgradeModal`) with context-preserving return flow (`targetWellId`).
+    - Asynchronous webhook listener (`POST /api/payments/webhook`) with HMAC-SHA512 cryptographic signature verification and idempotent `PaymentTransaction` logging.
+    - Automated license provisioning atomically upgrading tenant tier (`FREE` → `PRO` / `ENTERPRISE`) with complete audit trail.
+  - **P1 — Freemium Ingestion Hard Cap & Dropzone Lock UI (Completed):**
+    - 3 LAS file total upload limit enforced for Free tier accounts.
+    - Dynamic dropzone telemetry showing remaining slots (`X of 3 left`) and locking with amber alert and upgrade CTA when limit is reached.
+    - Auto-slicing batch queue to remaining available slots with upgrade prompt.
+  - **P2 — Pro Entitlement Gating & UI Badging (Completed):**
+    - Gated interactive Wireline Log Viewer on `/upload` and `/wells/[id]` behind Pro paywall cards.
+    - Gated detailed Quality Anomalies list and depth boundaries behind Pro paywall cards.
+    - Standardized sidebar navigation item to "Reports".
+* **SE1 & CE2 (Backend Security & Asset Governance):**
+  - **P0 — Admin-Only Well Asset Deletion Governance (Completed):** Restricted single deletion (`DELETE /api/wells/{id}`) and bulk deletion (`POST/DELETE /api/wells/bulk-delete`) strictly to `ADMIN` role, returning `403 Forbidden` for standard users to preserve regulatory audit trails and prevent quota manipulation.
+  - **P1 — Universal Offline PWA Rig Mode (Completed):** Service worker caching, manifest configuration, and offline telemetry enabled for all accounts (Free, Pro, Enterprise).
   - **P1 — Enterprise Single Sign-On (SSO):** SAML 2.0 / OpenID Connect integration for corporate identity providers (Microsoft Azure Active Directory / Entra ID, Okta, Google Workspace).
   - **P2 — Operator Pilot Workstation Customization:** White-label reporting themes and customizable audit certificate templates for enterprise exploration partners.
 * **DA1 & DA2 (Petrophysical Rock Physics Calibration):**
@@ -424,6 +436,7 @@ gantt
     Milestone: Core Feature Complete & Verified:milestone, m7, 2026-10-29, 0d
 
     section Sprint 8: Production Deployment & Pilot [UPCOMING]
+    Paystack Payment Portal & Gateway (SE2,CE2):s8_0, 2026-11-02, 2026-11-06
     Multi-Region Cloud & Kubernetes Scale (CE1):s8_1, 2026-11-02, 2026-11-06
     Live NUPRC Operator Pilot Validation (DA4,SE2):s8_2, 2026-11-03, 2026-11-10
     WITSML / OPC-UA Real-Time Streaming (SE1,CE2):s8_3, 2026-11-04, 2026-11-11

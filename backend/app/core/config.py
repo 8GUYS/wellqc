@@ -79,6 +79,11 @@ class Settings(BaseSettings):
         or "postgresql://postgres:postgres@localhost:5432/main"
     )
     
+    # Paystack Payment Gateway Integration
+    PAYSTACK_SECRET_KEY: str = os.getenv("PAYSTACK_SECRET_KEY", "")
+    PAYSTACK_PUBLIC_KEY: str = os.getenv("NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY") or os.getenv("PAYSTACK_PUBLIC_KEY", "")
+    PAYSTACK_BASE_URL: str = "https://api.paystack.co"
+
     # CORS
     # Explicit, always-allowed origins. Extra production/custom-domain origins can be
     # added later via the CORS_EXTRA_ORIGINS env var (comma-separated), no code change needed.

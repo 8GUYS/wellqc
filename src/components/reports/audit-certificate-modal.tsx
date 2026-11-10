@@ -10,6 +10,7 @@ import {
   Scale,
   Copy,
   Check,
+  Lock,
 } from "lucide-react";
 import { CryptographicBadge } from "./cryptographic-badge";
 import { computeWellSignature } from "@/lib/crypto-signature";
@@ -532,10 +533,14 @@ export function AuditCertificateModal({
   isOpen,
   onClose,
   data,
+  isFreeTier,
+  onUpgradeRequest,
 }: {
   isOpen: boolean;
   onClose: () => void;
   data: AuditCertificateData | null;
+  isFreeTier?: boolean;
+  onUpgradeRequest?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [certSuffix] = useState(() => Math.random().toString(16).slice(2, 6).toUpperCase());
@@ -545,6 +550,10 @@ export function AuditCertificateModal({
   const certId = data.auditCertificateId || `WQC-NUPRC-CERT-${data.wellName.replace(/[^A-Z0-9]/gi, "").slice(0, 4)}-${certSuffix}`;
 
   const handlePrint = () => {
+    if (isFreeTier) {
+      onUpgradeRequest?.();
+      return;
+    }
     openPrintableAuditCertificate({ ...data, auditCertificateId: certId });
   };
 
@@ -555,6 +564,10 @@ export function AuditCertificateModal({
   };
 
   const handleDownloadJson = () => {
+    if (isFreeTier) {
+      onUpgradeRequest?.();
+      return;
+    }
     const jsonStr = JSON.stringify(
       {
         standard: "NUPRC / DPR Petrophysical Anomaly Audit Record",
@@ -625,24 +638,49 @@ export function AuditCertificateModal({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-mono font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
-              title="Prints ONLY the official formal white-paper document or exports to PDF"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Print / Save PDF</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleDownloadJson}
-              className="px-3 py-2 rounded-xl bg-wellqc-card hover:bg-wellqc-dark border border-wellqc-border text-slate-300 font-mono text-xs transition-all flex items-center gap-1.5"
-              title="Download structured JSON audit record"
-            >
-              <Download className="w-4 h-4 text-cyan-400" />
-              <span className="hidden sm:inline">JSON</span>
-            </button>
+            {isFreeTier ? (
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="px-3.5 py-2 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 border border-purple-500/40 text-purple-200 font-mono font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
+                title="Upgrade to WellQC Pro to print or export PDF certificate"
+              >
+                <Lock className="w-4 h-4 text-purple-300" />
+                <span>Save PDF (PRO)</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-mono font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
+                title="Prints ONLY the official formal white-paper document or exports to PDF"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print / Save PDF</span>
+              </button>
+            )}
+
+            {isFreeTier ? (
+              <button
+                type="button"
+                onClick={handleDownloadJson}
+                className="px-3 py-2 rounded-xl bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/30 text-purple-300 font-mono text-xs transition-all flex items-center gap-1.5"
+                title="Upgrade to WellQC Pro to export JSON audit record"
+              >
+                <Lock className="w-3.5 h-3.5 text-purple-400" />
+                <span className="hidden sm:inline">JSON</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleDownloadJson}
+                className="px-3 py-2 rounded-xl bg-wellqc-card hover:bg-wellqc-dark border border-wellqc-border text-slate-300 font-mono text-xs transition-all flex items-center gap-1.5"
+                title="Download structured JSON audit record"
+              >
+                <Download className="w-4 h-4 text-cyan-400" />
+                <span className="hidden sm:inline">JSON</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -943,14 +981,25 @@ export function AuditCertificateModal({
             >
               Close
             </button>
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-mono font-bold text-xs shadow-md transition-all flex items-center gap-2"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Print Official Certificate</span>
-            </button>
+            {isFreeTier ? (
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-mono font-bold text-xs shadow-md transition-all flex items-center gap-2"
+              >
+                <Lock className="w-4 h-4 text-purple-200" />
+                <span>Export PDF Certificate (PRO)</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-mono font-bold text-xs shadow-md transition-all flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Official Certificate</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

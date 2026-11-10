@@ -8,7 +8,7 @@ from backend.app.core.database import get_db
 from backend.app.core.config import settings
 from backend.app.core.ssrf import enforce_safe_url
 from backend.app.core.dependencies import get_current_admin_user
-from backend.app.core.security import normalize_role
+from backend.app.core.security import normalize_role, hash_password
 from backend.app.models.models import (
     User,
     ActivityLog,
@@ -19,6 +19,7 @@ from backend.app.models.models import (
     QualityReport,
     Anomaly,
     Webhook,
+    now_utc,
 )
 
 logger = logging.getLogger("uvicorn.error")
@@ -27,9 +28,18 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 VALID_ROLES = ["ADMIN", "USER"]
 
-class UpdateRoleRequest(BaseModel):
+class UpdateUserRequest(BaseModel):
     userId: str
-    role: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    department: Optional[str] = None
+    tier: Optional[str] = None
+    password: Optional[str] = None
+    isEmailVerified: Optional[bool] = None
+
+class AdminResetPasswordRequest(BaseModel):
+    newPassword: str
 
 class DeleteUserRequest(BaseModel):
     userId: str
@@ -50,7 +60,10 @@ def list_admin_users(
                 "name": u.name,
                 "email": u.email,
                 "role": normalize_role(u.role),
-                "department": u.department or "Workspace",
+                "department": u.department or "Subsurface Analytics",
+                "tier": (u.tier or "FREE").upper(),
+                "isEmailVerified": bool(getattr(u, "isEmailVerified", False)),
+                "emailVerifiedAt": u.emailVerifiedAt.isoformat() if getattr(u, "emailVerifiedAt", None) else None,
                 "status": "ACTIVE",
                 "createdAt": u.createdAt.isoformat() if u.createdAt else "",
             }
@@ -59,18 +72,11 @@ def list_admin_users(
     }
 
 @router.patch("/users")
-def update_user_role(
-    req: UpdateRoleRequest,
+def update_user_account(
+    req: UpdateUserRequest,
     admin: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
-    role_cand = req.role.strip().upper()
-    if role_cand not in VALID_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}",
-        )
-
     target_user = db.query(User).filter(User.id == req.userId).first()
     if not target_user:
         raise HTTPException(
@@ -78,17 +84,87 @@ def update_user_role(
             detail="User not found.",
         )
 
-    if req.userId == admin.id and role_cand != "ADMIN":
-        other_admins = db.query(User).filter(User.role == "ADMIN", User.id != admin.id).count()
-        if other_admins == 0:
+    changes = []
+
+    # Update Name
+    if req.name and req.name.strip():
+        target_user.name = req.name.strip()
+        changes.append("name")
+
+    # Update Email
+    if req.email and req.email.strip() and req.email.strip().lower() != target_user.email.lower():
+        existing = db.query(User).filter(User.email == req.email.strip().lower(), User.id != target_user.id).first()
+        if existing:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email address is already in use by another account.")
+        target_user.email = req.email.strip().lower()
+        changes.append("email")
+
+    # Update Department
+    if req.department is not None:
+        target_user.department = req.department.strip() or "Subsurface Analytics"
+        changes.append("department")
+
+    # Update Role
+    if req.role:
+        role_cand = req.role.strip().upper()
+        if role_cand not in VALID_ROLES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot demote the only remaining administrator account.",
+                detail=f"Invalid role '{req.role}'. Valid roles are: {', '.join(sorted(VALID_ROLES))}",
             )
+        if req.userId == admin.id and role_cand != "ADMIN":
+            other_admins = db.query(User).filter(User.role == "ADMIN", User.id != admin.id).count()
+            if other_admins == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot demote the only remaining administrator account.",
+                )
+        target_user.role = role_cand
+        changes.append(f"role to {role_cand}")
 
-    target_user.role = role_cand
+    # Update Subscription Tier
+    if req.tier:
+        tier_cand = req.tier.strip().upper()
+        if tier_cand not in ("FREE", "PRO", "ENTERPRISE"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid subscription tier '{req.tier}'. Valid tiers are: FREE, PRO, ENTERPRISE",
+            )
+        target_user.tier = tier_cand
+        changes.append(f"tier to {tier_cand}")
+
+    # Update / Reset Password
+    if req.password and req.password.strip():
+        pwd = req.password.strip()
+        if len(pwd) < 8:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must be at least 8 characters long.")
+        target_user.passwordHash = hash_password(pwd)
+        changes.append("password reset")
+
+    # Update Email Verification
+    if req.isEmailVerified is not None:
+        target_user.isEmailVerified = req.isEmailVerified
+        if req.isEmailVerified:
+            target_user.emailVerifiedAt = now_utc()
+        else:
+            target_user.emailVerifiedAt = None
+        changes.append(f"email verification set to {req.isEmailVerified}")
+
     db.commit()
     db.refresh(target_user)
+
+    if changes:
+        audit = ActivityLog(
+            userId=admin.id,
+            userName=admin.name,
+            userRole=admin.role,
+            action="ADMIN_UPDATE_USER",
+            targetType="USER",
+            targetId=target_user.id,
+            details=f"Admin {admin.email} updated user '{target_user.email}': {', '.join(changes)}",
+        )
+        db.add(audit)
+        db.commit()
 
     return {
         "user": {
@@ -96,9 +172,92 @@ def update_user_role(
             "name": target_user.name,
             "email": target_user.email,
             "role": normalize_role(target_user.role),
-            "department": target_user.department or "Workspace",
+            "department": target_user.department or "Subsurface Analytics",
+            "tier": (target_user.tier or "FREE").upper(),
+            "isEmailVerified": bool(getattr(target_user, "isEmailVerified", False)),
+            "emailVerifiedAt": target_user.emailVerifiedAt.isoformat() if getattr(target_user, "emailVerifiedAt", None) else None,
             "status": "ACTIVE",
         }
+    }
+
+@router.post("/users/{user_id}/verify-email")
+def admin_verify_user_email(
+    user_id: str,
+    admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Manually marks a user's email address as verified without requiring token links.
+    """
+    target = db.query(User).filter(User.id == user_id.strip()).first()
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    target.isEmailVerified = True
+    target.emailVerifiedAt = now_utc()
+    db.commit()
+    db.refresh(target)
+
+    audit = ActivityLog(
+        userId=admin.id,
+        userName=admin.name,
+        userRole=admin.role,
+        action="MANUAL_EMAIL_VERIFY",
+        targetType="USER",
+        targetId=target.id,
+        details=f"Admin {admin.email} manually verified email address for '{target.email}'",
+    )
+    db.add(audit)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Email address '{target.email}' has been successfully verified.",
+        "user": {
+            "id": target.id,
+            "name": target.name,
+            "email": target.email,
+            "isEmailVerified": True,
+            "emailVerifiedAt": target.emailVerifiedAt.isoformat() if target.emailVerifiedAt else None,
+        }
+    }
+
+@router.post("/users/{user_id}/reset-password")
+def admin_reset_user_password(
+    user_id: str,
+    req: AdminResetPasswordRequest,
+    admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Administrative password reset for a designated user account.
+    """
+    target = db.query(User).filter(User.id == user_id.strip()).first()
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    pwd = (req.newPassword or "").strip()
+    if len(pwd) < 8:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must be at least 8 characters long.")
+
+    target.passwordHash = hash_password(pwd)
+    db.commit()
+
+    audit = ActivityLog(
+        userId=admin.id,
+        userName=admin.name,
+        userRole=admin.role,
+        action="ADMIN_PASSWORD_RESET",
+        targetType="USER",
+        targetId=target.id,
+        details=f"Admin {admin.email} reset password for '{target.email}'",
+    )
+    db.add(audit)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Password for '{target.email}' has been reset successfully.",
     }
 
 def _clean_user_dependencies(db: Session, user_ids: List[str]):

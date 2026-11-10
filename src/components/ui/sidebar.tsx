@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   UploadCloud,
+  Database,
   Layers,
   ShieldCheck,
   BarChart3,
@@ -16,6 +17,7 @@ import {
   ChevronRight,
   GitCompare,
   FileText,
+  CreditCard,
 } from "lucide-react";
 import { WellQCIcon } from "./wellqc-logo";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
@@ -53,11 +55,13 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
     name: string;
     department: string;
     role: string;
+    tier: string;
     avatarUrl: string;
   }>({
     name: "Petrophysicist",
     department: "Subsurface Analytics",
     role: currentRole || "USER",
+    tier: "FREE",
     avatarUrl: "",
   });
 
@@ -73,6 +77,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
               name: user.name || "Petrophysicist",
               department: user.department || "Subsurface Analytics",
               role: user.role || currentRole || "USER",
+              tier: (user.tier || "FREE").toUpperCase(),
               avatarUrl: user.avatarUrl || "",
             });
           }
@@ -97,30 +102,43 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
     });
   };
 
+  const isFreeTier = userProfile.tier === "FREE" && (currentRole || userProfile.role) !== "ADMIN";
+
   // Structured Categorized Navigation Sections
   const navSections: NavSection[] = [
     {
       title: "Data Management",
       items: [
         { label: "Data Upload", href: "/upload", icon: UploadCloud, badge: "CWLS 2.0" },
-        // { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, isLive: true },
-        // { label: "Well Assets", href: "/wells", icon: Database },
-
+        { label: "Well Assets", href: "/wells", icon: Database },
       ],
     },
     {
       title: "Engines & ML",
       items: [
         { label: "Standardisation", href: "/standardisation", icon: Layers, badge: "RP 66" },
-        { label: "Quality Engine", href: "/qa-engine", icon: ShieldCheck, isLive: true },
-        { label: "Well Comparison", href: "/comparison", icon: GitCompare, badge: "MULTI-WELL" },
+        {
+          label: "Quality Engine",
+          href: "/qa-engine",
+          icon: ShieldCheck,
+          isLive: !isFreeTier,
+          badge: isFreeTier ? "PRO" : undefined,
+        },
+        {
+          label: "Well Comparison",
+          href: "/comparison",
+          icon: GitCompare,
+          isLive: !isFreeTier,
+          badge: isFreeTier ? "PRO" : "MULTI-WELL",
+        },
         { label: "Subsurface Analytics", href: "/analytics", icon: BarChart3 },
       ],
     },
     {
-      title: "Governance & Audit",
+      title: "Governance & Billing",
       items: [
-        { label: "Audit Reports", href: "/reports", icon: FileText, badge: "NUPRC" },
+        { label: "Reports", href: "/reports", icon: FileText, badge: "NUPRC" },
+        { label: "Billing & Plans", href: "/pricing", icon: CreditCard, badge: isFreeTier ? "UPGRADE" : undefined },
         { label: "User Profile", href: "/profile", icon: User },
       ],
     },

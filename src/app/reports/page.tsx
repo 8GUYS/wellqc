@@ -15,6 +15,7 @@ import {
   RefreshCw,
   CheckSquare,
   Archive,
+  Lock,
 } from "lucide-react";
 import { safeReadJson } from "@/lib/http-client";
 import {
@@ -25,6 +26,7 @@ import {
 import { WellDetailResponse } from "@/lib/api-types";
 import { CryptographicBadge } from "@/components/reports/cryptographic-badge";
 import { computeWellSignature } from "@/lib/crypto-signature";
+import { PaystackUpgradeModal } from "@/components/payments/paystack-upgrade-modal";
 
 interface AuditReportItem {
   id: string;
@@ -76,6 +78,40 @@ export default function ReportsPage() {
   const [isLoadingDetail, setIsLoadingDetail] = useState<boolean>(false);
   const [isBulkExporting, setIsBulkExporting] = useState<boolean>(false);
   const [exportToast, setExportToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  // User Profile & License Gatekeeper State
+  const [userProfile, setUserProfile] = useState<{
+    tier: string;
+    role: string;
+  }>({ tier: "FREE", role: "USER" });
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [targetUpgradeWellId, setTargetUpgradeWellId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    let active = true;
+    async function loadUserProfile() {
+      try {
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        if (res.ok) {
+          const { user } = await res.json();
+          if (active && user) {
+            setUserProfile({
+              tier: (user.tier || "FREE").toUpperCase(),
+              role: (user.role || "USER").toUpperCase(),
+            });
+          }
+        }
+      } catch { }
+    }
+    loadUserProfile();
+    window.addEventListener("wellqc_user_updated", loadUserProfile);
+    return () => {
+      active = false;
+      window.removeEventListener("wellqc_user_updated", loadUserProfile);
+    };
+  }, []);
+
+  const isFreeTier = userProfile.tier === "FREE" && userProfile.role !== "ADMIN";
 
   // Compute the currently focused/selected report
   const effectiveSelectedReport: AuditReportItem | undefined = useMemo(() => {
@@ -404,6 +440,15 @@ export default function ReportsPage() {
 
   // Direct Print PDF Handler
   const handlePrintAuditCertificate = async (customWellId?: string) => {
+    if (isFreeTier) {
+      setTargetUpgradeWellId(customWellId || effectiveSelectedReport?.id);
+      setUpgradeModalOpen(true);
+      setExportToast({
+        msg: "Official NUPRC PDF Certificate export requires a WellQC Pro license. Please upgrade to download and print certified compliance documents.",
+        ok: false,
+      });
+      return;
+    }
     const targetId = customWellId || effectiveSelectedReport?.id || "current-session";
     const certData = await loadWellAuditData(targetId);
     if (certData) {
@@ -424,6 +469,16 @@ export default function ReportsPage() {
 
   // Download authentic cleaned LAS file for a specific well file
   const handleDownloadCleanedLAS = async (report: AuditReportItem) => {
+    if (isFreeTier) {
+      setTargetUpgradeWellId(report.id);
+      setUpgradeModalOpen(true);
+      setExportToast({
+        msg: "Cleaned LAS export is an Enterprise Pro feature. Upgrade your subscription to export calibrated CWLS LAS 2.0 files.",
+        ok: false,
+      });
+      return;
+    }
+
     try {
       // 1. Check cleaned registry first
       if (typeof window !== "undefined") {
@@ -527,6 +582,15 @@ export default function ReportsPage() {
 
   const handleBulkExport = async () => {
     if (selectedReportIds.length === 0) return;
+    if (isFreeTier) {
+      setTargetUpgradeWellId(selectedReportIds[0]);
+      setUpgradeModalOpen(true);
+      setExportToast({
+        msg: "Bulk cleaned LAS export requires a WellQC Pro license. Please upgrade to download certified archive bundles.",
+        ok: false,
+      });
+      return;
+    }
     setIsBulkExporting(true);
     try {
       const zip = new JSZip();
@@ -715,26 +779,57 @@ export default function ReportsPage() {
                 <Eye className="w-4 h-4" />
                 <span>Preview Certificate</span>
               </button>
-              <button
-                type="button"
-                onClick={() => handlePrintAuditCertificate(effectiveSelectedReport?.id)}
-                disabled={isLoadingDetail}
-                className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold font-mono text-xs shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Print / PDF Certificate</span>
-              </button>
+              {isFreeTier ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetUpgradeWellId(effectiveSelectedReport?.id);
+                    setUpgradeModalOpen(true);
+                  }}
+                  className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 border border-purple-500/40 text-purple-200 font-bold font-mono text-xs shadow-lg shadow-purple-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                >
+                  <Lock className="w-4 h-4 text-purple-300" />
+                  <span>Export PDF Certificate (PRO)</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handlePrintAuditCertificate(effectiveSelectedReport?.id)}
+                  disabled={isLoadingDetail}
+                  className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold font-mono text-xs shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print / PDF Certificate</span>
+                </button>
+              )}
             </div>
           </div>
 
           {/* Card 2: Cleaned LAS 2.0 Document */}
-          <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-6 space-y-4 flex flex-col justify-between shadow-xl">
+          <div className="bg-wellqc-panel border border-wellqc-border rounded-2xl p-6 space-y-4 flex flex-col justify-between shadow-xl relative overflow-hidden">
+            {isFreeTier && (
+              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl pointer-events-none" />
+            )}
             <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                <Download className="w-5 h-5" />
+              <div className="flex items-center justify-between">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    isFreeTier
+                      ? "bg-purple-500/20 border border-purple-500/30 text-purple-300"
+                      : "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
+                  }`}
+                >
+                  {isFreeTier ? <Lock className="w-5 h-5" /> : <Download className="w-5 h-5" />}
+                </div>
+                {isFreeTier && (
+                  <span className="px-2.5 py-1 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 font-mono text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5 shadow-sm">
+                    <Lock className="w-3 h-3 text-purple-400" />
+                    <span>Pro License Required</span>
+                  </span>
+                )}
               </div>
-              <h2 className="text-lg font-bold text-white font-mono">
-                Cleaned LAS 2.0 Borehole Document
+              <h2 className="text-lg font-bold text-white font-mono flex items-center gap-2">
+                <span>Cleaned LAS 2.0 Borehole Document</span>
               </h2>
               <div className="flex items-center gap-2 text-xs font-mono text-emerald-300">
                 <Database className="w-3.5 h-3.5" />
@@ -760,18 +855,32 @@ export default function ReportsPage() {
             </div>
 
             <div className="flex items-center gap-2.5 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  if (effectiveSelectedReport) {
-                    handleDownloadCleanedLAS(effectiveSelectedReport);
-                  }
-                }}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-mono text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download Cleaned LAS</span>
-              </button>
+              {isFreeTier ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetUpgradeWellId(effectiveSelectedReport?.id);
+                    setUpgradeModalOpen(true);
+                  }}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold font-mono text-xs shadow-lg shadow-purple-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                >
+                  <Lock className="w-4 h-4 text-purple-200" />
+                  <span>Unlock Cleaned LAS Export (PRO)</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (effectiveSelectedReport) {
+                      handleDownloadCleanedLAS(effectiveSelectedReport);
+                    }
+                  }}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-mono text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download Cleaned LAS</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -806,16 +915,24 @@ export default function ReportsPage() {
                 id="bulk-export-wells-btn"
                 onClick={handleBulkExport}
                 disabled={isBulkExporting}
-                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 text-slate-950 font-bold font-mono text-xs shadow-md shadow-cyan-500/20 transition-all cursor-pointer"
+                className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-lg font-bold font-mono text-xs shadow-md transition-all cursor-pointer ${
+                  isFreeTier
+                    ? "bg-purple-600 hover:bg-purple-500 text-white shadow-purple-500/20"
+                    : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 text-slate-950 shadow-cyan-500/20"
+                }`}
               >
                 {isBulkExporting ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : isFreeTier ? (
+                  <Lock className="w-3.5 h-3.5 text-purple-200" />
                 ) : (
                   <Archive className="w-3.5 h-3.5" />
                 )}
                 <span>
                   {isBulkExporting
                     ? "Packaging Archive..."
+                    : isFreeTier
+                    ? `Unlock Batch Export (${selectedReportIds.length}) (PRO)`
                     : `Export Selected (${selectedReportIds.length})`}
                 </span>
               </button>
@@ -858,7 +975,14 @@ export default function ReportsPage() {
                   <th className="py-3 px-4">Score</th>
                   <th className="py-3 px-4 text-center">Cryptographic Seal</th>
                   <th className="py-3 px-4 text-center">Audit Certificate</th>
-                  <th className="py-3 px-4 text-center">Cleaned LAS</th>
+                  <th className="py-3 px-4 text-center">
+                    Cleaned LAS{" "}
+                    {isFreeTier && (
+                      <span className="ml-1 px-1 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-bold">
+                        PRO
+                      </span>
+                    )}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-wellqc-border/50">
@@ -930,30 +1054,63 @@ export default function ReportsPage() {
                             <Eye className="w-3 h-3" />
                             <span>View</span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedReportId(r.id);
-                              setActiveWellName(r.wellName);
-                              handlePrintAuditCertificate(r.id);
-                            }}
-                            className="p-1 rounded bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[11px] font-bold inline-flex items-center transition-colors cursor-pointer"
-                            title="Print / PDF Certificate"
-                          >
-                            <Printer className="w-3 h-3" />
-                          </button>
+                          {isFreeTier ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTargetUpgradeWellId(r.id);
+                                setUpgradeModalOpen(true);
+                              }}
+                              className="px-2 py-1 rounded bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/30 text-purple-300 text-[11px] font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                              title="Upgrade to Pro to print or export PDF certificate"
+                            >
+                              <Lock className="w-3 h-3 text-purple-400" />
+                              <span>PDF</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedReportId(r.id);
+                                setActiveWellName(r.wellName);
+                                handlePrintAuditCertificate(r.id);
+                              }}
+                              className="p-1 rounded bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[11px] font-bold inline-flex items-center transition-colors cursor-pointer"
+                              title="Print / PDF Certificate"
+                            >
+                              <Printer className="w-3 h-3" />
+                            </button>
+                          )}
                         </div>
                       </td>
                       <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadCleanedLAS(r)}
-                          className="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
-                          title={`Export certified cleaned LAS 2.0 file for ${r.wellName}`}
-                        >
-                          <Download className="w-3 h-3" />
-                          <span>Cleaned LAS</span>
-                        </button>
+                        {isFreeTier ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTargetUpgradeWellId(r.id);
+                              setUpgradeModalOpen(true);
+                            }}
+                            className="px-2.5 py-1 rounded bg-purple-950/50 hover:bg-purple-900/70 border border-purple-500/40 text-purple-300 text-[11px] font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm"
+                            title={`Upgrade to WellQC Pro to export certified cleaned LAS 2.0 file for ${r.wellName}`}
+                          >
+                            <Lock className="w-3 h-3 text-purple-400" />
+                            <span>Cleaned LAS</span>
+                            <span className="px-1 py-0.2 rounded bg-purple-500/30 text-purple-200 text-[9px] uppercase tracking-wider">
+                              PRO
+                            </span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadCleanedLAS(r)}
+                            className="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                            title={`Export certified cleaned LAS 2.0 file for ${r.wellName}`}
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Cleaned LAS</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -968,6 +1125,19 @@ export default function ReportsPage() {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           data={activeAuditData}
+          isFreeTier={isFreeTier}
+          onUpgradeRequest={() => {
+            setTargetUpgradeWellId(effectiveSelectedReport?.id);
+            setUpgradeModalOpen(true);
+          }}
+        />
+
+        {/* Paystack License Upgrade Gatekeeper */}
+        <PaystackUpgradeModal
+          isOpen={upgradeModalOpen}
+          onClose={() => setUpgradeModalOpen(false)}
+          defaultPlanId="PRO_MONTHLY"
+          targetWellId={targetUpgradeWellId}
         />
 
         {/* Toast Notification */}

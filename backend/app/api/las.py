@@ -76,28 +76,62 @@ def check_limit(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    tier = current_user.tier or "FREE"
-    checks_used = current_user.freeChecksUsed or 0
+    tier = (current_user.tier or "FREE").upper()
+    role = normalize_role(current_user.role)
+    if tier != "FREE" or role == "ADMIN":
+        return {
+            "allowed": True,
+            "tier": tier,
+            "freeChecksUsed": current_user.freeChecksUsed or 0,
+            "maxFreeChecks": 3,
+            "remainingChecks": None,
+            "limitReached": False,
+        }
+
+    uploaded_count = db.query(LASFile).filter(
+        (LASFile.ownerId == current_user.id) | (LASFile.uploadedById == current_user.id)
+    ).count()
+    checks_used = max(current_user.freeChecksUsed or 0, uploaded_count)
+    allowed = checks_used < 3
 
     return {
-        "allowed": True,
+        "allowed": allowed,
         "tier": tier,
         "freeChecksUsed": checks_used,
-        "maxFreeChecks": 2,
-        "remainingChecks": max(0, 2 - checks_used) if tier == "FREE" else None,
+        "maxFreeChecks": 3,
+        "remainingChecks": max(0, 3 - checks_used),
+        "limitReached": not allowed,
     }
 
 
 @router.get("/check")
-def get_check_status(current_user: User = Depends(get_current_user)):
-    tier = current_user.tier or "FREE"
-    checks_used = current_user.freeChecksUsed or 0
+def get_check_status(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    tier = (current_user.tier or "FREE").upper()
+    role = normalize_role(current_user.role)
+    if tier != "FREE" or role == "ADMIN":
+        return {
+            "tier": tier,
+            "freeChecksUsed": current_user.freeChecksUsed or 0,
+            "maxFreeChecks": 3,
+            "remainingChecks": None,
+            "limitReached": False,
+        }
+
+    uploaded_count = db.query(LASFile).filter(
+        (LASFile.ownerId == current_user.id) | (LASFile.uploadedById == current_user.id)
+    ).count()
+    checks_used = max(current_user.freeChecksUsed or 0, uploaded_count)
+    limit_reached = checks_used >= 3
+
     return {
         "tier": tier,
         "freeChecksUsed": checks_used,
-        "maxFreeChecks": 2,
-        "remainingChecks": max(0, 2 - checks_used) if tier == "FREE" else None,
-        "limitReached": False,
+        "maxFreeChecks": 3,
+        "remainingChecks": max(0, 3 - checks_used),
+        "limitReached": limit_reached,
     }
 
 
@@ -243,6 +277,19 @@ def handle_las(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication is required to upload LAS files to the database.",
         )
+
+    tier = (user.tier or "FREE").upper()
+    role = normalize_role(user.role)
+    if tier == "FREE" and role != "ADMIN":
+        uploaded_count = db.query(LASFile).filter(
+            (LASFile.ownerId == user.id) | (LASFile.uploadedById == user.id)
+        ).count()
+        checks_used = max(user.freeChecksUsed or 0, uploaded_count)
+        if checks_used >= 3:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Free tier limit reached: Free accounts cannot upload more than 3 LAS files. Please upgrade to WellQC Pro for unlimited uploads.",
+            )
 
     return commit_las_file_transaction(
         db=db,

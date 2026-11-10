@@ -96,6 +96,10 @@ npm test
 |---|---|---|---|
 | `DATABASE_URL` | Render / Local | All | Pooled Neon PostgreSQL connection string |
 | `AUTH_SECRET` | Render / Vercel / Local | All | 32+ character HMAC session signing secret |
+| `PAYSTACK_SECRET_KEY` | Render / Local | Production | Paystack secret key (`sk_live_...` or `sk_test_...`). If omitted, backend activates automatic mock checkout mode for testing |
+| `PAYSTACK_PUBLIC_KEY` | Render / Vercel / Local | Production | Paystack public key (`pk_live_...` or `pk_test_...`) |
+| `PAYSTACK_CALLBACK_URL` | Render / Vercel / Local | All | Gateway verification redirect URL (e.g. `http://localhost:3000/payment/verify` or `https://app.wellqc.com/payment/verify`) |
+| `PAYSTACK_BASE_URL` | Render / Local | Optional | Paystack API endpoint (`https://api.paystack.co`) |
 | `R2_ACCOUNT_ID` | Render | Production | Cloudflare Account ID |
 | `R2_ACCESS_KEY_ID` | Render | Production | Cloudflare R2 API Token Access Key |
 | `R2_SECRET_ACCESS_KEY` | Render | Production | Cloudflare R2 API Token Secret Key |
@@ -103,3 +107,17 @@ npm test
 | `SENTRY_DSN` | Render | Optional | Backend error tracking DSN |
 | `NEXT_PUBLIC_SENTRY_DSN` | Vercel | Optional | Frontend error tracking DSN |
 | `EMAIL_PROVIDER` | Render | Production | `EMAILJS` or `RESEND` |
+
+---
+
+## 6. Payment Operations & Admin Troubleshooting
+
+### 6.1 Paystack Gateway & Mock Sandbox Checkout
+* **Live Mode:** When `PAYSTACK_SECRET_KEY` is provided, transactions initialize through Paystack's official transaction API, and settlement occurs via webhook HMAC-SHA512 verification.
+* **Sandbox / Demo Fallback Mode:** When `PAYSTACK_SECRET_KEY` is not present, the system automatically redirects to a local mock checkout flow (`/payment/verify?reference=...&mock=true`), instantly granting Pro entitlements so user testing, demo presentations, and evaluation sessions proceed uninterrupted.
+* **Context Preservation:** All checkout URLs append `?wellId=<id>`. When returning to `/payment/verify`, the app fetches well context and directs the engineer to repair that specific well.
+
+### 6.2 Administrator Operations & User Account Management
+* **Admin Console Access (`/admin`):** Restricted to accounts where `User.role == "ADMIN"`.
+* **Password Updates:** Admins can select any user account in the Admin Console and update credentials directly without manual database scripting.
+* **1-Click Email Verification:** When users report email delivery delays or verification issues, administrators can bypass verification from the User Inspector using the **"Verify Email"** button (`POST /api/admin/users/{user_id}/verify-email`), immediately setting `isEmailVerified = True` and stamping `emailVerifiedAt`.

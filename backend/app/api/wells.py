@@ -609,7 +609,10 @@ def get_well_detail(
         db.query(Well)
         .options(
             selectinload(Well.owner),
-            selectinload(Well.lasFiles).selectinload(LASFile.uploadedBy),
+            selectinload(Well.lasFiles).options(
+                defer(LASFile.rawContent),
+                defer(LASFile.rawHeader),
+            ).selectinload(LASFile.uploadedBy),
             selectinload(Well.lasFiles).selectinload(LASFile.reports),
             selectinload(Well.lasFiles).selectinload(LASFile.curves),
             selectinload(Well.reports),
@@ -770,6 +773,12 @@ def bulk_delete_wells(
             detail="No valid well IDs provided for bulk deletion.",
         )
 
+    if normalize_role(current_user.role) != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access to bulk delete wells is restricted: Only system administrators are authorized to perform bulk deletion of well assets to prevent quota manipulation and preserve compliance audit trails.",
+        )
+
     wells = (
         db.query(Well)
         .filter(
@@ -790,17 +799,10 @@ def bulk_delete_wells(
             "message": "No matching wells found to delete.",
         }
 
-    is_admin = (normalize_role(current_user.role) == "ADMIN")
     deleted_ids = []
     deleted_names = []
 
     for well in wells:
-        is_owner = (well.ownerId == current_user.id)
-        if not is_admin and not is_owner:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied: you do not have permission to delete well '{well.name}' ({well.id}).",
-            )
         deleted_ids.append(well.id)
         deleted_names.append(well.name)
         db.delete(well)
@@ -834,6 +836,12 @@ def delete_well(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if normalize_role(current_user.role) != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access to delete this well is restricted: Only system administrators are authorized to delete well records to ensure compliance audit trails and prevent quota manipulation.",
+        )
+
     clean_id = (id or "").strip()
     well = (
         db.query(Well)
@@ -850,14 +858,6 @@ def delete_well(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Well with ID, API number, or Name '{clean_id}' not found.",
-        )
-
-    is_admin = (normalize_role(current_user.role) == "ADMIN")
-    is_owner = (well.ownerId == current_user.id)
-    if not is_admin and not is_owner:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access to delete this well is restricted to its owner or system administrators.",
         )
 
     well_name = well.name

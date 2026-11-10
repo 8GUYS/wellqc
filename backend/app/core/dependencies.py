@@ -113,3 +113,21 @@ def get_current_admin_user(
             detail="Administrative privileges required.",
         )
     return current_user
+
+
+def require_paid_subscription(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Enforces that the user has an active paid subscription (PRO, ENTERPRISE) or is an administrator.
+    Free tier users receive HTTP 402 Payment Required.
+    """
+    user_tier = (current_user.tier or "FREE").strip().upper()
+    user_role = (current_user.role or "").strip().upper()
+    if user_tier == "FREE" and user_role != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="QA Engine automated repair and imputation require an active WellQC Pro or Enterprise subscription. Please upgrade via Paystack.",
+        )
+    return current_user
+

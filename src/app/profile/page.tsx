@@ -422,7 +422,7 @@ export default function UserProfilePage() {
                           <span>Profile Photo</span>
                           {(formData.avatarUrl || profile?.avatarUrl) ? (
                             <span className="text-[10px] text-emerald-400 font-mono font-medium bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded">
-                              Saved to Database
+                              Saved
                             </span>
                           ) : (
                             <span className="text-[10px] text-slate-400 font-mono font-medium bg-slate-800/80 border border-slate-700 px-1.5 py-0.5 rounded">
@@ -431,7 +431,7 @@ export default function UserProfilePage() {
                           )}
                         </label>
                         <p className="text-[11px] text-slate-400 mt-0.5 max-w-sm">
-                          Add your own picture. It is saved directly to your account in the database and displayed across your workstation.
+                          Add your own picture. It is saved directly to your account and displayed across your workstation.
                         </p>
                       </div>
                     </div>

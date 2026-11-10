@@ -32,12 +32,12 @@ export function BatchQueueList({
         {uploadQueue.every((file) => file.status === "saved") ? (
           <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>All Saved to Database ✓</span>
+            <span>All Saved ✓</span>
           </div>
         ) : isSaving ? (
           <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-mono text-xs font-bold">
             <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-            <span>Auto-saving Queue to DB...</span>
+            <span>Auto-saving Queue...</span>
           </div>
         ) : null}
       </div>

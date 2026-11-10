@@ -1,25 +1,87 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Check,
   Sparkles,
   ShieldCheck,
-  CreditCard,
   Lock,
-  ArrowRight,
   HelpCircle,
-  Building2,
   Zap,
+  Receipt,
+  Clock,
+  RefreshCw,
 } from "lucide-react";
+import { WellQCLogo } from "@/components/ui/wellqc-logo";
 import { PaystackUpgradeModal } from "@/components/payments/paystack-upgrade-modal";
+import { getPaymentHistory, PaymentHistoryItem } from "@/lib/paystack";
+import { safeReadJson } from "@/lib/http-client";
+import { WellDetailResponse } from "@/lib/api-types";
 
-export default function PricingPage() {
+function PricingContent() {
+  const searchParams = useSearchParams();
+  const targetWellId = searchParams.get("wellId");
+
   const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annually">("monthly");
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState("PRO_MONTHLY");
+  const [targetWellName, setTargetWellName] = useState<string | null>(null);
+
+  // Payment History State
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
+  const [userTier, setUserTier] = useState<string>("FREE");
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  // Fetch well name if wellId passed in URL
+  useEffect(() => {
+    if (!targetWellId) return;
+    let active = true;
+
+    async function loadWellContext() {
+      try {
+        const res = await fetch(`/api/wells/${encodeURIComponent(targetWellId!)}`, {
+          cache: "no-store",
+        });
+        const parsed = await safeReadJson<WellDetailResponse>(res, "Unable to load well.");
+        if (active && parsed.ok && parsed.data?.well) {
+          setTargetWellName(parsed.data.well.name);
+        }
+      } catch {
+        // Non-critical
+      }
+    }
+
+    loadWellContext();
+    return () => {
+      active = false;
+    };
+  }, [targetWellId]);
+
+  const fetchHistory = async () => {
+    try {
+      setHistoryLoading(true);
+      const data = await getPaymentHistory();
+      setPaymentHistory(data.transactions || []);
+      setUserTier(data.currentTier || "FREE");
+    } catch {
+      // Free or guest users might not have a session
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) fetchHistory();
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleOpenUpgrade = (planId: string) => {
     setSelectedPlanId(planId);
@@ -31,18 +93,22 @@ export default function PricingPage() {
       {/* Top Header Navigation */}
       <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <Link href="/upload" className="flex items-center space-x-2 font-mono">
-          <span className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-bold text-sm">
-            W
-          </span>
-          <span className="font-extrabold text-white text-sm tracking-wide">
-            WellQC <span className="text-cyan-400">STUDIO</span>
+          <WellQCLogo iconSize={32} showTagline={false} />
+          <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+            ENTERPRISE LICENSING
           </span>
         </Link>
 
         <div className="flex items-center space-x-3">
           <Link
+            href="/wells"
+            className="px-3.5 py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-mono font-medium transition-colors hidden sm:inline-flex"
+          >
+            Well Assets
+          </Link>
+          <Link
             href="/upload"
-            className="px-3.5 py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-mono font-medium transition-colors"
+            className="px-3.5 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-medium transition-colors"
           >
             ← Back to Workstation
           </Link>
@@ -52,7 +118,7 @@ export default function PricingPage() {
       {/* Hero Section */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-12 space-y-12">
         <div className="text-center space-y-4 max-w-3xl mx-auto">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-mono">
+          <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 text-xs font-mono">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Transparent Petrophysical Licensing</span>
           </div>
@@ -62,62 +128,74 @@ export default function PricingPage() {
           </h1>
 
           <p className="text-sm sm:text-base text-slate-400 leading-relaxed max-w-2xl mx-auto font-sans">
-            From independent petrophysicists to multinational E&P operators, automate your LAS log quality control with instant Paystack settlement in Naira or US Dollars.
+            From independent petrophysicists to multinational E&amp;P operators, automate your LAS log quality control with instant Paystack settlement in Naira or US Dollars.
           </p>
+
+          {/* Contextual Target Banner if navigated from a specific well */}
+          {(targetWellName || targetWellId) && (
+            <div className="pt-2">
+              <div className="inline-flex items-center space-x-2.5 px-4 py-2 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 text-xs font-mono shadow-inner">
+                <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span>Context Target:</span>
+                <span className="font-bold text-white">{targetWellName || targetWellId}</span>
+                <span className="text-slate-400 text-[11px] hidden sm:inline">— Upgrade to activate automated QA anomaly repair</span>
+              </div>
+            </div>
+          )}
 
           {/* Currency & Billing Period Switcher Controls */}
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4 text-xs font-mono">
             {/* Currency Switcher */}
-            <div className="flex items-center bg-slate-900 p-1 rounded-2xl border border-slate-800 shadow-inner">
+            <div className="flex items-center bg-slate-900 border border-slate-800 p-1 rounded-2xl">
               <button
                 type="button"
                 onClick={() => setCurrency("NGN")}
-                className={`px-4 py-2 rounded-xl font-bold transition-all ${
+                className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${
                   currency === "NGN"
-                    ? "bg-cyan-500 text-slate-950 shadow-md"
+                    ? "bg-cyan-500 text-slate-950 shadow-sm"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                NGN (₦ Naira)
+                NGN (₦)
               </button>
               <button
                 type="button"
                 onClick={() => setCurrency("USD")}
-                className={`px-4 py-2 rounded-xl font-bold transition-all ${
+                className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${
                   currency === "USD"
-                    ? "bg-cyan-500 text-slate-950 shadow-md"
+                    ? "bg-cyan-500 text-slate-950 shadow-sm"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                USD ($ Dollars)
+                USD ($)
               </button>
             </div>
 
-            {/* Billing Cycle */}
-            <div className="flex items-center bg-slate-900 p-1 rounded-2xl border border-slate-800 shadow-inner">
+            {/* Billing Cycle Switcher */}
+            <div className="flex items-center bg-slate-900 border border-slate-800 p-1 rounded-2xl">
               <button
                 type="button"
                 onClick={() => setBillingCycle("monthly")}
-                className={`px-4 py-2 rounded-xl font-bold transition-all ${
+                className={`px-3.5 py-1.5 rounded-xl font-bold transition-all ${
                   billingCycle === "monthly"
                     ? "bg-slate-800 text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                Monthly
+                Monthly Billing
               </button>
               <button
                 type="button"
                 onClick={() => setBillingCycle("annually")}
-                className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-1.5 ${
+                className={`px-3.5 py-1.5 rounded-xl font-bold transition-all flex items-center space-x-1.5 ${
                   billingCycle === "annually"
                     ? "bg-slate-800 text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
-                <span>Annual</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
-                  Save 20%
+                <span>Annual Billing</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+                  Save 17%
                 </span>
               </button>
             </div>
@@ -126,196 +204,180 @@ export default function PricingPage() {
 
         {/* Pricing Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
-          {/* Card 1: Starter Free */}
-          <div className="rounded-3xl bg-slate-900/60 border border-slate-800 p-6 flex flex-col justify-between hover:border-slate-700 transition-all">
+          {/* Plan 1: Starter / Free */}
+          <div className="rounded-3xl bg-slate-900/70 border border-slate-800 p-6 sm:p-8 flex flex-col justify-between space-y-6 hover:border-slate-700 transition-all shadow-xl">
             <div className="space-y-4">
-              <div>
-                <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
-                  Community
+              <div className="space-y-1">
+                <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                  Community Tier
                 </span>
-                <h3 className="text-xl font-black text-white mt-1">Free Starter</h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Ideal for testing syntax and learning wireline log interpretation.
+                <h3 className="text-2xl font-black text-white">Starter Free</h3>
+                <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                  Essential wireline validation tools for individual students and academic researchers.
                 </p>
               </div>
 
               <div className="pt-2">
-                <span className="text-3xl font-black text-white">
+                <div className="text-3xl font-black text-white font-mono">
                   {currency === "NGN" ? "₦0" : "$0"}
-                </span>
-                <span className="text-xs text-slate-500 font-mono"> / forever</span>
+                </div>
+                <span className="text-xs text-slate-500 font-mono">Free forever</span>
               </div>
 
-              <div className="space-y-2.5 pt-4 border-t border-slate-800 text-xs font-mono">
-                <div className="flex items-start space-x-2 text-slate-300">
-                  <Check className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-                  <span>2 Free automated LAS quality checks</span>
-                </div>
-                <div className="flex items-start space-x-2 text-slate-300">
-                  <Check className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-                  <span>Standard wireline log viewer</span>
-                </div>
-                <div className="flex items-start space-x-2 text-slate-300">
-                  <Check className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-                  <span>Mnemonic dictionary lookups</span>
-                </div>
-                <div className="flex items-start space-x-2 text-slate-300">
-                  <Check className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-                  <span>Community knowledgebase access</span>
-                </div>
-              </div>
+              <ul className="space-y-2.5 text-xs text-slate-300 font-mono pt-4 border-t border-slate-800">
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>CWLS LAS 2.0 / 3.0 Header Parsing</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Rule-Based Wireline Quality Audit</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Installable PWA (Offline Rig Mode for All)</span>
+                </li>
+                <li className="flex items-center space-x-2 text-slate-500">
+                  <span className="w-4 h-4 text-center">—</span>
+                  <span>Automated Despiking &amp; Repair</span>
+                </li>
+                <li className="flex items-center space-x-2 text-slate-500">
+                  <span className="w-4 h-4 text-center">—</span>
+                  <span>Cleaned LAS File Exports</span>
+                </li>
+              </ul>
             </div>
 
-            <div className="pt-6">
-              <Link
-                href="/upload"
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold font-mono text-xs text-center block transition-colors border border-slate-700"
-              >
-                Current Default Tier
-              </Link>
-            </div>
+            <Link
+              href="/upload"
+              className="w-full py-3 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-800 text-slate-200 font-mono font-bold text-xs text-center transition-all block shadow-sm"
+            >
+              Get Started Free
+            </Link>
           </div>
 
-          {/* Card 2: Professional Pro */}
-          <div className="rounded-3xl bg-gradient-to-b from-slate-900 via-slate-900 to-cyan-950/30 border-2 border-cyan-500 p-6 flex flex-col justify-between relative shadow-2xl shadow-cyan-950/50">
-            {/* Popular Badge */}
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-cyan-500 text-slate-950 font-bold font-mono text-[10px] uppercase tracking-wider shadow-md">
-              Most Popular
+          {/* Plan 2: WellQC Pro (Featured) */}
+          <div className="rounded-3xl bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950 border-2 border-cyan-500/80 p-6 sm:p-8 flex flex-col justify-between space-y-6 relative shadow-2xl shadow-cyan-950/40">
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black text-[10px] font-mono uppercase tracking-widest shadow-md">
+              Most Popular Subsurface Choice
             </div>
 
             <div className="space-y-4">
-              <div>
-                <span className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider">
-                  Professional E&P
+              <div className="space-y-1">
+                <span className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider block">
+                  Professional Tier
                 </span>
-                <h3 className="text-xl font-black text-white mt-1">WellQC Pro</h3>
-                <p className="text-xs text-slate-300 mt-1">
-                  Full automated remediation, gap imputation, and NUPRC certification.
+                <h3 className="text-2xl font-black text-white">WellQC Pro</h3>
+                <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                  Complete petrophysical repair studio for asset consultants, service companies, and operating teams.
                 </p>
               </div>
 
               <div className="pt-2">
-                <span className="text-3xl font-black text-white">
-                  {currency === "NGN"
-                    ? billingCycle === "monthly"
-                      ? "₦75,000"
-                      : "₦60,000"
-                    : billingCycle === "monthly"
-                    ? "$49"
-                    : "$39"}
-                </span>
-                <span className="text-xs text-slate-400 font-mono"> / month</span>
-                {billingCycle === "annually" && (
-                  <p className="text-[10px] text-emerald-400 font-mono mt-0.5">
-                    Billed annually (save 20%)
-                  </p>
-                )}
+                <div className="text-3xl font-black text-white font-mono flex items-baseline space-x-1">
+                  <span>
+                    {currency === "NGN"
+                      ? billingCycle === "monthly" ? "₦75,000" : "₦750,000"
+                      : billingCycle === "monthly" ? "$49" : "$490"}
+                  </span>
+                  <span className="text-xs text-slate-400 font-normal">
+                    /{billingCycle === "monthly" ? "month" : "year"}
+                  </span>
+                </div>
+                <span className="text-xs text-cyan-400 font-mono">Instant Paystack Activation</span>
               </div>
 
-              <div className="space-y-2.5 pt-4 border-t border-slate-800 text-xs font-mono">
-                <div className="flex items-start space-x-2 text-white font-medium">
-                  <Check className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                  <span>Unlimited LAS file ingestion & cleaning</span>
-                </div>
-                <div className="flex items-start space-x-2 text-white font-medium">
-                  <Check className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                  <span>4-Step QA Engine Non-Destructive Repair</span>
-                </div>
-                <div className="flex items-start space-x-2 text-white font-medium">
-                  <Check className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                  <span>Spline, KNN & Linear Gap Imputation</span>
-                </div>
-                <div className="flex items-start space-x-2 text-white font-medium">
-                  <Check className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                  <span>Official Form WQC-08-A NUPRC Certificates</span>
-                </div>
-                <div className="flex items-start space-x-2 text-white font-medium">
-                  <Check className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                  <span>Multi-well offset wireline correlation</span>
-                </div>
-                <div className="flex items-start space-x-2 text-white font-medium">
-                  <Check className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                  <span>Priority email support & full audit trail</span>
-                </div>
-              </div>
+              <ul className="space-y-2.5 text-xs text-slate-200 font-mono pt-4 border-t border-slate-800">
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>Everything in Starter Free (including PWA)</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>Interactive Quality Engine Repair Workstation</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>Non-Destructive Despiking &amp; Baseline Drift</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>Multi-Curve ML Gap Imputation</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>Uncapped Cleaned CWLS LAS 2.0 Exports</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>NUPRC Form WQC-08-A Digital Certificates</span>
+                </li>
+              </ul>
             </div>
 
-            <div className="pt-6">
-              <button
-                type="button"
-                onClick={() => handleOpenUpgrade("PRO_MONTHLY")}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black font-mono text-xs flex items-center justify-center space-x-1.5 transition-all shadow-lg shadow-cyan-500/20 active:scale-95"
-              >
-                <Zap className="w-4 h-4 text-slate-950" />
-                <span>Upgrade with Paystack</span>
-                <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => handleOpenUpgrade(billingCycle === "monthly" ? "PRO_MONTHLY" : "PRO_ANNUAL")}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono font-black text-xs text-center transition-all shadow-lg shadow-cyan-500/25 flex items-center justify-center space-x-2 cursor-pointer"
+            >
+              <Zap className="w-4 h-4 fill-slate-950" />
+              <span>Upgrade to WellQC Pro</span>
+            </button>
           </div>
 
-          {/* Card 3: Enterprise */}
-          <div className="rounded-3xl bg-slate-900/60 border border-slate-800 p-6 flex flex-col justify-between hover:border-slate-700 transition-all">
+          {/* Plan 3: Enterprise */}
+          <div className="rounded-3xl bg-slate-900/70 border border-slate-800 p-6 sm:p-8 flex flex-col justify-between space-y-6 hover:border-slate-700 transition-all shadow-xl">
             <div className="space-y-4">
-              <div>
-                <span className="text-xs font-mono font-bold text-indigo-400 uppercase tracking-wider">
-                  Enterprise Asset Fleet
+              <div className="space-y-1">
+                <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                  Enterprise Tier
                 </span>
-                <h3 className="text-xl font-black text-white mt-1">Enterprise Fleet</h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Custom basin-scale analytics, custom dictionaries, and corporate SSO.
+                <h3 className="text-2xl font-black text-white">Enterprise Hub</h3>
+                <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                  Dedicated tenant deployment for upstream E&amp;P operators, national data repositories, and IOCs.
                 </p>
               </div>
 
               <div className="pt-2">
-                <span className="text-3xl font-black text-white">
-                  {currency === "NGN" ? "₦45,000,000" : "$45,000"}
-                </span>
-                <span className="text-xs text-slate-500 font-mono"> / year</span>
+                <div className="text-2xl font-black text-white font-mono">Custom Quote</div>
+                <span className="text-xs text-slate-500 font-mono">Billed annually · Dedicated SLA</span>
               </div>
 
-              <div className="space-y-2.5 pt-4 border-t border-slate-800 text-xs font-mono">
-                <div className="flex items-start space-x-2 text-slate-300">
-                  <Check className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                  <span>Everything in Pro included</span>
-                </div>
-                <div className="flex items-start space-x-2 text-slate-300">
-                  <Check className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                  <span>Unlimited multi-tenant fleet seats</span>
-                </div>
-                <div className="flex items-start space-x-2 text-slate-300">
-                  <Check className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                  <span>Custom mnemonic corporate dictionary overrides</span>
-                </div>
-                <div className="flex items-start space-x-2 text-slate-300">
-                  <Check className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                  <span>Enterprise SAML 2.0 & Azure Active Directory SSO</span>
-                </div>
-                <div className="flex items-start space-x-2 text-slate-300">
-                  <Check className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                  <span>Direct S3 & Azure Blob storage dispatch</span>
-                </div>
-                <div className="flex items-start space-x-2 text-slate-300">
-                  <Check className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                  <span>Dedicated Petrophysical SRE & 99.95% SLA</span>
-                </div>
-              </div>
+              <ul className="space-y-2.5 text-xs text-slate-300 font-mono pt-4 border-t border-slate-800">
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Everything in WellQC Pro</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Automated Batch Ingestion (10,000+ Wells)</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>On-Premises / Private VPC Isolation</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>SSO / Active Directory Integration</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Dedicated Petrophysics Support Engineer</span>
+                </li>
+              </ul>
             </div>
 
-            <div className="pt-6">
-              <button
-                type="button"
-                onClick={() => handleOpenUpgrade("ENTERPRISE_ANNUAL")}
-                className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold font-mono text-xs flex items-center justify-center space-x-1.5 transition-colors"
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Contact Enterprise Licensing</span>
-              </button>
-            </div>
+            <Link
+              href="mailto:contact@wellqc.internal?subject=WellQC%20Enterprise%20Inquiry"
+              className="w-full py-3 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-800 text-slate-200 font-mono font-bold text-xs text-center transition-all block shadow-sm"
+            >
+              Contact Enterprise Sales
+            </Link>
           </div>
         </div>
 
-        {/* Paystack Security & Settlement Strip */}
-        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-mono">
+        {/* Security / Compliance Badges */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
               <Lock className="w-5 h-5" />
@@ -339,6 +401,114 @@ export default function PricingPage() {
             </span>
           </div>
         </div>
+
+        {/* Subscription & Payment Transaction History Section */}
+        <section aria-label="Subscription & Payment History" className="space-y-4 pt-4 border-t border-slate-800/80">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center shrink-0">
+                <Receipt className="w-4 h-4 text-purple-400" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-lg font-bold font-mono text-white tracking-tight">
+                    Billing &amp; Payment History
+                  </h2>
+                  <span
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase border ${
+                      userTier === "PRO" || userTier === "ENTERPRISE"
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                        : "bg-slate-800 text-slate-400 border-slate-700"
+                    }`}
+                  >
+                    Active Tier: {userTier}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono">
+                  Review historical checkout settlements, Paystack transaction references, and digital invoices.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={fetchHistory}
+              disabled={historyLoading}
+              className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white font-mono text-xs transition-colors flex items-center space-x-1.5 self-start sm:self-auto disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${historyLoading ? "animate-spin" : ""}`} />
+              <span>Refresh History</span>
+            </button>
+          </div>
+
+          <div className="bg-slate-900/70 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            {historyLoading && paymentHistory.length === 0 ? (
+              <div className="p-8 text-center text-cyan-300 text-xs font-mono flex items-center justify-center space-x-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
+                <span>Loading payment records...</span>
+              </div>
+            ) : paymentHistory.length === 0 ? (
+              <div className="p-8 text-center space-y-2 font-mono">
+                <Clock className="w-7 h-7 text-slate-600 mx-auto" />
+                <div className="text-xs font-bold text-white">No payment transactions recorded yet</div>
+                <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                  When you subscribe or upgrade your account to WellQC Pro, your transaction receipts and invoices will be cataloged here.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
+                    <tr>
+                      <th className="p-3.5">Date &amp; Time</th>
+                      <th className="p-3.5">Reference Code</th>
+                      <th className="p-3.5">Plan Activated</th>
+                      <th className="p-3.5">Amount Settled</th>
+                      <th className="p-3.5">Channel</th>
+                      <th className="p-3.5 text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {paymentHistory.map((tx) => (
+                      <tr key={tx.id} className="hover:bg-slate-800/30 transition-colors">
+                        <td className="p-3.5 text-slate-300 whitespace-nowrap">
+                          {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "Recent"}
+                        </td>
+                        <td className="p-3.5 whitespace-nowrap">
+                          <span className="font-semibold text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
+                            {tx.reference}
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-bold text-white uppercase whitespace-nowrap">
+                          {tx.plan}
+                        </td>
+                        <td className="p-3.5 text-emerald-400 font-bold whitespace-nowrap">
+                          {tx.currency} {(tx.amount / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="p-3.5 text-slate-400 uppercase text-[11px] whitespace-nowrap">
+                          {tx.channel || "Standard"}
+                        </td>
+                        <td className="p-3.5 text-right whitespace-nowrap">
+                          <span
+                            className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                              tx.status === "SUCCESS"
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                : tx.status === "PENDING"
+                                ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                                : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                            }`}
+                          >
+                            {tx.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* FAQ Section */}
         <div className="space-y-6 pt-6">
@@ -396,10 +566,27 @@ export default function PricingPage() {
       {/* Checkout Modal */}
       <PaystackUpgradeModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          fetchHistory();
+        }}
         defaultPlanId={selectedPlanId}
+        targetWellId={targetWellId || undefined}
       />
     </div>
   );
 }
 
+export default function PricingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center text-cyan-400 font-mono text-xs">
+          Loading enterprise licensing...
+        </div>
+      }
+    >
+      <PricingContent />
+    </Suspense>
+  );
+}

@@ -188,8 +188,9 @@ async def initialize_paystack_transaction(
 
     # Dev / Sandbox Fallback: If no live secret key is configured, provide safe mock checkout
     if not secret_key:
+        sep = "&" if "?" in resolved_callback else "?"
         mock_auth_url = (
-            f"{resolved_callback}?reference={reference}&mock=true&plan={canonical_plan}"
+            f"{resolved_callback}{sep}reference={reference}&mock=true&plan={canonical_plan}"
         )
         return {
             "authorization_url": mock_auth_url,

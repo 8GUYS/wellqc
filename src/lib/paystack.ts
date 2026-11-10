@@ -2,6 +2,10 @@
  * Paystack Client & Pricing Definitions for WellQC Studio.
  */
 
+import { PaymentStatus, BillingInterval } from "@/types/enums";
+
+export type { PaymentStatus, TransactionStatus, BillingInterval } from "@/types/enums";
+
 export interface PlanDefinition {
   id: string;
   name: string;
@@ -11,7 +15,7 @@ export interface PlanDefinition {
   amount_usd: number;
   display_price_ngn: string;
   display_price_usd: string;
-  interval: "monthly" | "annually" | "one-time";
+  interval: BillingInterval;
   features: string[];
   popular?: boolean;
 }
@@ -31,7 +35,7 @@ export interface InitializePaymentResponse {
 }
 
 export interface PaymentVerificationResponse {
-  status: "SUCCESS" | "PENDING" | "FAILED" | "ABANDONED";
+  status: PaymentStatus;
   reference: string;
   amount: number;
   currency: string;
@@ -95,6 +99,35 @@ export async function verifyPaymentReference(
     throw new Error(errorData.detail || `Payment verification failed (${res.status})`);
   }
 
+  return res.json();
+}
+
+export interface PaymentHistoryItem {
+  id: string;
+  reference: string;
+  amount: number;
+  currency: string;
+  plan: string;
+  status: PaymentStatus;
+  channel?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+}
+
+export interface PaymentHistoryResponse {
+  currentTier: string;
+  transactions: PaymentHistoryItem[];
+}
+
+/**
+ * Fetch authenticated user's payment transaction history.
+ */
+export async function getPaymentHistory(): Promise<PaymentHistoryResponse> {
+  const res = await fetch("/api/payments/history", { cache: "no-store" });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to fetch payment history (${res.status})`);
+  }
   return res.json();
 }
 

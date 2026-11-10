@@ -454,9 +454,90 @@ A story is accepted as done when:
     And my check limit becomes unlimited
   ```
 
+#### US-PAY-03: Context-Preserving Payment Verification Return Flow
+- **As an** Upgrading Petrophysicist (PER-1, PER-5),
+- **I want** my active well context (`targetWellId`) preserved through the Paystack checkout and verification journey,
+- **So that** after completing payment I am immediately greeted with a personalized CTA to repair that exact well without re-searching the database.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 5 · SE2 / UX1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Retaining well context through settlement
+    Given I click a locked Pro repair action on Well "Akpo-04ST"
+    When the Paystack Upgrade Modal opens and initializes checkout
+    Then the callback URL carries `?wellId=<id>`
+    And after settlement on `/payment/verify`, the card displays "Ready for Calibration: Akpo-04ST"
+    And the primary CTA button reads 'Proceed to Repair "Akpo-04ST" →'
+    And clicking it opens `/qa-engine?wellId=<id>` with that well's curves pre-loaded
+  ```
+
+#### US-PAY-04: Upfront Visual License Badging & Comprehensive Export / PDF Download Restriction
+- **As an** Enterprise Product Manager (PER-3),
+- **I want** Free tier users to see clear visual `PRO` badges and lock indicators on all advanced capabilities, and be strictly restricted from all file exports and PDF certificate downloads,
+- **So that** commercial proprietary assets (NUPRC PDF certificates, cleaned LAS/CSV logs, correlation matrices, and spreadsheet CSVs) are protected and users are prompted to upgrade.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 5 · SE2 / UX1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Restricting PDF downloads and all data exports for Free tier users
+    Given a user authenticated on the Free tier
+    When they navigate to `/reports`, `/comparison`, or inspect data tables
+    Then Card 1 displays "Export PDF Certificate (PRO)" with a lock icon
+    And Card 2 displays "PRO LICENSE REQUIRED" with a lock icon
+    And the Cleaned LAS and PDF table columns show "PRO" badges
+    And clicking "Print / Save PDF", "JSON", "Download Cleaned LAS", "Export Selected", "CSV Matrix", or "CSV" intercepts the download
+    And opens the Paystack Upgrade Modal with targeted well context
+  ```
+
+#### US-PAY-05: User Billing History & Plan Management Portal
+- **As a** Subsurface Asset Manager (PER-3),
+- **I want** a dedicated Billing portal (`/pricing`) displaying my past transaction receipts, references, dates, and active plan status,
+- **So that** accounting and audit reconciliations can be completed without contacting support.
+- **Priority:** Should Have
+- **Sprint / Owner:** Sprint 5 · SE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Viewing transaction history
+    Given an authenticated user on the `/pricing` page
+    When the page loads
+    Then the Billing History table displays all past Paystack references, dates, currency amounts, and settlement statuses
+  ```
+
 ---
 
 ### 🔐 Epic 9: Multi-Tenant Asset Management & RBAC Security
+
+#### US-AST-01: Centralized Well Assets Registry & Bulk Asset Deletion
+- **As a** Subsurface Data Engineer or Petrophysicist (PER-1, PER-2),
+- **I want** a dedicated Well Assets Registry (`/wells`) with real-time search, quality grade filtering, single delete, and bulk selection deletion,
+- **So that** I can efficiently curate, inspect, and maintain hundreds of fleet boreholes.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 5 · SE1 / UX1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Bulk deleting selected well assets
+    Given I am on the `/wells` registry page
+    When I select multiple wells using table checkboxes
+    And click "Delete Selected" in the floating action bar
+    Then a confirmation modal displays the names of all selected wells
+    And upon typing "DELETE" or confirming, all selected wells and downstream curves/reports are deleted in an atomic transaction
+  ```
+
+#### US-AST-02: Closed-Loop QA Engine Database Persistence
+- **As a** Lead Petrophysicist (PER-1),
+- **I want** an "Upload Cleaned Log to Database" action in Section 4 of the Quality Engine,
+- **So that** my repaired and calibrated borehole curves are directly persisted back into the Well Assets database without requiring manual download and re-upload.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 5 · SE1 / DA4
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Uploading calibrated log to database
+    Given I have reviewed and applied anomaly repairs in `/qa-engine`
+    When I click "Upload Cleaned Log to Database"
+    Then the calibrated CWLS LAS 2.0 text is sent via POST /api/las
+    And saved into PostgreSQL with `_CLEANED` suffix and updated quality grade
+    And a celebratory success banner provides 1-click links to `/wells` and `/wells/[id]`
+  ```
 
 #### US-SEC-01: Role-Based Access Control (RBAC)
 - **As a** Systems Administrator (PER-4),
@@ -539,6 +620,22 @@ A story is accepted as done when:
     Then the server immediately stops with 403 Forbidden before reading raw text or curves
     And no activity log or cleaned data is returned to User Beta
     And when User Alpha or an Admin sends the same request, it succeeds with 200 OK
+  ```
+
+#### US-SEC-06: Administrator User Account Management & 1-Click Email Verification
+- **As an** Enterprise Systems Administrator (PER-4),
+- **I want** to manage user accounts, reset passwords, and trigger 1-click email verifications in `/admin`,
+- **So that** I can assist onboarded geoscientists encountering email delivery friction or credentials issues.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 5 · SE1 / CE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: 1-click email verification by Administrator
+    Given an administrator inspecting a user account with isEmailVerified == False
+    When the administrator clicks "Verify Email" in the user inspector modal
+    Then POST /api/admin/users/{user_id}/verify-email sets isEmailVerified = True
+    And stamps emailVerifiedAt with the current UTC timestamp
+    And the user status badge immediately updates to "VERIFIED"
   ```
 
 #### US-AUT-01: Interactive Password Visibility Toggle on Authentication Form
@@ -717,6 +814,24 @@ A story is accepted as done when:
     And Tab 4 renders the Stratigraphic Markers Alignment comparison with thickness delta calculations and provenance badges
   ```
 
+#### US-CMP-05: Multi-Well Comparison Gatekeeper & Free Tier License Restrictions
+- **As a** Platform Operator or Commercial Strategist,
+- **I want** the Multi-Well Petrophysical Comparison workstation (`/comparison`) gated behind a dedicated Pro license paywall,
+- **So that** Free Tier users are restricted from computing multi-well stratigraphic alignments or exporting correlation matrices, while seeing an actionable upgrade CTA to WellQC Pro.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 7 · SE2 / SE1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Free Tier user navigates to /comparison
+    Given a signed-in user on the "FREE" tier
+    When they navigate to /comparison
+    Then a paywall banner is displayed highlighting "Well Comparison Restricted" and "FREE TIER"
+    And feature highlight cards showcase Pearson correlation analysis, structural lag shifts, and composite cross-track overlays
+    And clicking "Upgrade to WellQC Pro" launches the Paystack checkout modal
+    And in the sidebar navigation, "Well Comparison" displays a "PRO" badge
+    And on the Well Dossier page (/wells/[id]), the "Compare Well" action button displays a lock icon and "PRO" pill, opening the upgrade modal upon click
+  ```
+
 ---
 
 ### 🧭 Epic 13: Interactive Dashboard Onboarding & Workflow Guidance
@@ -829,6 +944,7 @@ A story is accepted as done when:
 | **US-CMP-02** | Multi-Channel Pearson Correlation & Structural Lag Shift | Must Have | Sprint 7 | SE1 | `backend/app/services/comparison.py`, `src/app/comparison/` |
 | **US-CMP-03** | Hybrid Formation Tops Alignment & Provenance Verification | Must Have | Sprint 7 | DA1 & SE1 | `backend/app/models/models.py`, `backend/app/api/wells.py`, `comparison/page.tsx` |
 | **US-CMP-04** | Interactive Multi-Well Workstation UI & Visual Overlays | Must Have | Sprint 7 | SE2 | `src/app/comparison/page.tsx`, `src/components/ui/sidebar.tsx` |
+| **US-CMP-05** | Multi-Well Comparison Gatekeeper & Free Tier Paywall | Must Have | Sprint 7 | SE2 / SE1 | `src/app/comparison/page.tsx`, `src/components/ui/sidebar.tsx`, `src/app/wells/[id]/page.tsx` |
 | **US-DSB-01** | Interactive Dashboard Onboarding Tour Guide | Must Have | Sprint 7 | SE2 | `src/components/dashboard/dashboard-tour.tsx`, `src/components/ui/header.tsx` |
 | **US-NAV-01** | Post-Auth Direct Data Upload Routing | Must Have | Sprint 7 | SE2 | `middleware.ts`, `src/components/auth/auth-form.tsx` |
 | **US-ING-05** | Zero-Click Instant Database Auto-Persistence | Must Have | Sprint 7 | SE1 / SE2 | `src/app/upload/page.tsx`, `src/components/upload/` |

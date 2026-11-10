@@ -3,8 +3,9 @@ import {
   QualityAnalysisResult,
   AIAnalysisOutput,
 } from "@/lib/api-types";
+import { UploadStatus } from "@/types/enums";
 
-export type UploadStatus = "ready" | "saving" | "saved" | "error";
+export type { UploadStatus } from "@/types/enums";
 
 export interface QueuedLASFile {
   id: string;

@@ -66,6 +66,7 @@ async def lifespan(app: FastAPI):
                         "plan" TEXT NOT NULL,
                         "status" TEXT NOT NULL DEFAULT 'PENDING',
                         "channel" TEXT,
+                        "paystackCustomerCode" TEXT,
                         "metadataPayload" JSONB,
                         "paidAt" TIMESTAMP(3),
                         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -74,6 +75,8 @@ async def lifespan(app: FastAPI):
                 '''))
                 conn.execute(text('CREATE INDEX IF NOT EXISTS "PaymentTransaction_userId_idx" ON "PaymentTransaction"("userId");'))
                 conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "PaymentTransaction_reference_key" ON "PaymentTransaction"("reference");'))
+            else:
+                conn.execute(text('ALTER TABLE "PaymentTransaction" ADD COLUMN IF NOT EXISTS "paystackCustomerCode" TEXT;'))
             if not has_setting:
                 conn.execute(text('''
                     CREATE TABLE "SystemSetting" (

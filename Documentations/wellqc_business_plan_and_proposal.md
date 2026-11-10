@@ -22,19 +22,29 @@ WellQC eliminates this risk by delivering an automated, AI-driven quality assura
 
 ### The "Diagnosis is Free; Remediation is Monetized" Funnel
 WellQC employs an ultra-high-converting **Product-Led Growth (PLG)** revenue model:
-* **Free Tier Diagnostics (2 Files):** New users can upload and audit up to **2 LAS files completely free**. They gain full visibility into the well’s health: overall quality score (0–100), completeness, consistency, interactive wireline track plots, and the complete catalog of detected anomalies (depth non-monotonicities, boundary violations, extreme spikes, null clusters).
-* **The QA Engine Paywall:** When the user clicks **"Repair in QA Engine"** or attempts to execute automated cleaning, despiking, or imputation, the platform presents the **Payment Activation Modal**. Remediation and export of production-ready, clean LAS files require an active Pro subscription or Enterprise license.
+* **Free Discovery Tier (Up to 2 LAS Files):** New users can upload and audit up to **2 LAS files completely free**. They gain visibility into the well's headline health metrics: overall composite quality score (0–100), health grading (*Excellent*, *Good*, *Poor*, *Critical*), curve inventory (~CURVE count & null percentages), and raw LAS syntax checks.
+* **Feature Gating on Free Tier:** To drive conversion, the platform strictly gates high-value engineering workflows behind WellQC Pro:
+  1. **Interactive Wireline Log Viewer:** Locked on both the `/upload` workspace and `/wells/[id]` dossier page with a Pro paywall card.
+  2. **Detailed Quality Anomalies Diagnostics:** Specific anomaly descriptions, depth boundaries, severity scores, and remediation recipes are locked.
+  3. **QA Engine Repair Studio:** Automated despiking, physical limit boundary clamping, duplicate depth resolution, and KNN/Spline ML null imputation are locked.
+  4. **Multi-Well Stratigraphic Comparison:** Offset cross-correlation, dynamic lag depth shifts, and Niger Delta reservoir continuity verification are locked.
+  5. **Certified Exports & Reports:** Production-ready LAS 2.0 file downloads, CSV data tables, JSON audit trails, and official NUPRC Form WQC-08-A digital certificates require Pro activation.
+* **The Pro Upgrade Trigger:** When a user navigates to the Wireline Log Viewer, Quality Anomalies tab, QA Engine, or Multi-Well Comparison, the platform presents the **Paystack Pro Payment Modal** (₦75,000 / $49 per month or ₦750,000 / $490 per year).
 
 ```mermaid
 graph TD
-    A[User Uploads LAS Log - Up to 2 Free Files] --> B[Automated Ingestion & Parsing]
-    B --> C[AI Quality Audit & Anomaly Detection 0-100 Score]
-    C --> D[Full Interactive Wireline Viewer & Anomaly Catalog]
-    D --> E{User Clicks 'Repair in QA Engine' / Apply Cleaning}
-    E -->|Free User| F[Paystack Payment Gatekeeper Modal ₦75,000 / $49]
-    F -->|Payment Verified| G[Unlock QA Engine Automated Cleaning & Imputation]
-    E -->|Pro / Enterprise User| G
-    G --> H[Export Cleaned Production-Ready LAS & NUPRC Certificate]
+    A[User Ingests LAS Log - Up to 2 Free Files] --> B[Automated Syntax & Header Validation]
+    B --> C[0-100 Quality Score & Curve Inventory]
+    C --> D{User Accesses Gated Workflows?}
+    D -->|Wireline Log Viewer| E[Pro Paywall Gatekeeper]
+    D -->|Quality Anomalies Catalog| E
+    D -->|QA Engine Automated Repairs| E
+    D -->|Multi-Well Comparison| E
+    D -->|LAS / CSV / NUPRC Exports| E
+    E -->|Free User| F[Paystack Checkout Modal ₦75,000 / $49]
+    F -->|Payment Verified| G[Unlock Complete Subsurface Studio Suite]
+    D -->|Pro / Enterprise User| G
+    G --> H[Export Cleaned Production-Ready LAS & Signed NUPRC Certificate]
 ```
 
 ---
@@ -108,7 +118,7 @@ flowchart LR
 3. **Calibrated Petrophysical Visualization:** Full support for classic borehole paper styling and modern dark subsurface aesthetics; interactive zoom, synchronized depth scrolling, and standard scale limits (e.g., GR 0–150 GAPI).
 4. **Machine Learning Imputation Suite:** Ground-truth masking cross-validation benchmarking KNN, Cubic Spline, Mean, and Linear methods to guarantee data integrity before machine learning ingestion.
 5. **Cross-Well Correlation Engine:** Pearson correlation coefficient ($r$), optimal lag depth shift computation, and stratigraphic matching against Niger Delta Akata, Agbada, and Benin formations.
-6. **Offline Rig PWA Capability:** Service workers allow field petrophysicists on offshore rigs or swamp locations with intermittent satellite connectivity to audit and view logs with zero network dependency.
+6. **Offline Rig PWA Capability (Universal for All Users):** The installable Progressive Web App (PWA) workstation is open to all users across every tier (Free, Pro, and Enterprise). Service workers and client-side IndexedDB caching allow field petrophysicists, students, and consultants on offshore rigs or swamp locations with intermittent satellite connectivity to run local validations and view cached assets with zero network dependency.
 
 ---
 
@@ -151,21 +161,27 @@ pie title Projected Revenue Contribution (Year 2)
 
 | Tier | Target Customer | Pricing (NGN) | Pricing (USD) | Key Entitlements & Paywall Boundary |
 |---|---|---|---|---|
-| **Free Diagnostic Tier** | Graduate students, independent consultants, rig interns evaluating well logs | **₦0** (Free) | **\$0** (Free) | **Up to 2 free LAS files.** Full access to automated parsing, 0–100 QA scoring, anomaly identification, and interactive log viewer. **Paywall Boundary:** Attempting to enter the QA Engine or execute automated cleaning/imputation prompts payment to continue. |
-| **Pro Monthly** | Active freelance petrophysicists, small consultancies | **₦75,000** / month | **\$49** / month | **Full QA Engine unlocked.** Unlimited LAS uploads, automated cleaning (despiking, boundary clamping, duplicate depth resolution), standardisation dictionary, CSV/Excel exports, full log viewer. |
-| **Pro Annual** | Mid-size consultancies, dedicated G&G teams | **₦750,000** / year *(2 months free)* | **\$490** / year | All Pro features + priority ML imputation benchmarks, batch queue processing, offline PWA rig mode, cleaned LAS export downloads, priority email support. |
-| **Enterprise Asset License** | Independent E&P Operators, Marginal Field Holders | **₦18,000,000 – ₦36,000,000** / year | **\$15,000 – \$30,000** / year | Up to 25 seats, unlimited well log assets, Multi-Well Stratigraphic Correlation Engine, NUPRC Digital Signature suite, custom API keys, webhooks. |
-| **Enterprise Sovereign / Regulator** | National Oil Companies (NNPCL), Regulators (NUPRC) | **Custom Quote** (From ₦60,000,000 / year) | **Custom Quote** (From \$50,000 / year) | Unlimited seats, dedicated on-prem/VPC instance, custom basin formation cutoffs, centralized operator compliance audit dashboard. |
+| **Free Discovery Tier** | Students, independent consultants, rig interns evaluating well data | **₦0** (Free) | **$0** (Free) | **Up to 2 free LAS files.** Automated parsing, 0–100 QA score, curve inventory, raw header verification, and **Universal Installable PWA Workstation (Offline Rig Mode for all users)**. **Gated Paywall Boundary:** Wireline Log Viewer, Quality Anomalies details, QA Engine automated repair, Multi-Well comparison, and certified exports require WellQC Pro. |
+| **Pro Monthly** | Active freelance petrophysicists, small consultancies | **₦75,000** / month | **$49** / month | **Complete Subsurface Studio Unlocked.** Unlimited LAS uploads, full multi-track wireline log viewer, detailed anomaly diagnostics, automated QA repairs (despiking, clamping, duplicate depth resolution, KNN/Spline null imputation), standardisation dictionary, closed-loop QA database persistence, multi-well correlation, and uncapped CSV/LAS/NUPRC Form WQC-08-A exports. |
+| **Pro Annual** | Mid-size consultancies, dedicated G&G teams | **₦750,000** / year *(2 months free)* | **$490** / year | All Pro features + priority ML imputation benchmarks, batch queue processing, offline PWA rig mode, cleaned LAS export downloads, priority email support. |
+| **Enterprise Asset License** | Independent E&P Operators, Marginal Field Holders | **₦18,000,000 – ₦36,000,000** / year | **$15,000 – $30,000** / year | Up to 25 seats, unlimited well log assets, Multi-Well Stratigraphic Correlation Engine, NUPRC Digital Signature suite, custom API keys, webhooks, dedicated account manager. |
+| **Enterprise Sovereign / Regulator** | National Oil Companies (NNPCL), Regulators (NUPRC) | **Custom Quote** (From ₦60,000,000 / year) | **Custom Quote** (From $50,000 / year) | Unlimited seats, dedicated on-prem/VPC instance, custom basin formation cutoffs, centralized operator compliance audit dashboard. |
 
-### 5.2 The QA Engine Paywall Conversion Mechanics
-1. **Zero-Friction Ingestion:** User drags in up to 2 LAS well logs on the `/upload` workspace without submitting credit card details.
-2. **Transparent Problem Discovery:** The platform calculates the composite Well Quality Score (e.g. 52/100, POOR) and displays the breakdown of all 624 critical anomalies (non-monotonic depths, impossible values, flatlines, null clusters).
-3. **The Remediation Trigger:** When the petrophysicist clicks **"Repair in QA Engine →"** or attempts to apply cleaning methods, the application displays the **Paystack Pro Payment Modal**:
-   * *Headline:* "Unlock Automated Log Repair & Cleaned LAS Export"
-   * *Value Proposition:* "You have uncovered 624 critical anomalies. Complete your activation to repair depth non-monotonicities, execute ML null imputation, and export production-ready LAS files."
+### 5.2 The Pro Paywall Conversion Mechanics
+1. **Zero-Friction Ingestion:** User drags in up to 2 LAS well logs on the `/upload` workspace without submitting payment details.
+2. **Transparent Health Discovery:** The platform calculates the composite Well Quality Score (e.g. 52/100, POOR), displays curve summaries, and indicates the presence of critical anomalies.
+3. **The Gated Experience:** When the petrophysicist attempts to:
+   * View the interactive wireline log curves,
+   * Inspect detailed quality anomalies and depth ranges,
+   * Launch automated cleaning in the QA Engine,
+   * Run multi-well correlation comparisons, or
+   * Export cleaned LAS files / NUPRC certificates,
+   the application presents the **Paystack Pro Payment Modal**:
+   * *Headline:* "Unlock WellQC Pro Subsurface Studio"
+   * *Value Proposition:* "Access deep multi-track wireline visualization, detailed anomaly diagnostics, automated despiking, KNN/Spline null imputation, and official NUPRC compliance certificates."
    * *Plan Options:* ₦75,000/mo ($49/mo) or ₦750,000/yr ($490/yr).
-   * *Payment Channels:* Instant activation via Debit Cards, Bank Transfer, USSD, or Apple Pay.
-4. **Immediate Fulfillment:** Upon successful transaction verification via Paystack webhook, the user is redirected into the QA Engine workspace with all automated cleaning options enabled.
+   * *Payment Rails:* Instant automated checkout via Debit Cards, Bank Transfer, USSD, and Mobile Money.
+4. **Immediate Fulfillment:** Upon successful transaction verification via Paystack webhook, `User.tier` transitions to `PRO`, immediately granting full access across all platform workspaces.
 
 ### 5.3 Ancillary Revenue Streams
 1. **Professional Integration Services:** Custom integration into enterprise legacy databases, custom logging tool mnemonic mapping, and historical archive batch remediation (**₦5,000,000 – ₦15,000,000** per engagement).
@@ -207,11 +223,11 @@ pie title Projected Revenue Contribution (Year 2)
 
 ```mermaid
 flowchart TD
-    GTM1[Product-Led Growth PLG] --> C1[Free Diagnostic Tier: 2 Free Files Audit]
-    C1 --> C2[Discovers 600+ Critical Faults & Quality Score]
-    C2 --> C3[Clicks 'Repair in QA Engine']
+    GTM1[Product-Led Growth PLG] --> C1[Free Discovery Tier: Up to 2 Free Files Audit]
+    C1 --> C2[Discovers Quality Score & Flagged Anomalies]
+    C2 --> C3[Attempts to Access Wireline Viewer, Anomalies, or QA Engine]
     C3 --> C4[Prompted to Pay via Paystack ₦75,000 / $49]
-    C4 --> C5[Unlocks Automated Repair & Clean LAS Export]
+    C4 --> C5[Unlocks Full Wireline Viewer, QA Repair & Certified Exports]
     
     GTM2[Direct Enterprise Sales] --> D1[Outreach to E&P Asset Managers & Chief Petrophysicists]
     D1 --> D2[Complimentary 10-Well Fleet Audit]

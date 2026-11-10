@@ -1,43 +1,80 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  Sparkles,
   ArrowRight,
   ShieldCheck,
   UploadCloud,
 } from "lucide-react";
 import { verifyPaymentReference, PaymentVerificationResponse } from "@/lib/paystack";
+import { safeReadJson } from "@/lib/http-client";
+import { WellDetailResponse } from "@/lib/api-types";
 
 function PaymentVerifyContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const reference = searchParams.get("reference");
-  const isMock = searchParams.get("mock") === "true";
+  const targetWellId = searchParams.get("wellId");
 
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<PaymentVerificationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [targetWell, setTargetWell] = useState<{
+    id: string;
+    name: string;
+    qualityGrade?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!targetWellId) return;
+    let active = true;
+
+    async function loadWellContext() {
+      try {
+        const res = await fetch(`/api/wells/${encodeURIComponent(targetWellId!)}`, {
+          cache: "no-store",
+        });
+        const parsed = await safeReadJson<WellDetailResponse>(res, "Unable to load well.");
+        if (active && parsed.ok && parsed.data?.well) {
+          setTargetWell({
+            id: parsed.data.well.id,
+            name: parsed.data.well.name,
+            qualityGrade: parsed.data.well.qualityGrade,
+          });
+        }
+      } catch {
+        // Non-critical; fallback to generic label if well fetch fails
+      }
+    }
+
+    loadWellContext();
+    return () => {
+      active = false;
+    };
+  }, [targetWellId]);
 
   useEffect(() => {
     let active = true;
 
     async function executeVerification() {
       if (!reference) {
-        setError("Missing transaction reference parameter.");
-        setLoading(false);
+        if (active) {
+          setError("Missing transaction reference parameter.");
+          setLoading(false);
+        }
         return;
       }
 
       try {
-        setLoading(true);
-        setError(null);
+        if (active) {
+          setLoading(true);
+          setError(null);
+        }
 
         const data = await verifyPaymentReference(reference);
         if (!active) return;
@@ -51,15 +88,17 @@ function PaymentVerifyContent() {
         } else {
           setError(data.message || "Payment has not been completed.");
         }
-      } catch (err: any) {
+      } catch (err) {
         if (!active) return;
-        setError(err.message || "Failed to verify transaction settlement.");
+        setError(err instanceof Error ? err.message : "Failed to verify transaction settlement.");
       } finally {
         if (active) setLoading(false);
       }
     }
 
-    executeVerification();
+    Promise.resolve().then(() => {
+      if (active) executeVerification();
+    });
 
     return () => {
       active = false;
@@ -173,22 +212,46 @@ function PaymentVerifyContent() {
               </div>
             </div>
 
+            {/* Context Target Banner if initiated from a specific well */}
+            {targetWell && (
+              <div className="w-full bg-cyan-950/40 border border-cyan-500/30 rounded-2xl p-3 flex items-center justify-between text-xs font-mono text-left">
+                <div className="flex items-center space-x-2.5 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+                  <div className="truncate">
+                    <span className="text-slate-400 block text-[10px] uppercase tracking-wider">Ready for Calibration</span>
+                    <span className="font-bold text-cyan-300 truncate block">{targetWell.name}</span>
+                  </div>
+                </div>
+                {targetWell.qualityGrade && (
+                  <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-bold shrink-0">
+                    Grade {targetWell.qualityGrade}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* CTAs */}
             <div className="flex flex-col w-full space-y-2 pt-2">
               <Link
-                href="/qa-engine"
+                href={targetWellId ? `/qa-engine?wellId=${encodeURIComponent(targetWellId)}` : "/qa-engine"}
                 className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-bold font-mono text-xs flex items-center justify-center space-x-1.5 transition-all shadow-md active:scale-95"
               >
                 <ShieldCheck className="w-4 h-4 text-slate-950" />
-                <span>Launch QA Repair Engine</span>
+                <span>
+                  {targetWell?.name
+                    ? `Proceed to Repair "${targetWell.name}"`
+                    : targetWellId
+                    ? "Proceed to Repair Well"
+                    : "Launch QA Repair Engine"}
+                </span>
                 <ArrowRight className="w-3.5 h-3.5 ml-1" />
               </Link>
               <Link
-                href="/upload"
+                href="/wells"
                 className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold font-mono text-xs flex items-center justify-center space-x-1.5 transition-colors border border-slate-700"
               >
                 <UploadCloud className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Upload New LAS Files</span>
+                <span>View Well Assets Registry</span>
               </Link>
             </div>
           </div>

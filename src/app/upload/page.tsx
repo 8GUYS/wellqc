@@ -21,13 +21,18 @@ import { AIInsightsPanel } from "@/components/upload/ai-insights-panel";
 import { AnomaliesListTab } from "@/components/upload/anomalies-list-tab";
 import { HeadersTab } from "@/components/upload/headers-tab";
 import { UploadedFilesTable } from "@/components/upload/uploaded-files-table";
+import { OnboardingWelcomeBanner } from "@/components/dashboard/dashboard-tour";
 import { QueuedLASFile, UploadWorkspaceState } from "@/types/upload";
+import { PaystackUpgradeModal } from "@/components/payments/paystack-upgrade-modal";
 import {
   Activity,
   AlertTriangle,
+  Download,
   FileText,
   Layers,
+  Lock,
   RefreshCw,
+  Sparkles,
   Table,
 } from "lucide-react";
 
@@ -95,6 +100,44 @@ export default function LASUploadPage() {
   const [restoredFromStorage, setRestoredFromStorage] = useState(false);
   const [activeTab, setActiveTab] = useState<"curves" | "anomalies" | "headers" | "raw" | "viewer">("curves");
   const [wellsRefreshKey, setWellsRefreshKey] = useState(0);
+
+  // User Profile & Pro Gating State
+  const [userProfile, setUserProfile] = useState<{ tier: string; role: string }>({
+    tier: "FREE",
+    role: "USER",
+  });
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const isFreeTier = userProfile.tier === "FREE" && userProfile.role !== "ADMIN";
+
+  useEffect(() => {
+    let active = true;
+    async function loadUserProfile() {
+      try {
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        if (res.ok) {
+          const { user } = await res.json();
+          if (active && user) {
+            setUserProfile({
+              tier: (user.tier || "FREE").toUpperCase(),
+              role: (user.role || "USER").toUpperCase(),
+            });
+          }
+        }
+      } catch {
+        // default to free
+      }
+    }
+    loadUserProfile();
+
+    const handleUserUpdated = () => {
+      loadUserProfile();
+    };
+    window.addEventListener("wellqc_user_updated", handleUserUpdated);
+    return () => {
+      active = false;
+      window.removeEventListener("wellqc_user_updated", handleUserUpdated);
+    };
+  }, []);
 
   // Restore previous session from localStorage after initial client mount to guarantee 100% SSR hydration fidelity
   useEffect(() => {
@@ -541,10 +584,18 @@ export default function LASUploadPage() {
       setActiveTab("curves");
 
       if (typeof window !== "undefined") {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        setTimeout(() => {
+          const workspaceEl = document.getElementById("ingestion-results-workspace");
+          if (workspaceEl) {
+            workspaceEl.scrollIntoView({ behavior: "smooth", block: "start" });
+          } else {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        }, 120);
       }
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Unable to load well from database.");
+      throw err;
     } finally {
       setIsProcessing(false);
     }
@@ -553,6 +604,14 @@ export default function LASUploadPage() {
   return (
     <AppShell>
       <div className="space-y-6">
+        <OnboardingWelcomeBanner
+          onStartTour={() => {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new Event("wellqc_launch_tour"));
+            }
+          }}
+        />
+
         <UploadHeader
           hasActiveSession={Boolean(parsedLAS)}
           onClearSession={handleClearSession}
@@ -582,7 +641,7 @@ export default function LASUploadPage() {
 
         {/* Ingestion Results Workspace */}
         {parsedLAS && qaResult && aiOutput && !isProcessing && (
-          <main aria-label="Ingestion Results Workspace" className="space-y-6">
+          <main id="ingestion-results-workspace" aria-label="Ingestion Results Workspace" className="space-y-6 scroll-mt-6">
             <WellOverviewCard
               parsedLAS={parsedLAS}
               qaResult={qaResult}
@@ -652,6 +711,12 @@ export default function LASUploadPage() {
                 >
                   <Layers className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Wireline Log Viewer</span>
+                  {isFreeTier && (
+                    <span className="flex items-center space-x-1 px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-bold">
+                      <Lock className="w-2.5 h-2.5 text-amber-400" />
+                      <span>PRO</span>
+                    </span>
+                  )}
                 </button>
                 <button
                   type="button"
@@ -663,6 +728,12 @@ export default function LASUploadPage() {
                 >
                   <AlertTriangle className="w-3.5 h-3.5" />
                   <span>Quality Anomalies ({qaResult.anomalies.length})</span>
+                  {isFreeTier && (
+                    <span className="flex items-center space-x-1 px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-bold">
+                      <Lock className="w-2.5 h-2.5 text-amber-400" />
+                      <span>PRO</span>
+                    </span>
+                  )}
                 </button>
                 <button
                   type="button"
@@ -688,32 +759,150 @@ export default function LASUploadPage() {
                 </button>
               </div>
 
-
-
               {activeTab === "curves" && (
                 <CurveInventoryTable
                   curveSummaries={qaResult.curveSummaries}
                   parsedLAS={parsedLAS}
+                  isFreeTier={isFreeTier}
+                  onUpgradeRequest={() => setUpgradeModalOpen(true)}
                 />
               )}
 
-
-
               {activeTab === "viewer" && parsedLAS && (
                 <div className="p-4">
-                  <WellLogViewer
-                    wellName={`${parsedLAS.wellInfo.wellName || fileName} (Original Untouched Raw)`}
-                    depthUnit={parsedLAS.wellInfo.depthUnit || "FT"}
-                    startDepth={parsedLAS.wellInfo.startDepth}
-                    stopDepth={parsedLAS.wellInfo.stopDepth}
-                    curvesData={parsedLAS.data}
-                    anomalies={qaResult?.anomalies || []}
-                  />
+                  {isFreeTier ? (
+                    <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-950/20 via-slate-900/60 to-slate-950/80 p-8 text-center space-y-5">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/10">
+                        <Lock className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-2 max-w-xl mx-auto">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider">
+                          <Sparkles className="w-3 h-3" />
+                          <span>WellQC Pro Tier Feature</span>
+                        </div>
+                        <h3 className="text-xl font-black text-white font-mono">
+                          Wireline Log Viewer is Locked
+                        </h3>
+                        <p className="text-xs text-slate-400 font-mono leading-relaxed">
+                          Upgrade to WellQC Pro to unlock deep multi-track wireline rendering, logarithmic resistivity overlays, real-time depth tracking, and anomaly highlights for <span className="text-white font-semibold">{parsedLAS.wellInfo.wellName || fileName}</span>.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto text-left">
+                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                          <div className="text-cyan-400 font-mono text-xs font-bold flex items-center gap-1.5">
+                            <Layers className="w-3.5 h-3.5" />
+                            <span>3-Track Composite</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 font-mono">
+                            Lithology (GR/SP), Resistivity (ILD/MSFL), and Porosity (NPHI/RHOB/DT) tracks.
+                          </p>
+                        </div>
+                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                          <div className="text-amber-400 font-mono text-xs font-bold flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Anomaly Banding</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 font-mono">
+                            Visual depth intervals for sensor flatlines, extreme spikes, and cycle skips.
+                          </p>
+                        </div>
+                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                          <div className="text-purple-400 font-mono text-xs font-bold flex items-center gap-1.5">
+                            <Download className="w-3.5 h-3.5" />
+                            <span>High-Res Export</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 font-mono">
+                            Export depth-indexed CSV points tables and print NUPRC-compliant certificates.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setUpgradeModalOpen(true)}
+                          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs font-mono shadow-lg shadow-cyan-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2"
+                        >
+                          <Sparkles className="w-4 h-4 text-slate-950" />
+                          <span>Upgrade to WellQC Pro (₦75,000 / $49)</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <WellLogViewer
+                      wellName={`${parsedLAS.wellInfo.wellName || fileName} (Original Untouched Raw)`}
+                      depthUnit={parsedLAS.wellInfo.depthUnit || "FT"}
+                      startDepth={parsedLAS.wellInfo.startDepth}
+                      stopDepth={parsedLAS.wellInfo.stopDepth}
+                      curvesData={parsedLAS.data}
+                      anomalies={qaResult?.anomalies || []}
+                    />
+                  )}
                 </div>
               )}
 
               {activeTab === "anomalies" && (
-                <AnomaliesListTab anomalies={qaResult.anomalies} />
+                <div className="p-4">
+                  {isFreeTier ? (
+                    <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-950/20 via-slate-900/60 to-slate-950/80 p-8 text-center space-y-5">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/10">
+                        <Lock className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-2 max-w-xl mx-auto">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider">
+                          <Sparkles className="w-3 h-3" />
+                          <span>WellQC Pro Tier Feature</span>
+                        </div>
+                        <h3 className="text-xl font-black text-white font-mono">
+                          Quality Anomalies Diagnostics ({qaResult.anomalies.length} Flagged)
+                        </h3>
+                        <p className="text-xs text-slate-400 font-mono leading-relaxed">
+                          We flagged <span className="text-amber-300 font-semibold">{qaResult.anomalies.length} anomalies</span> across this well log. Detailed depth interval coordinates, anomaly classification, severity scores, and automated remediation recipes are restricted to WellQC Pro subscribers.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto text-left">
+                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                          <div className="text-amber-400 font-mono text-xs font-bold flex items-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <span>Depth &amp; Limits</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 font-mono">
+                            Duplicate depths, non-monotonic steps, depth gaps, and physical limit breaches.
+                          </p>
+                        </div>
+                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                          <div className="text-cyan-400 font-mono text-xs font-bold flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Signal Integrity</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 font-mono">
+                            Extreme sensor spikes, acoustic cycle skips, sensor flatlines, and null clusters.
+                          </p>
+                        </div>
+                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                          <div className="text-emerald-400 font-mono text-xs font-bold flex items-center gap-1.5">
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Automated Repair</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 font-mono">
+                            One-click despiking, boundary clamping, and KNN/Spline null imputation.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setUpgradeModalOpen(true)}
+                          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs font-mono shadow-lg shadow-cyan-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2"
+                        >
+                          <Sparkles className="w-4 h-4 text-slate-950" />
+                          <span>Upgrade to WellQC Pro to Unlock (₦75,000 / $49)</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <AnomaliesListTab anomalies={qaResult.anomalies} />
+                  )}
+                </div>
               )}
 
               {activeTab === "headers" && (
@@ -744,6 +933,14 @@ export default function LASUploadPage() {
             activeWellId={savedWell?.id || null}
           />
         </div>
+
+        {/* Paystack License Upgrade Gatekeeper */}
+        <PaystackUpgradeModal
+          isOpen={upgradeModalOpen}
+          onClose={() => setUpgradeModalOpen(false)}
+          defaultPlanId="PRO_MONTHLY"
+          reason="Upgrade to WellQC Pro to unlock multi-track wireline log curves, detailed anomaly diagnostics, automated repairs, and NUPRC certificates."
+        />
 
       </div>
     </AppShell>

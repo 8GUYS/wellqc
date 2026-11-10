@@ -25,6 +25,10 @@ import {
   Radio,
   History,
   Shield,
+  Pencil,
+  BadgeCheck,
+  Lock,
+  CreditCard,
 } from "lucide-react";
 
 interface UserRecord {
@@ -33,6 +37,9 @@ interface UserRecord {
   email: string;
   role: string;
   department: string;
+  tier?: string;
+  isEmailVerified?: boolean;
+  emailVerifiedAt?: string | null;
   status: string;
   createdAt: string;
 }
@@ -227,6 +234,29 @@ export default function AdminPanelPage() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const deferredUserSearchQuery = useDeferredValue(userSearchQuery);
+
+  // Edit User Account & Verification State
+  const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
+  const [editFormData, setEditFormData] = useState<{
+    name: string;
+    email: string;
+    department: string;
+    role: string;
+    tier: string;
+    password: string;
+    isEmailVerified: boolean;
+  }>({
+    name: "",
+    email: "",
+    department: "",
+    role: "USER",
+    tier: "FREE",
+    password: "",
+    isEmailVerified: false,
+  });
+  const [isSavingUser, setIsSavingUser] = useState(false);
+  const [verifyingUserId, setVerifyingUserId] = useState<string | null>(null);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   // Capability Matrix Tab State
   const [matrixFilter, setMatrixFilter] = useState<string>("ALL");
@@ -693,6 +723,119 @@ export default function AdminPanelPage() {
     }
   }
 
+  async function handleDirectVerifyEmail(userId: string, userEmail: string) {
+    setVerifyingUserId(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/verify-email`, {
+        method: "POST",
+      });
+      const result = await safeReadJson<{ success?: boolean; message?: string; user?: { isEmailVerified: boolean; emailVerifiedAt: string } }>(res);
+      if (!result.ok) throw new Error(result.error || "Failed to verify email.");
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                isEmailVerified: true,
+                emailVerifiedAt: result.data?.user?.emailVerifiedAt || new Date().toISOString(),
+              }
+            : u
+        )
+      );
+      showToast(result.data?.message || `Email for ${userEmail} verified successfully!`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to verify email.", false);
+    } finally {
+      setVerifyingUserId(null);
+    }
+  }
+
+  function handleOpenEditModal(user: UserRecord) {
+    setEditingUser(user);
+    setShowEditPassword(false);
+    setEditFormData({
+      name: user.name,
+      email: user.email,
+      department: user.department || "Subsurface Analytics",
+      role: user.role,
+      tier: (user.tier || "FREE").toUpperCase(),
+      password: "",
+      isEmailVerified: !!user.isEmailVerified,
+    });
+  }
+
+  async function handleSaveUserAccount(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingUser) return;
+    setIsSavingUser(true);
+    try {
+      const payload: {
+        userId: string;
+        name: string;
+        email: string;
+        department: string;
+        role: string;
+        tier: string;
+        password?: string;
+        isEmailVerified: boolean;
+      } = {
+        userId: editingUser.id,
+        name: editFormData.name.trim(),
+        email: editFormData.email.trim(),
+        department: editFormData.department.trim(),
+        role: editFormData.role,
+        tier: editFormData.tier,
+        isEmailVerified: editFormData.isEmailVerified,
+      };
+
+      if (editFormData.password.trim()) {
+        if (editFormData.password.trim().length < 8) {
+          throw new Error("New password must be at least 8 characters long.");
+        }
+        payload.password = editFormData.password.trim();
+      }
+
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await safeReadJson<{ user?: UserRecord; error?: string }>(res);
+      if (!result.ok) throw new Error(result.error || "Failed to update user account.");
+
+      const updated = result.data?.user;
+      if (updated) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === editingUser.id ? { ...u, ...updated } : u))
+        );
+      } else {
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === editingUser.id
+              ? {
+                  ...u,
+                  name: editFormData.name.trim(),
+                  email: editFormData.email.trim(),
+                  department: editFormData.department.trim(),
+                  role: editFormData.role,
+                  tier: editFormData.tier,
+                  isEmailVerified: editFormData.isEmailVerified,
+                }
+              : u
+          )
+        );
+      }
+
+      showToast(`Account '${editFormData.email}' updated successfully!`);
+      setEditingUser(null);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to update user account.", false);
+    } finally {
+      setIsSavingUser(false);
+    }
+  }
+
   return (
     <AppShell>
       <div className="space-y-4 max-w-[1600px] mx-auto font-sans">
@@ -877,9 +1020,10 @@ export default function AdminPanelPage() {
                           />
                         </th>
                         <th className="p-2.5">User Name</th>
-                        <th className="p-2.5">Email Address</th>
+                        <th className="p-2.5">Email &amp; Verification</th>
                         <th className="p-2.5">Department</th>
                         <th className="p-2.5">Assigned RBAC Role</th>
+                        <th className="p-2.5">Subscription Tier</th>
                         <th className="p-2.5">Status</th>
                         <th className="p-2.5 text-right">Actions</th>
                       </tr>
@@ -920,7 +1064,39 @@ export default function AdminPanelPage() {
                               </div>
                             </td>
 
-                            <td className="p-2.5 text-slate-400">{user.email}</td>
+                            <td className="p-2.5">
+                              <div className="space-y-1">
+                                <div className="text-slate-300">{user.email}</div>
+                                <div className="flex items-center gap-1.5">
+                                  {user.isEmailVerified ? (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                                      <BadgeCheck className="w-2.5 h-2.5" />
+                                      <span>Verified</span>
+                                    </span>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                                        Unverified
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDirectVerifyEmail(user.id, user.email)}
+                                        disabled={verifyingUserId === user.id}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-800/80 text-[10px] font-bold transition-colors disabled:opacity-50"
+                                        title="Instantly verify user email from backend"
+                                      >
+                                        {verifyingUserId === user.id ? (
+                                          <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                                        ) : (
+                                          <Check className="w-2.5 h-2.5" />
+                                        )}
+                                        <span>Verify Email</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
                             <td className="p-2.5 text-slate-300">{user.department}</td>
 
                             <td className="p-2.5">
@@ -965,22 +1141,49 @@ export default function AdminPanelPage() {
                             </td>
 
                             <td className="p-2.5">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                                  (user.tier || "FREE").toUpperCase() === "ENTERPRISE"
+                                    ? "bg-purple-500/10 text-purple-300 border-purple-500/30"
+                                    : (user.tier || "FREE").toUpperCase() === "PRO"
+                                    ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/30"
+                                    : "bg-slate-800/60 text-slate-400 border-slate-700/60"
+                                }`}
+                              >
+                                <CreditCard className="w-2.5 h-2.5 opacity-70" />
+                                <span>{user.tier || "FREE"}</span>
+                              </span>
+                            </td>
+
+                            <td className="p-2.5">
                               <span className="text-emerald-400 font-bold text-[10px] uppercase">
                                 {user.status}
                               </span>
                             </td>
 
                             <td className="p-2.5 text-right">
-                              <button
-                                id={`delete-user-${user.id}`}
-                                onClick={() => setDeleteTarget(user)}
-                                disabled={isSelf}
-                                title={isSelf ? "Cannot delete active administrator" : "Delete user"}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-900 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 text-xs border border-slate-800 hover:border-rose-800/60 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-20 disabled:cursor-not-allowed"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                                <span>Delete</span>
-                              </button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  id={`edit-user-${user.id}`}
+                                  onClick={() => handleOpenEditModal(user)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-900 hover:bg-cyan-950/60 text-slate-300 hover:text-cyan-300 text-xs border border-slate-800 hover:border-cyan-800/60 transition-colors"
+                                  title="Edit user details, tier, or reset password"
+                                >
+                                  <Pencil className="w-3 h-3 text-cyan-400" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  id={`delete-user-${user.id}`}
+                                  onClick={() => setDeleteTarget(user)}
+                                  disabled={isSelf}
+                                  title={isSelf ? "Cannot delete active administrator" : "Delete user"}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-900 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 text-xs border border-slate-800 hover:border-rose-800/60 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-20 disabled:cursor-not-allowed"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1751,6 +1954,168 @@ export default function AdminPanelPage() {
           </div>
         )}
       </div>
+
+      {/* ── Edit User Account Modal ──────────────────────────────────────── */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-mono text-xs">
+          <div className="bg-slate-900 border border-cyan-800/80 rounded shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-cyan-400" />
+                <h3 className="text-sm font-bold text-white">Edit User Account</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingUser(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUserAccount} className="space-y-3.5">
+              <div className="bg-slate-950/60 p-2.5 rounded border border-slate-800 text-[11px] text-slate-400 space-y-0.5">
+                <div>User ID: <span className="text-slate-300 font-mono">{editingUser.id}</span></div>
+                <div>Registered: <span className="text-slate-300">{editingUser.createdAt ? new Date(editingUser.createdAt).toLocaleDateString() : "N/A"}</span></div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  placeholder="e.g. Dr. Alex Morgan"
+                  className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  placeholder="e.g. user@energy.com"
+                  className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Department</label>
+                  <input
+                    type="text"
+                    value={editFormData.department}
+                    onChange={(e) => setEditFormData({ ...editFormData, department: e.target.value })}
+                    placeholder="e.g. Petrophysics & Formation"
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-cyan-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">RBAC Security Role</label>
+                  <select
+                    value={editFormData.role}
+                    onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-cyan-500"
+                  >
+                    <option value="USER">USER (Subsurface Workstation)</option>
+                    <option value="ADMIN">ADMIN (System Governance)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">Subscription Plan Tier</label>
+                <select
+                  value={editFormData.tier}
+                  onChange={(e) => setEditFormData({ ...editFormData, tier: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-cyan-500"
+                >
+                  <option value="FREE">FREE (Community Tier - 3 Ingestions)</option>
+                  <option value="PRO">PRO (WellQC Professional - Unlimited Ingestions &amp; ML)</option>
+                  <option value="ENTERPRISE">ENTERPRISE (Custom Tenancy &amp; Dedicated Compute)</option>
+                </select>
+              </div>
+
+              {/* Password Reset Field */}
+              <div className="p-3 bg-slate-950/80 border border-slate-800 rounded space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-300 font-bold flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Reset Password</span>
+                  </label>
+                  <span className="text-[10px] text-slate-500">Optional</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showEditPassword ? "text" : "password"}
+                    value={editFormData.password}
+                    onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
+                    placeholder="Enter new password (min. 8 characters)"
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 pr-8 text-xs text-white outline-none focus:border-cyan-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPassword(!showEditPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {showEditPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  Leave blank to preserve current credentials. If set, replaces the user password immediately.
+                </p>
+              </div>
+
+              {/* Email Verification Toggle */}
+              <div className="p-3 bg-slate-950/80 border border-slate-800 rounded flex items-center justify-between">
+                <div>
+                  <div className="text-white font-bold flex items-center gap-1.5">
+                    <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Email Verification Status</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    {editFormData.isEmailVerified
+                      ? "User email is verified (Active access)"
+                      : "User email is unverified"}
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editFormData.isEmailVerified}
+                    onChange={(e) => setEditFormData({ ...editFormData, isEmailVerified: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="submit"
+                  disabled={isSavingUser}
+                  className="flex-1 px-4 py-2 rounded bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold text-xs transition-colors"
+                >
+                  {isSavingUser ? "Saving Changes..." : "Save Account Changes"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  disabled={isSavingUser}
+                  className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── Single Delete Modal ─────────────────────────────────────────── */}
       {deleteTarget && (

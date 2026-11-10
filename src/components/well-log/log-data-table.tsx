@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Table,
   AlertTriangle,
@@ -10,8 +10,10 @@ import {
   ChevronsRight,
   Database,
   Download,
+  Lock,
 } from "lucide-react";
 import { standardiseMnemonic } from "@/lib/las/standardiser";
+import { PaystackUpgradeModal } from "@/components/payments/paystack-upgrade-modal";
 
 interface LogDataTableProps {
   wellName: string;
@@ -53,6 +55,34 @@ export function WellLogDataTable({
   const [jumpDepthInput, setJumpDepthInput] = useState("");
   const [filterMode, setFilterMode] = useState<"ALL" | "ANOMALIES_ONLY" | "NULLS_ONLY">("ALL");
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
+
+  // License & Free Tier Gatekeeper
+  const [isFreeTier, setIsFreeTier] = useState(false);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function checkAuth() {
+      try {
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        if (res.ok) {
+          const { user } = await res.json();
+          if (active && user) {
+            setIsFreeTier(
+              (user.tier || "FREE").toUpperCase() === "FREE" &&
+              (user.role || "").toUpperCase() !== "ADMIN"
+            );
+          }
+        }
+      } catch {}
+    }
+    checkAuth();
+    window.addEventListener("wellqc_user_updated", checkAuth);
+    return () => {
+      active = false;
+      window.removeEventListener("wellqc_user_updated", checkAuth);
+    };
+  }, []);
 
   // Helper to check if a numeric value is null or sentinel
   const isNullValue = (val: number | null | undefined) => {
@@ -149,6 +179,10 @@ export function WellLogDataTable({
 
   // Export data as CSV
   const handleExportCSV = () => {
+    if (isFreeTier) {
+      setUpgradeModalOpen(true);
+      return;
+    }
     if (totalRows === 0) return;
     const headerRow = [`DEPTH_${depthUnit.toUpperCase()}`, ...curveKeys].join(",");
     const rows = [headerRow];
@@ -227,15 +261,30 @@ export function WellLogDataTable({
           </form>
 
           {/* Export CSV Button */}
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg font-bold transition-colors flex items-center space-x-1"
-            title="Download entire log spreadsheet as CSV"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>CSV</span>
-          </button>
+          {isFreeTier ? (
+            <button
+              type="button"
+              onClick={() => setUpgradeModalOpen(true)}
+              className="px-2.5 py-1.5 bg-purple-950/50 hover:bg-purple-900/70 text-purple-300 border border-purple-500/30 rounded-lg font-bold transition-colors flex items-center space-x-1 shadow-sm"
+              title="Upgrade to Pro to export well log data as CSV"
+            >
+              <Lock className="w-3.5 h-3.5 text-purple-400" />
+              <span>CSV</span>
+              <span className="px-1 py-0.2 rounded bg-purple-500/30 text-purple-200 text-[9px] font-bold">
+                PRO
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg font-bold transition-colors flex items-center space-x-1"
+              title="Download entire log spreadsheet as CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>CSV</span>
+            </button>
+          )}
 
           {/* Filter Mode Selector */}
           <div className="flex items-center bg-wellqc-card border border-wellqc-border rounded-lg p-0.5">
@@ -477,6 +526,13 @@ export function WellLogDataTable({
           </div>
         </div>
       </div>
+
+      {/* Paystack License Upgrade Gatekeeper */}
+      <PaystackUpgradeModal
+        isOpen={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        defaultPlanId="PRO_MONTHLY"
+      />
     </div>
   );
 }

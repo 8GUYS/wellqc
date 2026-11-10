@@ -9,14 +9,16 @@ Provides secure endpoints for:
 """
 
 import json
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Request, Header, status
+from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Header, status
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
 from backend.app.core.config import settings
-from backend.app.models.models import User
+from backend.app.core.security import create_session_token, normalize_role
+from backend.app.models.models import User, PaymentTransaction
 from backend.app.schemas.payment import (
     InitializePaymentRequest,
     InitializePaymentResponse,
@@ -44,6 +46,39 @@ def get_plans():
         plans=plans,
         paystack_public_key=settings.PAYSTACK_PUBLIC_KEY or None,
     )
+
+
+@router.get("/history")
+def get_user_payment_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns the authenticated user's historical payment transactions and active subscription tier.
+    """
+    transactions = (
+        db.query(PaymentTransaction)
+        .filter(PaymentTransaction.userId == current_user.id)
+        .order_by(desc(PaymentTransaction.createdAt))
+        .all()
+    )
+    return {
+        "currentTier": current_user.tier or "FREE",
+        "transactions": [
+            {
+                "id": t.id,
+                "reference": t.reference,
+                "amount": t.amount,
+                "currency": t.currency,
+                "plan": t.plan,
+                "status": t.status,
+                "channel": t.channel or "standard",
+                "paidAt": t.paidAt.isoformat() if t.paidAt else None,
+                "createdAt": t.createdAt.isoformat() if t.createdAt else "",
+            }
+            for t in transactions
+        ],
+    }
 
 
 @router.post("/initialize", response_model=InitializePaymentResponse)
@@ -80,6 +115,7 @@ async def initialize_payment(
 @router.get("/verify/{reference}", response_model=PaymentVerificationResponse)
 async def verify_payment(
     reference: str,
+    response: Response,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -92,6 +128,30 @@ async def verify_payment(
             reference=reference,
             requesting_user_id=current_user.id,
         )
+        if verification.get("status") == "SUCCESS":
+            # Refresh user in DB and issue refreshed session cookie with updated tier
+            db.refresh(current_user)
+            user_dict = {
+                "id": current_user.id,
+                "name": current_user.name,
+                "email": current_user.email,
+                "role": normalize_role(current_user.role),
+                "department": current_user.department or "",
+                "tier": current_user.tier or "PRO",
+                "freeChecksUsed": current_user.freeChecksUsed or 0,
+                "ndaAcceptedAt": current_user.ndaAcceptedAt.isoformat() if current_user.ndaAcceptedAt else None,
+            }
+            cookie_user = {k: v for k, v in user_dict.items() if k != "avatarUrl" or not str(v or "").startswith("data:")}
+            token = create_session_token(cookie_user)
+            response.set_cookie(
+                key=settings.SESSION_COOKIE_NAME,
+                value=token,
+                max_age=settings.SESSION_MAX_AGE_SECONDS,
+                httponly=True,
+                samesite="lax",
+                secure=settings.ENVIRONMENT == "production",
+                path="/",
+            )
         return PaymentVerificationResponse(**verification)
     except PermissionError as pe:
         raise HTTPException(

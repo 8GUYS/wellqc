@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import {
   X,
   Sparkles,
-  ShieldCheck,
   CheckCircle2,
   Lock,
   ArrowRight,
@@ -19,6 +18,7 @@ interface PaystackUpgradeModalProps {
   onClose: () => void;
   reason?: string;
   defaultPlanId?: string;
+  targetWellId?: string;
 }
 
 export function PaystackUpgradeModal({
@@ -26,17 +26,26 @@ export function PaystackUpgradeModal({
   onClose,
   reason,
   defaultPlanId = "PRO_MONTHLY",
+  targetWellId,
 }: PaystackUpgradeModalProps) {
   const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
-  const [selectedPlan, setSelectedPlan] = useState<string>(defaultPlanId);
+  const [selectedPlan] = useState<string>(defaultPlanId);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     if (!isOpen) {
-      setErrorMessage(null);
-      setIsLoading(false);
+      Promise.resolve().then(() => {
+        if (active) {
+          setErrorMessage(null);
+          setIsLoading(false);
+        }
+      });
     }
+    return () => {
+      active = false;
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -56,7 +65,8 @@ export function PaystackUpgradeModal({
       setIsLoading(true);
       setErrorMessage(null);
 
-      const callbackUrl = `${window.location.origin}/payment/verify`;
+      const queryParam = targetWellId ? `?wellId=${encodeURIComponent(targetWellId)}` : "";
+      const callbackUrl = `${window.location.origin}/payment/verify${queryParam}`;
       const response = await initializePayment(selectedPlan, currency, callbackUrl);
 
       if (response?.authorization_url) {
@@ -64,13 +74,13 @@ export function PaystackUpgradeModal({
       } else {
         throw new Error("Unable to retrieve checkout gateway URL.");
       }
-    } catch (err: any) {
+    } catch (err) {
       setIsLoading(false);
-      setErrorMessage(err.message || "Failed to launch Paystack checkout. Please try again.");
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to launch Paystack checkout. Please try again."
+      );
     }
   };
-
-  const isPro = selectedPlan === "PRO_MONTHLY";
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto font-sans flex items-center justify-center p-4">

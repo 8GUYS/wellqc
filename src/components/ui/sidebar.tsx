@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   UploadCloud,
+  Database,
   Layers,
   ShieldCheck,
   BarChart3,
@@ -16,7 +17,6 @@ import {
   ChevronRight,
   GitCompare,
   FileText,
-  Sparkles,
   CreditCard,
 } from "lucide-react";
 import { WellQCIcon } from "./wellqc-logo";
@@ -110,6 +110,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
       title: "Data Management",
       items: [
         { label: "Data Upload", href: "/upload", icon: UploadCloud, badge: "CWLS 2.0" },
+        { label: "Well Assets", href: "/wells", icon: Database },
       ],
     },
     {
@@ -123,15 +124,21 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
           isLive: !isFreeTier,
           badge: isFreeTier ? "PRO" : undefined,
         },
-        { label: "Well Comparison", href: "/comparison", icon: GitCompare, badge: "MULTI-WELL" },
+        {
+          label: "Well Comparison",
+          href: "/comparison",
+          icon: GitCompare,
+          isLive: !isFreeTier,
+          badge: isFreeTier ? "PRO" : "MULTI-WELL",
+        },
         { label: "Subsurface Analytics", href: "/analytics", icon: BarChart3 },
       ],
     },
     {
       title: "Governance & Billing",
       items: [
-        { label: "Audit Reports", href: "/reports", icon: FileText, badge: "NUPRC" },
-        { label: "Pricing & Plans", href: "/pricing", icon: Sparkles, badge: isFreeTier ? "UPGRADE" : undefined },
+        { label: "Reports", href: "/reports", icon: FileText, badge: "NUPRC" },
+        { label: "Billing & Plans", href: "/pricing", icon: CreditCard, badge: isFreeTier ? "UPGRADE" : undefined },
         { label: "User Profile", href: "/profile", icon: User },
       ],
     },

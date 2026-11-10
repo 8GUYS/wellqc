@@ -609,7 +609,10 @@ def get_well_detail(
         db.query(Well)
         .options(
             selectinload(Well.owner),
-            selectinload(Well.lasFiles).selectinload(LASFile.uploadedBy),
+            selectinload(Well.lasFiles).options(
+                defer(LASFile.rawContent),
+                defer(LASFile.rawHeader),
+            ).selectinload(LASFile.uploadedBy),
             selectinload(Well.lasFiles).selectinload(LASFile.reports),
             selectinload(Well.lasFiles).selectinload(LASFile.curves),
             selectinload(Well.reports),

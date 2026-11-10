@@ -42,7 +42,8 @@ import {
   ChevronDown,
   Lock,
   ArrowRight,
-  ShieldAlert,
+  Database,
+  Eye,
 } from "lucide-react";
 import { PaystackUpgradeModal } from "@/components/payments/paystack-upgrade-modal";
 
@@ -468,6 +469,9 @@ export default function QAEngineWorkspace() {
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [copiedCertId, setCopiedCertId] = useState<boolean>(false);
   const [reportExported, setReportExported] = useState<boolean>(false);
+  const [isUploadingToDb, setIsUploadingToDb] = useState<boolean>(false);
+  const [uploadSuccessWell, setUploadSuccessWell] = useState<{ id: string; name: string; qualityScore?: number } | null>(null);
+  const [uploadDbError, setUploadDbError] = useState<string | null>(null);
 
   // ─── Subscription & Paywall Gatekeeper State ──────────────────────────────
   const [userProfile, setUserProfile] = useState<{
@@ -478,6 +482,11 @@ export default function QAEngineWorkspace() {
   } | null>(null);
   const [isVerifyingTier, setIsVerifyingTier] = useState<boolean>(true);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState<boolean>(false);
+
+  const isLicensed = userProfile
+    ? (userProfile.tier !== "FREE" || userProfile.role === "ADMIN")
+    : false;
+  const isPaidUser = isLicensed;
 
   useEffect(() => {
     let active = true;
@@ -514,31 +523,32 @@ export default function QAEngineWorkspace() {
   }, []);
 
   // 1. Initial Load: Fetch DB Wells and inspect local Active Upload
+  const loadDbWells = useCallback(async () => {
+    try {
+      setIsLoadingWells(true);
+      const res = await fetch("/api/wells", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.wells)) {
+          setDbWells(data.wells);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load DB wells for Quality Engine:", e);
+    } finally {
+      setIsLoadingWells(false);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
-
-    async function loadDbWells() {
-      try {
-        setIsLoadingWells(true);
-        const res = await fetch("/api/wells", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          if (active && Array.isArray(data.wells)) {
-            setDbWells(data.wells);
-          }
-        }
-      } catch (e) {
-        console.warn("Failed to load DB wells for Quality Engine:", e);
-      } finally {
-        if (active) setIsLoadingWells(false);
-      }
-    }
-
-    loadDbWells();
+    Promise.resolve().then(() => {
+      if (active) loadDbWells();
+    });
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadDbWells]);
 
   // 2. Load the active upload saved by the upload page. useSyncExternalStore gives the server
   // render and the first client render the same (empty) value, then supplies the saved value
@@ -611,6 +621,8 @@ export default function QAEngineWorkspace() {
     setErrorMessage("");
     setReportExported(false);
     setGapRecommendations({});
+    setUploadSuccessWell(null);
+    setUploadDbError(null);
   }, []);
 
   // Handle selecting a database well
@@ -1104,6 +1116,8 @@ export default function QAEngineWorkspace() {
 
     setIsExecutingRepair(true);
     setErrorMessage("");
+    setUploadSuccessWell(null);
+    setUploadDbError(null);
 
     try {
       // Build per-row approved fixes list
@@ -1181,12 +1195,20 @@ export default function QAEngineWorkspace() {
 
   // ─── Downloads & Exports ───────────────────────────────────────────────────
   const handleExportLAS = () => {
+    if (!isLicensed) {
+      setUpgradeModalOpen(true);
+      return;
+    }
     if (!repairResult?.cleanedLasText) return;
     const cleanFileName = `${wellName.replace(/\s+/g, "_")}_CLEANED.las`;
     downloadTextFile(cleanFileName, repairResult.cleanedLasText, "text/plain");
   };
 
   const handleExportCSV = () => {
+    if (!isLicensed) {
+      setUpgradeModalOpen(true);
+      return;
+    }
     if (!repairResult?.cleanedCsvText) return;
     const cleanFileName = `${wellName.replace(/\s+/g, "_")}_CLEANED.csv`;
     downloadTextFile(cleanFileName, repairResult.cleanedCsvText, "text/csv");
@@ -1194,6 +1216,10 @@ export default function QAEngineWorkspace() {
 
   // Change report (CSV) - Item 10: Real sample counts and real values before and after
   const handleExportReport = () => {
+    if (!isLicensed) {
+      setUpgradeModalOpen(true);
+      return;
+    }
     if (!targetAnomalies.length) return;
 
     const rows: string[] = [
@@ -1234,14 +1260,52 @@ export default function QAEngineWorkspace() {
     setTimeout(() => setCopiedCertId(false), 2000);
   };
 
+  const handleUploadCleanedLogToDatabase = async () => {
+    if (!repairResult?.cleanedLasText) return;
+    setIsUploadingToDb(true);
+    setUploadDbError(null);
+
+    try {
+      const baseName = wellName.replace(/_CLEANED$/i, "").replace(/\s+/g, "_");
+      const cleanFileName = `${baseName}_CLEANED.las`;
+
+      const response = await fetch("/api/las", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: cleanFileName,
+          content: repairResult.cleanedLasText,
+        }),
+      });
+
+      let resultData: { message?: string; well?: { id: string; name: string; qualityScore?: number }; error?: string; detail?: string } | null = null;
+      try {
+        resultData = await response.json();
+      } catch {
+        throw new Error(`Server returned HTTP ${response.status} (${response.statusText || "Unexpected response"}).`);
+      }
+
+      if (!response.ok || !resultData?.well) {
+        throw new Error(resultData?.error || resultData?.detail || `Unable to upload cleaned log to database (HTTP ${response.status}).`);
+      }
+
+      setUploadSuccessWell(resultData.well);
+
+      try {
+        window.dispatchEvent(new Event("wellqc_wells_updated"));
+      } catch { }
+
+      await loadDbWells();
+    } catch (err: unknown) {
+      setUploadDbError(err instanceof Error ? err.message : "Failed to upload cleaned log to database.");
+    } finally {
+      setIsUploadingToDb(false);
+    }
+  };
+
   // Current quality score before cleaning
   const currentScore = qaResult?.overallScore ?? (sourceChoice === "ACTIVE_UPLOAD" ? 75 : 80);
   const currentGrade = qaResult?.qualityGrade ?? "GOOD";
-
-  // Check access permissions:
-  const isPaidUser = userProfile
-    ? (userProfile.tier !== "FREE" || userProfile.role === "ADMIN")
-    : false;
 
   if (isVerifyingTier) {
     return (
@@ -2210,6 +2274,36 @@ export default function QAEngineWorkspace() {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
+                id="upload-cleaned-log-to-db-btn"
+                onClick={handleUploadCleanedLogToDatabase}
+                disabled={isUploadingToDb}
+                className={`px-4 py-2.5 rounded-xl font-mono font-bold text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer ${
+                  uploadSuccessWell
+                    ? "bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/50"
+                    : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-emerald-950/40"
+                }`}
+                title="Save calibrated, repaired curves directly into your persistent Well Assets database"
+              >
+                {isUploadingToDb ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    <span>Uploading to Database...</span>
+                  </>
+                ) : uploadSuccessWell ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                    <span>Uploaded to Database (Re-upload)</span>
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-4 h-4 text-slate-950" />
+                    <span>Upload Cleaned Log to Database</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
                 onClick={handleExportLAS}
                 className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs transition-all shadow-md flex items-center gap-2"
               >
@@ -2256,6 +2350,62 @@ export default function QAEngineWorkspace() {
                 <span>View in Audit Reports →</span>
               </Link>
             </div>
+
+            {/* Uploaded to Database Banner */}
+            {uploadSuccessWell && (
+              <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-500/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono text-xs shadow-lg animate-in fade-in duration-300">
+                <div className="flex items-start sm:items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-white flex items-center gap-2">
+                      <span>Cleaned Log Uploaded to Database Successfully!</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold uppercase">
+                        ACTIVE ASSET
+                      </span>
+                    </div>
+                    <p className="text-slate-300 text-[11px] mt-0.5">
+                      Persisted as <strong className="text-emerald-300">{uploadSuccessWell.name}</strong> in your central Well Assets repository.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    href={`/wells/${uploadSuccessWell.id}`}
+                    className="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Inspect Well Dossier</span>
+                  </Link>
+                  <Link
+                    href="/wells"
+                    className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all"
+                  >
+                    <Database className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Well Assets</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {uploadDbError && (
+              <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 text-xs font-mono flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{uploadDbError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUploadDbError(null)}
+                  className="text-rose-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
 
             {/* The Report Table */}
             <div className="space-y-2">

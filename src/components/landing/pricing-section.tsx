@@ -12,7 +12,6 @@ import {
   Zap,
   Building2,
   BadgeCheck,
-  HelpCircle,
 } from "lucide-react";
 import { PaystackUpgradeModal } from "@/components/payments/paystack-upgrade-modal";
 
@@ -155,7 +154,11 @@ export function PricingSection() {
                   </li>
                   <li className="flex items-start gap-2 text-wellqc-text">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Interactive Dual-Track Wireline Log Viewer</span>
+                    <span>Installable PWA Workstation (Offline rig mode for all users)</span>
+                  </li>
+                  <li className="flex items-start gap-2 text-slate-400">
+                    <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+                    <span className="line-through">Interactive Wireline Log Viewer (Pro only)</span>
                   </li>
                   <li className="flex items-start gap-2 text-slate-400">
                     <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />

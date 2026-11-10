@@ -16,6 +16,8 @@ import {
   Info,
   BarChart2,
   Sliders,
+  Lock,
+  Sparkles,
 } from "lucide-react";
 import { WellLogViewer } from "@/components/well-log/log-viewer";
 import {
@@ -24,6 +26,7 @@ import {
   WellComparisonResult,
 } from "@/lib/api-types";
 import { safeReadJson } from "@/lib/http-client";
+import { PaystackUpgradeModal } from "@/components/payments/paystack-upgrade-modal";
 
 type ComparisonTab = "analytics" | "overlay" | "sideBySide";
 
@@ -42,6 +45,45 @@ export default function ComparisonPage() {
   const [isLoadingWells, setIsLoadingWells] = useState(true);
   const [isComparing, setIsComparing] = useState(false);
   const [error, setError] = useState("");
+
+  // User Profile & License Gatekeeper State
+  const [userProfile, setUserProfile] = useState<{
+    tier: string;
+    role: string;
+  }>({ tier: "FREE", role: "USER" });
+  const [isVerifyingTier, setIsVerifyingTier] = useState<boolean>(true);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [targetUpgradeWellId, setTargetUpgradeWellId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    let active = true;
+    async function loadUserProfile() {
+      try {
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        if (res.ok) {
+          const { user } = await res.json();
+          if (active && user) {
+            setUserProfile({
+              tier: (user.tier || "FREE").toUpperCase(),
+              role: (user.role || "USER").toUpperCase(),
+            });
+          }
+        }
+      } catch {} finally {
+        if (active) {
+          setIsVerifyingTier(false);
+        }
+      }
+    }
+    loadUserProfile();
+    window.addEventListener("wellqc_user_updated", loadUserProfile);
+    return () => {
+      active = false;
+      window.removeEventListener("wellqc_user_updated", loadUserProfile);
+    };
+  }, []);
+
+  const isFreeTier = userProfile.tier === "FREE" && userProfile.role !== "ADMIN";
 
   const filteredCorrelations = useMemo(() => {
     if (!comparison) return [];
@@ -82,13 +124,33 @@ export default function ComparisonPage() {
 
         if (!cancelled) {
           setWells(committedWells);
-          if (committedWells.length >= 2) {
-            setWell1(committedWells[0].id);
-            setWell2(committedWells[1].id);
-          } else if (committedWells.length === 1) {
-            setWell1(committedWells[0].id);
-            setWell2(committedWells[0].id);
+
+          let paramA: string | null = null;
+          let paramB: string | null = null;
+          if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            paramA = params.get("wellA") || params.get("well1");
+            paramB = params.get("wellB") || params.get("well2");
           }
+
+          const matchedA = paramA && committedWells.some((w) => w.id === paramA) ? paramA : null;
+          const matchedB = paramB && committedWells.some((w) => w.id === paramB) ? paramB : null;
+
+          const initialWell1 = matchedA || (committedWells.length > 0 ? committedWells[0].id : "");
+          let initialWell2 = matchedB;
+
+          if (!initialWell2) {
+            if (committedWells.length >= 2) {
+              initialWell2 = committedWells.find((w) => w.id !== initialWell1)?.id || committedWells[1].id;
+            } else if (committedWells.length === 1) {
+              initialWell2 = committedWells[0].id;
+            } else {
+              initialWell2 = "";
+            }
+          }
+
+          setWell1(initialWell1);
+          setWell2(initialWell2);
         }
       } catch (err) {
         if (!cancelled) {
@@ -185,6 +247,11 @@ export default function ComparisonPage() {
 
   const handleExportJson = () => {
     if (!comparison) return;
+    if (isFreeTier) {
+      setTargetUpgradeWellId(well1 || well2 || undefined);
+      setUpgradeModalOpen(true);
+      return;
+    }
     const blob = new Blob([JSON.stringify(comparison, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -196,6 +263,11 @@ export default function ComparisonPage() {
 
   const handleExportCsv = () => {
     if (!comparison) return;
+    if (isFreeTier) {
+      setTargetUpgradeWellId(well1 || well2 || undefined);
+      setUpgradeModalOpen(true);
+      return;
+    }
     const headers = [
       "Curve Mnemonic",
       "Sample Points",
@@ -240,6 +312,145 @@ export default function ComparisonPage() {
   const wellAObj = useMemo(() => wells.find((w) => w.id === well1), [wells, well1]);
   const wellBObj = useMemo(() => wells.find((w) => w.id === well2), [wells, well2]);
 
+  if (isVerifyingTier) {
+    return (
+      <AppShell>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+          <div className="w-10 h-10 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
+          <p className="text-xs font-mono text-slate-400">Verifying subsurface license credentials...</p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (isFreeTier) {
+    return (
+      <AppShell>
+        <div className="space-y-8 pb-20 max-w-5xl mx-auto pt-2">
+          {/* Paywall Header */}
+          <div className="flex items-center justify-between bg-slate-900/60 border border-amber-500/30 p-4 rounded-2xl backdrop-blur-md">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white font-mono">Well Comparison Restricted</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    FREE TIER
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">
+                  Multi-well stratigraphic correlation, lag-shift analysis, and cross-well overlays are available on WellQC Pro.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/upload"
+              className="px-3.5 py-1.5 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-800 text-slate-300 text-xs font-mono transition-all flex items-center gap-1.5 shrink-0"
+            >
+              <span>Back to Workstation</span>
+            </Link>
+          </div>
+
+          {/* Paywall Hero Banner */}
+          <div className="relative rounded-3xl border border-cyan-500/30 bg-gradient-to-b from-slate-900/90 via-slate-950 to-slate-950 p-8 md:p-12 shadow-2xl overflow-hidden backdrop-blur-xl text-center space-y-6">
+            <div className="absolute -top-24 -right-24 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>WELLQC PRO CROSS-WELL SUITE</span>
+            </div>
+
+            <div className="max-w-2xl mx-auto space-y-3">
+              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+                Unlock Multi-Well Petrophysical Correlation &amp; Comparison
+              </h1>
+              <p className="text-sm text-slate-300 leading-relaxed font-sans">
+                You are currently on the <span className="text-cyan-400 font-bold font-mono">Free Tier</span>.
+                You can upload and inspect single-well wireline telemetry without limits on the Data Upload page.
+                To perform multi-well stratigraphic depth alignment, structural lag shifts (Δz), composite cross-track overlays, and side-by-side dual log tracks, upgrade to WellQC Pro.
+              </p>
+            </div>
+
+            {/* Feature comparison cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left max-w-4xl mx-auto pt-4">
+              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-all space-y-2">
+                <div className="flex items-center gap-2 text-cyan-400 font-bold font-mono text-sm">
+                  <TrendingUp className="w-4 h-4 text-cyan-400" />
+                  <span>Pearson Correlation Analysis (r)</span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono leading-relaxed">
+                  Automated pairwise statistical cross-correlation matching across GR, RES, NPHI, RHOB, and DT curves between target and offset wells.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-all space-y-2">
+                <div className="flex items-center gap-2 text-cyan-400 font-bold font-mono text-sm">
+                  <ArrowLeftRight className="w-4 h-4 text-cyan-400" />
+                  <span>Structural Lag Shifts &amp; Dip Realignment</span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono leading-relaxed">
+                  Dynamic depth lag search (±50m) to identify stratigraphic fault offsets, regional dip displacements, and formation marker tops.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-all space-y-2">
+                <div className="flex items-center gap-2 text-cyan-400 font-bold font-mono text-sm">
+                  <Layers className="w-4 h-4 text-cyan-400" />
+                  <span>Composite Cross-Track Overlays</span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono leading-relaxed">
+                  Dual-curve overlay tracks with custom opacity and depth synchronization to instantly visualize lithology and fluid contact variations.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-all space-y-2">
+                <div className="flex items-center gap-2 text-cyan-400 font-bold font-mono text-sm">
+                  <Download className="w-4 h-4 text-cyan-400" />
+                  <span>Multi-Well Matrix CSV &amp; JSON Exports</span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono leading-relaxed">
+                  Export correlation matrices, lag depths, RMSD, and continuity classifications directly into geoscience workflows and basin models.
+                </p>
+              </div>
+            </div>
+
+            {/* CTA action buttons */}
+            <div className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-3.5">
+              <button
+                type="button"
+                onClick={() => setUpgradeModalOpen(true)}
+                className="w-full sm:w-auto px-7 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono font-black text-sm tracking-wide shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-slate-950" />
+                <span>Upgrade to WellQC Pro (₦75,000 / $49)</span>
+              </button>
+
+              <Link
+                href="/pricing"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-800 text-slate-300 font-mono text-sm transition-all text-center"
+              >
+                View Plans &amp; Pricing
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Upgrade Modal */}
+        <PaystackUpgradeModal
+          isOpen={upgradeModalOpen}
+          onClose={() => setUpgradeModalOpen(false)}
+          defaultPlanId="PRO_MONTHLY"
+          targetWellId={targetUpgradeWellId}
+          reason="Upgrade to WellQC Pro to access multi-well petrophysical correlation, lag shift matching, and cross-well exports."
+        />
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <div className="space-y-6">
@@ -265,19 +476,29 @@ export default function ComparisonPage() {
             <div className="flex items-center space-x-2">
               <button
                 onClick={handleExportCsv}
-                className="px-3 py-2 rounded-xl bg-wellqc-card border border-wellqc-border hover:border-cyan-500/50 text-xs font-mono text-cyan-300 flex items-center space-x-2 transition"
-                title="Export correlation metrics as CSV"
+                className={`px-3 py-2 rounded-xl text-xs font-mono flex items-center space-x-2 transition ${
+                  isFreeTier
+                    ? "bg-purple-950/50 hover:bg-purple-900/70 border border-purple-500/40 text-purple-300"
+                    : "bg-wellqc-card border border-wellqc-border hover:border-cyan-500/50 text-cyan-300"
+                }`}
+                title={isFreeTier ? "Upgrade to Pro to export correlation CSV" : "Export correlation metrics as CSV"}
               >
-                <Download className="w-3.5 h-3.5" />
+                {isFreeTier ? <Lock className="w-3.5 h-3.5 text-purple-400" /> : <Download className="w-3.5 h-3.5" />}
                 <span>CSV Matrix</span>
+                {isFreeTier && <span className="px-1 py-0.2 rounded bg-purple-500/30 text-purple-200 text-[9px] font-bold">PRO</span>}
               </button>
               <button
                 onClick={handleExportJson}
-                className="px-3 py-2 rounded-xl bg-wellqc-card border border-wellqc-border hover:border-cyan-500/50 text-xs font-mono text-white flex items-center space-x-2 transition"
-                title="Export complete comparison payload as JSON"
+                className={`px-3 py-2 rounded-xl text-xs font-mono flex items-center space-x-2 transition ${
+                  isFreeTier
+                    ? "bg-purple-950/50 hover:bg-purple-900/70 border border-purple-500/40 text-purple-300"
+                    : "bg-wellqc-card border border-wellqc-border hover:border-cyan-500/50 text-white"
+                }`}
+                title={isFreeTier ? "Upgrade to Pro to export comparison JSON" : "Export complete comparison payload as JSON"}
               >
-                <Download className="w-3.5 h-3.5" />
+                {isFreeTier ? <Lock className="w-3.5 h-3.5 text-purple-400" /> : <Download className="w-3.5 h-3.5" />}
                 <span>JSON Report</span>
+                {isFreeTier && <span className="px-1 py-0.2 rounded bg-purple-500/30 text-purple-200 text-[9px] font-bold">PRO</span>}
               </button>
             </div>
           )}
@@ -791,6 +1012,14 @@ export default function ComparisonPage() {
             )}
           </>
         )}
+
+        {/* Paystack License Upgrade Gatekeeper */}
+        <PaystackUpgradeModal
+          isOpen={upgradeModalOpen}
+          onClose={() => setUpgradeModalOpen(false)}
+          defaultPlanId="PRO_MONTHLY"
+          targetWellId={targetUpgradeWellId}
+        />
       </div>
     </AppShell>
   );

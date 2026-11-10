@@ -18,12 +18,14 @@ erDiagram
     USER ||--o{ API_TOKEN : "generates (1:N via userId)"
     USER ||--o{ CUSTOM_ALIAS : "registers (1:N via userId)"
     USER ||--o{ PAYMENT_TRANSACTION : "executes (1:N via userId)"
+    USER ||--o{ FORMATION_MARKER : "owns (1:N via ownerId)"
 
     FIELD ||--o{ WELL : "contains (1:N via fieldName)"
     OPERATOR ||--o{ WELL : "operates (1:N via operatorName)"
 
     WELL ||--o{ LAS_FILE : "has raw files (1:N via wellId)"
     WELL ||--o{ QUALITY_REPORT : "has reports (1:N via wellId)"
+    WELL ||--o{ FORMATION_MARKER : "has markers (1:N via wellId)"
 
     LAS_FILE ||--o{ CURVE : "contains log curves (1:N via lasFileId)"
     LAS_FILE ||--o{ QUALITY_REPORT : "generates reports (1:N via lasFileId)"
@@ -85,12 +87,26 @@ erDiagram
         string reference UK "Paystack unique transaction reference"
         int amount "Amount in lowest currency unit (kobo or cents)"
         string currency "NGN or USD"
-        string plan "PRO, ENTERPRISE, CREDITS"
+        string plan "PRO_MONTHLY, PRO_ANNUAL, ENTERPRISE"
         string status "PENDING, SUCCESS, FAILED, ABANDONED"
         string channel "card, bank_transfer, ussd, mobile_money"
         string paystackCustomerCode "Customer ID on Paystack"
         datetime paidAt "Settlement timestamp"
-        string metadata "JSON string containing audit log and cart details"
+        string metadataPayload "JSON string containing audit log and plan details"
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    FORMATION_MARKER {
+        string id PK "uuid"
+        string wellId FK "references WELL(id) [CASCADE]"
+        string formationName "Stratigraphic marker name"
+        float topDepth "Depth of top boundary"
+        float bottomDepth "Optional bottom depth boundary"
+        string source "INTERPRETER, BIOSTRATIGRAPHY, ESTIMATED, CORE, SEISMIC"
+        string pickedBy "Petrophysicist / geologist identifier"
+        string notes "Remediation or correlation notes"
+        string ownerId FK "references USER(id) [CASCADE]"
         datetime createdAt
         datetime updatedAt
     }
@@ -247,10 +263,12 @@ Every entity in WellQC uses **UUID v4 strings** as its primary key (`id`). The t
 | **`User`** | $1 : N$ | **`APIToken`** | `APIToken.userId` | `User.id` | `Cascade` | Deleting a user revokes all their programmatic API tokens. |
 | **`User`** | $1 : N$ | **`CustomAlias`** | `CustomAlias.userId` | `User.id` | `Cascade` | User-scoped petrophysical mnemonic aliases strictly isolated per account. |
 | **`User`** | $1 : N$ | **`PaymentTransaction`** | `PaymentTransaction.userId` | `User.id` | `Cascade` | Billing transactions, Paystack references, and subscription payment audit history. |
+| **`User`** | $1 : N$ | **`FormationMarker`** | `FormationMarker.ownerId` | `User.id` | `Cascade` | Multi-tenant ownership of stratigraphic marker picks. |
 | **`Field`** | $1 : N$ | **`Well`** | `Well.fieldName` | `Field.name` | `NoAction` / Default | Categorizes wells by regional geological basin/field. |
 | **`Operator`** | $1 : N$ | **`Well`** | `Well.operatorName` | `Operator.name` | `NoAction` / Default | Tracks oilfield operating companies (e.g., Shell, Chevron). |
 | **`Well`** | $1 : N$ | **`LASFile`** | `LASFile.wellId` | `Well.id` | `Cascade` | A well can have multiple log runs/files over its lifecycle. |
 | **`Well`** | $1 : N$ | **`QualityReport`** | `QualityReport.wellId` | `Well.id` | `Cascade` | Historical QA reports associated with the well. |
+| **`Well`** | $1 : N$ | **`FormationMarker`** | `FormationMarker.wellId` | `Well.id` | `Cascade` | Stratigraphic formation tops and markers attached to this borehole. |
 | **`LASFile`** | $1 : N$ | **`Curve`** | `Curve.lasFileId` | `LASFile.id` | `Cascade` | Deleting a file cascades down to delete all its extracted curve channels. |
 | **`LASFile`** | $1 : N$ | **`QualityReport`** | `QualityReport.lasFileId` | `LASFile.id` | `Cascade` | Each LAS file generation produces a formal QA report. |
 | **`QualityReport`** | $1 : N$ | **`Anomaly`** | `Anomaly.qualityReportId` | `QualityReport.id` | `Cascade` | Deleting a report removes all identified anomaly flags. |
@@ -366,6 +384,54 @@ The platform integrates **Paystack** for enterprise NGN and USD subscription bil
    - Within an atomic database transaction:
      - `PAYMENT_TRANSACTION.status` is set to `"SUCCESS"`.
      - `PAYMENT_TRANSACTION.paidAt` is stamped with UTC time.
-     - `PAYMENT_TRANSACTION.channel` and settlement details are archived in `metadata`.
+     - `PAYMENT_TRANSACTION.channel` and settlement details are archived in `metadataPayload`.
      - `User.tier` is upgraded to the corresponding tier (e.g. `"PRO"`), unlocking unlimited LAS remediation and NUPRC certificates.
      - An audit entry is recorded in `ACTIVITY_LOG`.
+
+
+---
+
+## 6. Centralized Application & Database Enums
+
+WellQC standardizes operational states across both frontend TypeScript definitions (`src/types/enums.ts`) and backend Python Pydantic/SQLAlchemy schemas (`backend/app/schemas/enums.py`). This guarantees cross-stack type safety, predictable serialization, and strict database integrity:
+
+### 6.1 Payment & Billing Lifecycle Enums
+| Enum | Allowed Values | Description |
+|---|---|---|
+| **`PaymentStatus` / `TransactionStatus`** | `PENDING`, `SUCCESS`, `FAILED`, `ABANDONED` | Status of Paystack checkout initialization and webhook settlement. |
+| **`PaymentChannel`** | `card`, `bank_transfer`, `ussd`, `mobile_money`, `qr`, `eft` | Authorized payment rails processed through Paystack. |
+| **`BillingInterval`** | `monthly`, `annually`, `one-time` | Recurring subscription cadence or one-time license grant. |
+| **`SubscriptionTier`** | `FREE`, `PRO`, `ENTERPRISE` | Tenant account capability entitlements and workspace rate limits. |
+
+### 6.2 Data Quality & Anomaly Enums
+| Enum | Allowed Values | Description |
+|---|---|---|
+| **`QualityGrade`** | `EXCELLENT`, `GOOD`, `POOR`, `CRITICAL`, `UNKNOWN` | Overall well log composite rating based on the 0–100 quality score. |
+| **`AnomalySeverity`** | `CRITICAL`, `WARNING`, `INFO` | Urgency of identified petrophysical curve corruptions. |
+| **`AnomalyType`** | `NULL_DEPTH`, `DUPLICATE_DEPTH`, `DEPTH_GAP`, `DUPLICATE_CURVE`, `NON_STANDARD_MNEMONIC`, `UNIT_MISMATCH`, `UNIT_INFERRED`, `NULL_CLUSTER`, `IMPOSSIBLE_VALUE`, `OUT_OF_TYPICAL_RANGE`, `EXTREME_SPIKE`, `CYCLE_SKIP`, `FLATLINE`, `MISSING_CORE_CURVE` | Comprehensive 14-point petrophysical anomaly taxonomies audited during ingestion. |
+| **`AnomalyStatus`** | `OPEN`, `RESOLVED`, `IGNORED`, `REVIEWED` | Lifecycle resolution state for curve anomaly flags. |
+
+### 6.3 Asset & Subsurface Operational Enums
+| Enum | Allowed Values | Description |
+|---|---|---|
+| **`WellStatus`** | `ACTIVE`, `DRILLING`, `SHUT_IN`, `COMPLETED`, `ABANDONED` | Operational status of the physical borehole. |
+| **`LASFileStatus`** | `PENDING`, `PROCESSED`, `FAILED`, `COMMITTED` | Lifecycle status of an uploaded LAS file in the database repository. |
+| **`UploadStatus`** | `ready`, `saving`, `saved`, `error`, `processing`, `pending` | Interactive file batch ingestion state in the browser dropzone. |
+| **`CurveStatus`** | `VALID`, `WARNING`, `CORRUPTED`, `FLAGGED` | Individual curve health status in the inventory table. |
+| **`FormationMarkerSource`** | `INTERPRETER`, `BIOSTRATIGRAPHY`, `CORE`, `SEISMIC`, `ESTIMATED`, `VERIFIED` | Stratigraphic formation pick provenance. |
+| **`StratigraphicContinuity`** | `HIGH`, `MODERATE`, `LOW`, `DISCONTINUOUS` | Cross-well correlation continuity metric across Niger Delta reservoirs. |
+| **`ComparisonMatchGrade`** | `EXCELLENT_MATCH`, `GOOD_MATCH`, `MODERATE_MATCH`, `POOR_MATCH` | Multi-well offset comparison alignment grade. |
+| **`CurveAvailability`** | `BOTH`, `WELL_A_ONLY`, `WELL_B_ONLY` | Curve presence indicator in dual-well correlation cross-plots. |
+
+### 6.4 ML Imputation & Remediation Enums
+| Enum | Allowed Values | Description |
+|---|---|---|
+| **`DiagnosticCause`** | `CASING_SHOE_BOUNDARY`, `BOREHOLE_WASHOUT`, `OFF_BOTTOM_WINDOW`, `TELEMETRY_DROPOUT`, `UNKNOWN_SENSOR_GAP` | Subsurface root-cause diagnostics for detected curve gaps. |
+| **`ImputationStrategy`** | `KNN`, `LINEAR`, `SPLINE`, `RANDOM_FOREST`, `GRADIENT_BOOSTING`, `ROW_DROPPING` | Algorithmic regression engines for automated null data reconstruction. |
+| **`ThresholdAction`** | `DROP_ROWS`, `APPLY_IMPUTATION`, `NO_ACTION_NEEDED` | Decision threshold triggered by gap length and reservoir criticality. |
+
+### 6.5 User Security, Roles & Audit Actions
+| Enum | Allowed Values | Description |
+|---|---|---|
+| **`UserRole`** | `ADMIN`, `USER` | Strict binary role access control for platform authorization. |
+| **`ActivityAction`** | `LOGIN`, `LOGOUT`, `REGISTER`, `UPLOAD_LAS`, `COMMIT_WELL`, `EXPORT_LAS`, `EXPORT_CSV`, `EXPORT_PDF`, `QA_REPAIR`, `STANDARDISE`, `PAYMENT_INITIALIZE`, `PAYMENT_SUCCESS`, `ADMIN_VERIFY_EMAIL`, `ADMIN_UPDATE_USER`, `ADMIN_DELETE_USER` | Immutable compliance audit ledger actions recorded in `ActivityLog`. |

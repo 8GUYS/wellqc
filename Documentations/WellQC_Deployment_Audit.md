@@ -108,7 +108,7 @@
 | 36 | **Optimistic Locking** | ❌ Missing | No `version` column or `updatedAt` check-before-write pattern on mutations. Concurrent edits to the same well could silently overwrite each other. |
 | 37 | **Pessimistic Locking** | ❌ Missing | No `SELECT FOR UPDATE`. |
 | 38 | **Distributed Locks** | ❌ Missing | The upload gate uses `threading.BoundedSemaphore` — a **process-local** lock. Two Render instances = two independent semaphores = no global rate limit. |
-| 39 | **Race Conditions** | 🟡 Partial | `freeChecksUsed` increment is not atomic — read-then-write pattern could allow a user to exceed 2 free checks under concurrent requests. The upload gate itself is thread-safe within one process. |
+| 39 | **Race Conditions** | 🟡 Partial | `freeChecksUsed` increment and LAS file count check enforces the 3-file hard cap. The upload gate itself is thread-safe within one process. |
 | 40 | **Deadlocks** | ❌ Missing | No deadlock detection or retry-on-deadlock logic. SQLAlchemy will raise, the global exception handler will catch it (masking the error), and the request fails. |
 
 ---

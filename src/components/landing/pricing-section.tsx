@@ -131,7 +131,7 @@ export function PricingSection() {
                   <span className="text-wellqc-muted text-xs">/ forever</span>
                 </div>
                 <p className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 mt-1">
-                  Up to 2 LAS files completely free
+                  Up to 3 LAS files completely free
                 </p>
               </div>
 
@@ -142,7 +142,7 @@ export function PricingSection() {
                 <ul className="space-y-2.5">
                   <li className="flex items-start gap-2 text-wellqc-text">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Upload &amp; parse up to 2 CWLS LAS 2.0/3.0 files</span>
+                    <span>Upload &amp; parse up to 3 CWLS LAS 2.0/3.0 files</span>
                   </li>
                   <li className="flex items-start gap-2 text-wellqc-text">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />

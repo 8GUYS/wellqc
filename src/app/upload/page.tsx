@@ -102,9 +102,14 @@ export default function LASUploadPage() {
   const [wellsRefreshKey, setWellsRefreshKey] = useState(0);
 
   // User Profile & Pro Gating State
-  const [userProfile, setUserProfile] = useState<{ tier: string; role: string }>({
+  const [userProfile, setUserProfile] = useState<{
+    tier: string;
+    role: string;
+    freeChecksUsed?: number;
+  }>({
     tier: "FREE",
     role: "USER",
+    freeChecksUsed: 0,
   });
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const isFreeTier = userProfile.tier === "FREE" && userProfile.role !== "ADMIN";
@@ -117,9 +122,23 @@ export default function LASUploadPage() {
         if (res.ok) {
           const { user } = await res.json();
           if (active && user) {
+            let checksUsed = user.freeChecksUsed || 0;
+            try {
+              const checkRes = await fetch("/api/las/check", { cache: "no-store" });
+              if (checkRes.ok) {
+                const checkData = await checkRes.json();
+                if (typeof checkData.freeChecksUsed === "number") {
+                  checksUsed = Math.max(checksUsed, checkData.freeChecksUsed);
+                }
+              }
+            } catch {
+              // fallback to user.freeChecksUsed
+            }
+
             setUserProfile({
               tier: (user.tier || "FREE").toUpperCase(),
               role: (user.role || "USER").toUpperCase(),
+              freeChecksUsed: checksUsed,
             });
           }
         }
@@ -241,6 +260,27 @@ export default function LASUploadPage() {
   };
 
   const queueFiles = async (files: File[]) => {
+    const freeChecksUsed = userProfile.freeChecksUsed || 0;
+    const isLimitReached = isFreeTier && freeChecksUsed >= 3;
+    if (isFreeTier) {
+      if (isLimitReached) {
+        setSaveError(
+          "Free tier upload limit reached: You have uploaded 3 of 3 allowed LAS files. Please upgrade to WellQC Pro for unlimited uploads."
+        );
+        setUpgradeModalOpen(true);
+        return;
+      }
+      const remaining = Math.max(0, 3 - freeChecksUsed);
+      if (files.length > remaining) {
+        setSaveError(
+          `Free tier allows up to 3 total files. You have ${remaining} slot${remaining === 1 ? "" : "s"} remaining. Upgrading to Pro unlocks unlimited batch uploads.`
+        );
+        setUpgradeModalOpen(true);
+        files = files.slice(0, remaining);
+        if (files.length === 0) return;
+      }
+    }
+
     const lasFiles = files.filter((file) => /\.(las|txt)$/i.test(file.name) && file.size <= 20 * 1024 * 1024);
     if (lasFiles.length === 0) {
       setSaveError("Choose LAS or TXT files no larger than 20 MB.");
@@ -334,7 +374,12 @@ export default function LASUploadPage() {
       body: JSON.stringify({ fileName: name, content }),
     });
 
-    let result: { message?: string; well?: { id: string; name: string; qualityScore: number }; error?: string } | null = null;
+    let result: {
+      message?: string;
+      well?: { id: string; name: string; qualityScore: number };
+      error?: string;
+      detail?: string;
+    } | null = null;
     try {
       result = await response.json();
     } catch {
@@ -342,8 +387,20 @@ export default function LASUploadPage() {
     }
 
     if (!response.ok || !result?.well) {
-      throw new Error(result?.error || `Unable to upload this LAS file (HTTP ${response.status}).`);
+      if (response.status === 403) {
+        setUpgradeModalOpen(true);
+      }
+      const errDetail = result?.detail || result?.error || `Unable to upload this LAS file (HTTP ${response.status}).`;
+      throw new Error(errDetail);
     }
+
+    if (isFreeTier) {
+      setUserProfile((prev) => ({
+        ...prev,
+        freeChecksUsed: (prev.freeChecksUsed || 0) + 1,
+      }));
+    }
+
     return result as { message: string; well: { id: string; name: string; qualityScore: number } };
   };
 
@@ -620,6 +677,10 @@ export default function LASUploadPage() {
         <UploadDropzone
           onFilesSelected={queueFiles}
           disabled={isProcessing}
+          isFreeTier={isFreeTier}
+          freeChecksUsed={userProfile.freeChecksUsed || 0}
+          maxFreeChecks={3}
+          onUpgradeRequest={() => setUpgradeModalOpen(true)}
         />
 
         {isProcessing && (

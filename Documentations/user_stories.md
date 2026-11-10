@@ -37,7 +37,7 @@ A story is accepted as done when:
 | **PER-2** | **Tunde Bakare** | Subsurface Data Engineer | Oversees data lakehouse ingestion. Needs automated mnemonic standardisation across multiple logging vendors (SLB, Baker Hughes, Halliburton) and automated schema integrity. |
 | **PER-3** | **Folake Adeleke** | Subsurface Exploration Manager | Needs executive QA certificates, field-level risk indicators, and quality score tracking to make drilling and workover decisions with confidence. |
 | **PER-4** | **Chinedu Eze** | Enterprise Systems & Security Admin | Manages multi-tenant RBAC, audit trails, secure session encryption, API tokens, and compliance with corporate NDA policies. |
-| **PER-5** | **Kelechi Nnamdi** | Junior Geologist / Academic Trainee | Uses the platform on the Free Starter tier to learn wireline interpretation, run 2 free quality checks, and preview Paystack subscription upgrades. |
+| **PER-5** | **Kelechi Nnamdi** | Junior Geologist / Academic Trainee | Uses the platform on the Free Starter tier to learn wireline interpretation, run 3 free quality checks, and preview Paystack subscription upgrades. |
 
 ---
 
@@ -423,17 +423,17 @@ A story is accepted as done when:
 
 ### 💳 Epic 8: Subscription Management & Paystack Payments
 
-#### US-PAY-01: Freemium Usage Gate (2 Free Checks)
+#### US-PAY-01: Freemium Usage Gate (3 Free Checks)
 - **As a** Free Tier User (PER-5),
-- **I want to** run 2 complete well log quality checks for free,
+- **I want to** run 3 complete well log quality checks for free,
 - **So that** I can evaluate the tool's power before purchasing a paid plan.
 - **Priority:** Must Have
 - **Sprint / Owner:** Sprint 5 · SE2
 - **Acceptance Criteria:**
   ```gherkin
-  Scenario: Gating free user on third check
-    Given a user on the FREE tier with 2/2 checks used
-    When the user attempts to upload a 3rd LAS file for full evaluation
+  Scenario: Gating free user on fourth check
+    Given a user on the FREE tier with 3/3 checks used
+    When the user attempts to upload a 4th LAS file for full evaluation
     Then the upload is paused and the Paystack Upgrade Modal appears
     And displays options to upgrade to Pro Monthly (₦75,000 / $49) or Annual
   ```
@@ -507,20 +507,25 @@ A story is accepted as done when:
 
 ### 🔐 Epic 9: Multi-Tenant Asset Management & RBAC Security
 
-#### US-AST-01: Centralized Well Assets Registry & Bulk Asset Deletion
-- **As a** Subsurface Data Engineer or Petrophysicist (PER-1, PER-2),
-- **I want** a dedicated Well Assets Registry (`/wells`) with real-time search, quality grade filtering, single delete, and bulk selection deletion,
-- **So that** I can efficiently curate, inspect, and maintain hundreds of fleet boreholes.
+#### US-AST-01: Centralized Well Assets Registry & Administrative Deletion Governance
+- **As a** Subsurface Asset Manager or Systems Administrator (PER-3, PER-4),
+- **I want** a dedicated Well Assets Registry (`/wells`) with real-time search, quality grade filtering, and administrative delete controls restricted to `ADMIN` users,
+- **So that** fleet boreholes are safely curated without permitting regular users to delete files, game freemium quotas, or compromise regulatory audit trails.
 - **Priority:** Must Have
 - **Sprint / Owner:** Sprint 5 · SE1 / UX1
 - **Acceptance Criteria:**
   ```gherkin
-  Scenario: Bulk deleting selected well assets
-    Given I am on the `/wells` registry page
-    When I select multiple wells using table checkboxes
-    And click "Delete Selected" in the floating action bar
-    Then a confirmation modal displays the names of all selected wells
-    And upon typing "DELETE" or confirming, all selected wells and downstream curves/reports are deleted in an atomic transaction
+  Scenario: Administrative deletion of well assets
+    Given an authenticated user with role "ADMIN" on the `/wells` registry page
+    When they select multiple wells and confirm deletion
+    Then the selected wells and downstream curves/reports are deleted in an atomic transaction
+    And an ActivityLog entry is permanently recorded
+
+  Scenario: Non-admin deletion prevention
+    Given an authenticated user with role "USER"
+    When they view the `/wells` registry or `/upload` files catalog
+    Then delete buttons and bulk selection checkboxes are hidden from the UI
+    And any direct DELETE /api/wells/{id} or /api/wells/bulk-delete requests return 403 Forbidden
   ```
 
 #### US-AST-02: Closed-Loop QA Engine Database Persistence
@@ -927,7 +932,7 @@ A story is accepted as done when:
 | **US-CLN-02** | Before vs After Scorecard | Must Have | Sprint 4 | SE1 | `src/app/qa-engine/page.tsx`, `cleaner.py` |
 | **US-RPT-01** | Executive PDF QA Certificate | Must Have | Sprint 5 | DA4 | `src/app/reports/page.tsx`, `src/lib/las/exporter.ts` |
 | **US-RPT-02** | Cleaned LAS 2.0 Export | Must Have | Sprint 5 | SE1 | `src/lib/las/exporter.ts`, `backend/app/api/las.py` |
-| **US-PAY-01** | Freemium Usage Gate (2 Checks) | Must Have | Sprint 5 | SE2 | `src/app/upload/page.tsx`, `backend/app/api/las.py` |
+| **US-PAY-01** | Freemium Usage Gate (3 Checks) | Must Have | Sprint 5 | SE2 | `src/app/upload/page.tsx`, `backend/app/api/las.py` |
 | **US-PAY-02** | Paystack Multi-Channel Checkout | Must Have | Sprint 5 | SE2 | `src/lib/paystack.ts`, `payment-modal.tsx`, `/pricing` |
 | **US-SEC-01** | Role-Based Access Control (RBAC) | Must Have | Sprint 2 | SE2 | `backend/app/core/dependencies.py`, `/api/admin` |
 | **US-SEC-02** | Multi-Tenant Data Isolation | Must Have | Sprint 2 | CE2 | `backend/app/api/wells.py`, `schema.prisma` |

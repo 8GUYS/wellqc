@@ -56,7 +56,7 @@ WellQC is a full-stack cloud platform that automatically validates, cleans, stan
 - **Direct Post-Auth Focus**: User login, registration, and email verification immediately route directly to the Data Upload workstation (`/upload`).
 - **Zero-Click Database Auto-Save**: Files dropped or selected into the ingestion dropzone are automatically parsed, validated, and saved to the multi-tenant database without requiring manual button clicks.
 - **Universal Tour Guide Header Trigger**: Replaced static status pills with a permanent top header Tour Guide button that launches an interactive guided onboarding tour from any page.
-- **Dynamic Audit Certificates & Cleaned LAS Exports**: The Audit Reports suite (`/reports`) binds live previews, cryptographic seals, and certified LAS 2.0 downloads directly to whichever file is selected in the batch queue or database table.
+- **Dynamic Audit Certificates & Cleaned LAS Exports**: The Reports suite (`/reports`) binds live previews, cryptographic seals, and certified LAS 2.0 downloads directly to whichever file is selected in the batch queue or database table.
 - **Responsive Workspace Palette**: Integrated a compact theme switcher icon in the sidebar footer profile card with responsive, viewport-aware popover positioning.
 
 ### 🧭 Interactive Dashboard Onboarding Tour
@@ -78,7 +78,7 @@ WellQC is a full-stack cloud platform that automatically validates, cleans, stan
 - Full **Paystack-powered subscription gateway** supporting:
   - 🇳🇬 **Nigerian Naira (₦ NGN)** via Cards (Verve, Mastercard, Visa), Direct Bank Transfer, USSD & Mobile Money
   - 🌍 **US Dollars ($ USD)** for international users
-- **Freemium Tier Model**: 2 free LAS quality checks before upgrade prompt
+- **Freemium Tier Model**: 3 free LAS quality checks before upgrade prompt
 - **Pro Monthly Plan**: ₦75,000/month ($49/month)
 - **Pro Annual Plan**: ₦750,000/year ($490/year — 2 months free)
 - **Zero-Key Mock Sandbox Fallback**: Automatic mock checkout simulation during local testing and MVP demonstrations when live Paystack secret keys are not configured.
@@ -346,7 +346,7 @@ Key schema highlights:
 
 | Plan | Price (NGN) | Price (USD) | Features |
 |---|---|---|---|
-| **Starter Free** | ₦0 | $0 | 2 LAS quality checks, basic anomaly detection |
+| **Starter Free** | ₦0 | $0 | 3 LAS quality checks, basic anomaly detection |
 | **Pro Monthly** | ₦75,000 / mo | $49 / mo | Unlimited checks, KNN imputation, PDF certificates, all modules |
 | **Pro Annual** | ₦750,000 / yr | $490 / yr | All Pro features, 2 months free (17% saving) |
 
@@ -402,7 +402,8 @@ Payment channels supported: **Verve, Mastercard, Visa**, **Bank Transfer**, **US
 ## 🔐 Security Model
 
 - **Multi-Tenant Isolation**: Every API query enforces `where: { ownerId: user.id }`. Cross-tenant URL access returns `404 Not Found`.
-- **Freemium Gate**: `FREE` tier users are blocked at `POST /api/las` after 2 checks, returning `402 Payment Required`.
+- **Freemium Gate**: `FREE` tier users are blocked at `POST /api/las` after 3 checks, returning `403 Forbidden`.
+- **Admin-Only Well Deletion**: Well assets cannot be deleted by standard users after upload (`DELETE /api/wells/{id}` and `/api/wells/bulk-delete` strictly require `ADMIN` role). This prevents quota evasion (uploading, deleting, re-uploading) and protects compliance audit trails.
 - **httpOnly Session Cookies**: 7-day expiry, HTTPS-only in production.
 - **Paystack Webhook HMAC**: All incoming Paystack webhooks are verified using `HMAC-SHA512` before any data mutation.
 

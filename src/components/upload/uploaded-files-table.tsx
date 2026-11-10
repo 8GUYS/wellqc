@@ -88,6 +88,7 @@ export function UploadedFilesTable({
   }, []);
 
   const isFreeTier = userProfile.tier === "FREE" && userProfile.role !== "ADMIN";
+  const isAdmin = userProfile.role === "ADMIN";
 
   // Feedback banner state
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -207,6 +208,13 @@ export function UploadedFilesTable({
 
   // Single Delete
   const handleDeleteWell = async (well: WellListItem) => {
+    if (!isAdmin) {
+      setFeedback({
+        type: "error",
+        message: "Access denied: Only system administrators are authorized to delete well assets to prevent quota manipulation and preserve compliance audit trails.",
+      });
+      return;
+    }
     setDeletingId(well.id);
     try {
       const response = await fetch(`/api/wells/${encodeURIComponent(well.id)}`, {
@@ -240,6 +248,13 @@ export function UploadedFilesTable({
 
   // Bulk Delete
   const handleBulkDeleteConfirm = async () => {
+    if (!isAdmin) {
+      setFeedback({
+        type: "error",
+        message: "Access denied: Only system administrators are authorized to perform bulk deletion of well assets.",
+      });
+      return;
+    }
     const idsToDelete = Array.from(selectedIds);
     if (idsToDelete.length === 0) return;
 
@@ -302,7 +317,7 @@ export function UploadedFilesTable({
               </span>
             </div>
             <p className="text-xs text-slate-400 font-mono">
-              Persisted well logs saved in your database repository. Inspect curves, repair in QA Engine, or bulk delete files.
+              Persisted well logs saved in your database repository. Inspect curves, repair in QA Engine, and track petrophysical asset quality.
             </p>
           </div>
         </div>
@@ -378,8 +393,8 @@ export function UploadedFilesTable({
         </div>
       </div>
 
-      {/* Bulk Action Banner (Appears when items are selected) */}
-      {selectedIds.size > 0 && (
+      {/* Bulk Action Banner (Admins Only - Appears when items are selected) */}
+      {isAdmin && selectedIds.size > 0 && (
         <div className="bg-gradient-to-r from-cyan-950/80 via-slate-900 to-slate-900 border border-cyan-500/40 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-lg">
           <div className="flex items-center space-x-3 text-xs font-mono">
             <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
@@ -451,23 +466,25 @@ export function UploadedFilesTable({
             <table className="w-full text-left text-xs font-mono">
               <thead className="bg-wellqc-card/90 border-b border-wellqc-border text-slate-400 uppercase text-[10px] tracking-wider">
                 <tr>
-                  {/* Select All Checkbox */}
-                  <th className="p-3.5 w-10 text-center">
-                    <button
-                      type="button"
-                      onClick={toggleSelectAll}
-                      className="text-slate-400 hover:text-cyan-400 transition-colors flex items-center justify-center mx-auto"
-                      title={isAllSelected ? "Deselect all files" : "Select all files in view"}
-                    >
-                      {isAllSelected ? (
-                        <CheckSquare className="w-4 h-4 text-cyan-400" />
-                      ) : isSomeSelected ? (
-                        <MinusSquare className="w-4 h-4 text-cyan-400" />
-                      ) : (
-                        <Square className="w-4 h-4 text-slate-500" />
-                      )}
-                    </button>
-                  </th>
+                  {/* Select All Checkbox (Admins Only) */}
+                  {isAdmin && (
+                    <th className="p-3.5 w-10 text-center">
+                      <button
+                        type="button"
+                        onClick={toggleSelectAll}
+                        className="text-slate-400 hover:text-cyan-400 transition-colors flex items-center justify-center mx-auto"
+                        title={isAllSelected ? "Deselect all files" : "Select all files in view"}
+                      >
+                        {isAllSelected ? (
+                          <CheckSquare className="w-4 h-4 text-cyan-400" />
+                        ) : isSomeSelected ? (
+                          <MinusSquare className="w-4 h-4 text-cyan-400" />
+                        ) : (
+                          <Square className="w-4 h-4 text-slate-500" />
+                        )}
+                      </button>
+                    </th>
+                  )}
                   <th className="p-3.5 min-w-[220px]">Well Asset &amp; File</th>
                   <th className="p-3.5 min-w-[140px]">Operator &amp; Field</th>
                   <th className="p-3.5 min-w-[120px]">Depth Interval</th>
@@ -500,20 +517,22 @@ export function UploadedFilesTable({
                           : ""
                       }`}
                     >
-                      {/* Row Checkbox */}
-                      <td className="p-3.5 text-center">
-                        <button
-                          type="button"
-                          onClick={() => toggleSelectWell(well.id)}
-                          className="text-slate-400 hover:text-cyan-400 transition-colors flex items-center justify-center mx-auto"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-cyan-400" />
-                          ) : (
-                            <Square className="w-4 h-4 text-slate-600 group-hover:text-slate-400" />
-                          )}
-                        </button>
-                      </td>
+                      {/* Row Checkbox (Admins Only) */}
+                      {isAdmin && (
+                        <td className="p-3.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleSelectWell(well.id)}
+                            className="text-slate-400 hover:text-cyan-400 transition-colors flex items-center justify-center mx-auto"
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 text-cyan-400" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-600 group-hover:text-slate-400" />
+                            )}
+                          </button>
+                        </td>
+                      )}
 
                       {/* Well Name & File */}
                       <td className="p-3.5">
@@ -679,16 +698,18 @@ export function UploadedFilesTable({
                             <Layers className="w-3.5 h-3.5 text-slate-300" />
                           </Link>
 
-                          {/* Delete Single Button */}
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirmWell(well)}
-                            disabled={deletingId === well.id}
-                            className="p-1.5 rounded-lg bg-wellqc-card hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-wellqc-border hover:border-rose-500/40 transition-colors disabled:opacity-50"
-                            title="Delete well from database"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {/* Delete Single Button (Admins Only) */}
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmWell(well)}
+                              disabled={deletingId === well.id}
+                              className="p-1.5 rounded-lg bg-wellqc-card hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-wellqc-border hover:border-rose-500/40 transition-colors disabled:opacity-50"
+                              title="Delete well from database"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

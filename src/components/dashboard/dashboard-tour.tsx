@@ -1157,7 +1157,7 @@ function PricingTierSimulator() {
           <span className="text-cyan-300 font-mono">{isPro ? "₦75,000 / $49/mo" : "₦0 / Free"}</span>
         </div>
         <div className="space-y-1 text-[11px] text-slate-300">
-          <div>• Quality Checks: <span className="text-cyan-300 font-bold">{isPro ? "Unlimited" : "2 Free Checks"}</span></div>
+          <div>• Quality Checks: <span className="text-cyan-300 font-bold">{isPro ? "Unlimited" : "3 Free Checks"}</span></div>
           <div>• Anomaly Repair & Imputation: <span className="text-cyan-300 font-bold">{isPro ? "Full Spline / KNN ML" : "Read-Only"}</span></div>
           <div>• Well Comparison & Stratigraphy: <span className="text-cyan-300 font-bold">{isPro ? "Uncapped Access" : "Locked (Pro)"}</span></div>
           <div>• Cleaned LAS & PDF Exports: <span className="text-cyan-300 font-bold">{isPro ? "Uncapped Direct" : "Gated"}</span></div>

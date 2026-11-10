@@ -22,7 +22,7 @@ WellQC eliminates this risk by delivering an automated, AI-driven quality assura
 
 ### The "Diagnosis is Free; Remediation is Monetized" Funnel
 WellQC employs an ultra-high-converting **Product-Led Growth (PLG)** revenue model:
-* **Free Discovery Tier (Up to 2 LAS Files):** New users can upload and audit up to **2 LAS files completely free**. They gain visibility into the well's headline health metrics: overall composite quality score (0–100), health grading (*Excellent*, *Good*, *Poor*, *Critical*), curve inventory (~CURVE count & null percentages), and raw LAS syntax checks.
+* **Free Discovery Tier (Up to 3 LAS Files):** New users can upload and audit up to **3 LAS files completely free**. They gain visibility into the well's headline health metrics: overall composite quality score (0–100), health grading (*Excellent*, *Good*, *Poor*, *Critical*), curve inventory (~CURVE count & null percentages), and raw LAS syntax checks.
 * **Feature Gating on Free Tier:** To drive conversion, the platform strictly gates high-value engineering workflows behind WellQC Pro:
   1. **Interactive Wireline Log Viewer:** Locked on both the `/upload` workspace and `/wells/[id]` dossier page with a Pro paywall card.
   2. **Detailed Quality Anomalies Diagnostics:** Specific anomaly descriptions, depth boundaries, severity scores, and remediation recipes are locked.
@@ -33,7 +33,7 @@ WellQC employs an ultra-high-converting **Product-Led Growth (PLG)** revenue mod
 
 ```mermaid
 graph TD
-    A[User Ingests LAS Log - Up to 2 Free Files] --> B[Automated Syntax & Header Validation]
+    A[User Ingests LAS Log - Up to 3 Free Files] --> B[Automated Syntax & Header Validation]
     B --> C[0-100 Quality Score & Curve Inventory]
     C --> D{User Accesses Gated Workflows?}
     D -->|Wireline Log Viewer| E[Pro Paywall Gatekeeper]
@@ -161,14 +161,14 @@ pie title Projected Revenue Contribution (Year 2)
 
 | Tier | Target Customer | Pricing (NGN) | Pricing (USD) | Key Entitlements & Paywall Boundary |
 |---|---|---|---|---|
-| **Free Discovery Tier** | Students, independent consultants, rig interns evaluating well data | **₦0** (Free) | **$0** (Free) | **Up to 2 free LAS files.** Automated parsing, 0–100 QA score, curve inventory, raw header verification, and **Universal Installable PWA Workstation (Offline Rig Mode for all users)**. **Gated Paywall Boundary:** Wireline Log Viewer, Quality Anomalies details, QA Engine automated repair, Multi-Well comparison, and certified exports require WellQC Pro. |
+| **Free Discovery Tier** | Students, independent consultants, rig interns evaluating well data | **₦0** (Free) | **$0** (Free) | **Up to 3 free LAS files.** Automated parsing, 0–100 QA score, curve inventory, raw header verification, and **Universal Installable PWA Workstation (Offline Rig Mode for all users)**. **Gated Paywall Boundary:** Wireline Log Viewer, Quality Anomalies details, QA Engine automated repair, Multi-Well comparison, and certified exports require WellQC Pro. |
 | **Pro Monthly** | Active freelance petrophysicists, small consultancies | **₦75,000** / month | **$49** / month | **Complete Subsurface Studio Unlocked.** Unlimited LAS uploads, full multi-track wireline log viewer, detailed anomaly diagnostics, automated QA repairs (despiking, clamping, duplicate depth resolution, KNN/Spline null imputation), standardisation dictionary, closed-loop QA database persistence, multi-well correlation, and uncapped CSV/LAS/NUPRC Form WQC-08-A exports. |
 | **Pro Annual** | Mid-size consultancies, dedicated G&G teams | **₦750,000** / year *(2 months free)* | **$490** / year | All Pro features + priority ML imputation benchmarks, batch queue processing, offline PWA rig mode, cleaned LAS export downloads, priority email support. |
 | **Enterprise Asset License** | Independent E&P Operators, Marginal Field Holders | **₦18,000,000 – ₦36,000,000** / year | **$15,000 – $30,000** / year | Up to 25 seats, unlimited well log assets, Multi-Well Stratigraphic Correlation Engine, NUPRC Digital Signature suite, custom API keys, webhooks, dedicated account manager. |
 | **Enterprise Sovereign / Regulator** | National Oil Companies (NNPCL), Regulators (NUPRC) | **Custom Quote** (From ₦60,000,000 / year) | **Custom Quote** (From $50,000 / year) | Unlimited seats, dedicated on-prem/VPC instance, custom basin formation cutoffs, centralized operator compliance audit dashboard. |
 
 ### 5.2 The Pro Paywall Conversion Mechanics
-1. **Zero-Friction Ingestion:** User drags in up to 2 LAS well logs on the `/upload` workspace without submitting payment details.
+1. **Zero-Friction Ingestion:** User drags in up to 3 LAS well logs on the `/upload` workspace without submitting payment details. Once ingested, well assets cannot be deleted by standard users (only system administrators retain deletion authority), preventing quota evasion through deletion/re-upload cycles while preserving immutable subsurface compliance records.
 2. **Transparent Health Discovery:** The platform calculates the composite Well Quality Score (e.g. 52/100, POOR), displays curve summaries, and indicates the presence of critical anomalies.
 3. **The Gated Experience:** When the petrophysicist attempts to:
    * View the interactive wireline log curves,
@@ -223,7 +223,7 @@ pie title Projected Revenue Contribution (Year 2)
 
 ```mermaid
 flowchart TD
-    GTM1[Product-Led Growth PLG] --> C1[Free Discovery Tier: Up to 2 Free Files Audit]
+    GTM1[Product-Led Growth PLG] --> C1[Free Discovery Tier: Up to 3 Free Files Audit]
     C1 --> C2[Discovers Quality Score & Flagged Anomalies]
     C2 --> C3[Attempts to Access Wireline Viewer, Anomalies, or QA Engine]
     C3 --> C4[Prompted to Pay via Paystack ₦75,000 / $49]
@@ -243,7 +243,7 @@ Targeting Chief Operating Officers, Exploration Managers, and Chief Petrophysici
 * Convert successful audit findings into annual Enterprise Asset Licenses.
 
 ### 7.2 Product-Led Growth (PLG) & Conversion Mechanics
-* **Frictionless Freemium Entry:** Petrophysicists test WellQC immediately without credit cards by dragging in any 2 LAS files.
+* **Frictionless Freemium Entry:** Petrophysicists test WellQC immediately without credit cards by dragging in any 3 LAS files.
 * **Value Revelation:** Users visually confirm sensor flatlines, depth inversions, and missing curves in their proprietary logs.
 * **High-Intent Paywall:** Attempting to clean the data routes directly to the payment portal, converting urgent user pain into predictable SaaS revenue.
 

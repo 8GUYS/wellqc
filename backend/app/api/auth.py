@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 from backend.app.core.config import settings
-from backend.app.core.database import get_db
+from backend.app.core.database import get_db, set_rls_context
 from backend.app.core.dependencies import get_current_user, get_current_user_optional
 from backend.app.core.security import (
     create_session_token,
@@ -89,18 +89,24 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user_dict = _format_user(user)
     token = _set_session_cookie(response, user_dict)
     
-    # Log activity
-    log = ActivityLog(
-        userId=user.id,
-        userName=user.name,
-        userRole=normalize_role(user.role),
-        action="LOGIN",
-        targetType="USER",
-        targetId=user.id,
-        details="User logged in successfully.",
-    )
-    db.add(log)
-    db.commit()
+    # Establish transaction RLS context and record login audit log
+    try:
+        set_rls_context(db, user)
+        log = ActivityLog(
+            userId=user.id,
+            userName=user.name,
+            userRole=normalize_role(user.role),
+            action="LOGIN",
+            targetType="USER",
+            targetId=user.id,
+            details="User logged in successfully.",
+        )
+        db.add(log)
+        db.commit()
+    except Exception as log_err:
+        db.rollback()
+        import logging
+        logging.getLogger("wellqc.auth").warning(f"Non-critical: Failed to record login audit log: {log_err}")
 
     return {"user": user_dict, "token": token}
 
@@ -173,17 +179,23 @@ def register(req: RegisterRequest, response: Response, request: Request, db: Ses
     user_dict = _format_user(new_user)
 
     # Activity log
-    log = ActivityLog(
-        userId=new_user.id,
-        userName=new_user.name,
-        userRole=normalize_role(new_user.role),
-        action="REGISTER",
-        targetType="USER",
-        targetId=new_user.id,
-        details="User registered new account; verification email dispatched.",
-    )
-    db.add(log)
-    db.commit()
+    try:
+        set_rls_context(db, new_user)
+        log = ActivityLog(
+            userId=new_user.id,
+            userName=new_user.name,
+            userRole=normalize_role(new_user.role),
+            action="REGISTER",
+            targetType="USER",
+            targetId=new_user.id,
+            details="User registered new account; verification email dispatched.",
+        )
+        db.add(log)
+        db.commit()
+    except Exception as log_err:
+        db.rollback()
+        import logging
+        logging.getLogger("wellqc.auth").warning(f"Non-critical: Failed to record register audit log: {log_err}")
 
     if settings.REQUIRE_EMAIL_VERIFICATION:
         return {
@@ -229,20 +241,27 @@ def verify_email(token: str, response: Response, db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
     user.isEmailVerified = True
     user.emailVerifiedAt = now
-
-    # Activity log
-    log = ActivityLog(
-        userId=user.id,
-        userName=user.name,
-        userRole=user.role,
-        action="EMAIL_VERIFIED",
-        targetType="USER",
-        targetId=user.id,
-        details=f"Email address {user.email} verified successfully via token.",
-    )
-    db.add(log)
     db.commit()
     db.refresh(user)
+
+    # Activity log
+    try:
+        set_rls_context(db, user)
+        log = ActivityLog(
+            userId=user.id,
+            userName=user.name,
+            userRole=user.role,
+            action="EMAIL_VERIFIED",
+            targetType="USER",
+            targetId=user.id,
+            details=f"Email address {user.email} verified successfully via token.",
+        )
+        db.add(log)
+        db.commit()
+    except Exception as log_err:
+        db.rollback()
+        import logging
+        logging.getLogger("wellqc.auth").warning(f"Non-critical: Failed to record email verification audit log: {log_err}")
 
     user_dict = _format_user(user)
     session_token = _set_session_cookie(response, user_dict)
@@ -304,17 +323,23 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
             logging.getLogger("wellqc.auth").warning(f"Password reset email dispatch warning: {email_err}")
 
         # Log activity
-        log = ActivityLog(
-            userId=user.id,
-            userName=user.name,
-            userRole=user.role,
-            action="PASSWORD_RESET_REQUESTED",
-            targetType="USER",
-            targetId=user.id,
-            details=f"Password reset link generated and dispatched for {user.email}.",
-        )
-        db.add(log)
-        db.commit()
+        try:
+            set_rls_context(db, user)
+            log = ActivityLog(
+                userId=user.id,
+                userName=user.name,
+                userRole=user.role,
+                action="PASSWORD_RESET_REQUESTED",
+                targetType="USER",
+                targetId=user.id,
+                details=f"Password reset link generated and dispatched for {user.email}.",
+            )
+            db.add(log)
+            db.commit()
+        except Exception as log_err:
+            db.rollback()
+            import logging
+            logging.getLogger("wellqc.auth").warning(f"Non-critical: Failed to record password reset request audit log: {log_err}")
 
     resp_data = {
         "success": True,
@@ -359,20 +384,27 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
 
     # Update password hash
     user.passwordHash = hash_password(new_password)
-
-    # Activity log
-    log = ActivityLog(
-        userId=user.id,
-        userName=user.name,
-        userRole=user.role,
-        action="PASSWORD_RESET_COMPLETED",
-        targetType="USER",
-        targetId=user.id,
-        details=f"Password successfully reset via token for user {user.email}.",
-    )
-    db.add(log)
     db.commit()
     db.refresh(user)
+
+    # Activity log
+    try:
+        set_rls_context(db, user)
+        log = ActivityLog(
+            userId=user.id,
+            userName=user.name,
+            userRole=user.role,
+            action="PASSWORD_RESET_COMPLETED",
+            targetType="USER",
+            targetId=user.id,
+            details=f"Password successfully reset via token for user {user.email}.",
+        )
+        db.add(log)
+        db.commit()
+    except Exception as log_err:
+        db.rollback()
+        import logging
+        logging.getLogger("wellqc.auth").warning(f"Non-critical: Failed to record password reset completion audit log: {log_err}")
 
     return {
         "success": True,

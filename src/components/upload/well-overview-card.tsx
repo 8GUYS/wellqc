@@ -85,12 +85,12 @@ export function WellOverviewCard({
             {isSaving ? (
               <div className="flex items-center justify-center space-x-2 px-4 py-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-mono text-xs font-bold shadow-sm">
                 <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
-                <span>Auto-Saving to DB...</span>
+                <span>Auto-Saving...</span>
               </div>
             ) : (savedSuccess || savedWell) ? (
               <div className="flex items-center justify-center space-x-2 px-4 py-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold shadow-sm">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Saved to Database ✓</span>
+                <span>Saved ✓</span>
               </div>
             ) : null}
           </div>
@@ -108,7 +108,7 @@ export function WellOverviewCard({
           <div className="flex items-center space-x-3 text-xs font-mono text-emerald-300">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
             <span>
-              Uploaded to database as <strong>{savedWell.name}</strong> (Audit Score: {savedWell.qualityScore}/100)
+              Saved as <strong>{savedWell.name}</strong> (Audit Score: {savedWell.qualityScore}/100)
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">

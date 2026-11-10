@@ -38,20 +38,16 @@ async def lifespan(app: FastAPI):
     from sqlalchemy import text
     try:
         with engine.begin() as conn:
-            cols = {r[0] for r in conn.execute(text(
-                "select column_name from information_schema.columns "
-                "where table_schema='public' and table_name='User'"))}
+            # Idempotent column additions with IF NOT EXISTS to guarantee schema compatibility
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isEmailVerified" BOOLEAN NOT NULL DEFAULT false;'))
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "emailVerifiedAt" TIMESTAMP(3);'))
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "paystackCustomerCode" TEXT;'))
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "paystackSubscriptionCode" TEXT;'))
+            conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "User_paystackCustomerCode_key" ON "User"("paystackCustomerCode");'))
+            conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "User_paystackSubscriptionCode_key" ON "User"("paystackSubscriptionCode");'))
+
             has_setting = conn.execute(text(
                 """select to_regclass('public."SystemSetting"') is not null""")).scalar()
-
-            if "isEmailVerified" not in cols:
-                conn.execute(text('ALTER TABLE "User" ADD COLUMN "isEmailVerified" BOOLEAN NOT NULL DEFAULT false;'))
-            if "emailVerifiedAt" not in cols:
-                conn.execute(text('ALTER TABLE "User" ADD COLUMN "emailVerifiedAt" TIMESTAMP(3);'))
-            if "paystackCustomerCode" not in cols:
-                conn.execute(text('ALTER TABLE "User" ADD COLUMN "paystackCustomerCode" TEXT;'))
-            if "paystackSubscriptionCode" not in cols:
-                conn.execute(text('ALTER TABLE "User" ADD COLUMN "paystackSubscriptionCode" TEXT;'))
 
             has_payment_tx = conn.execute(text(
                 """select to_regclass('public."PaymentTransaction"') is not null""")).scalar()
@@ -249,9 +245,13 @@ async def global_exception_handler(request: Request, exc: Exception):
         for kw in ["sqlalchemy", "psycopg2", "syntax error", "relation", "pg_", "column", "table", "cursor", "database"]
     )
     client_detail = (
-        "A database error occurred. The incident has been logged."
-        if is_db_error
-        else (exc_str if settings.ENVIRONMENT == "development" else "An internal server error occurred.")
+        exc_str
+        if settings.ENVIRONMENT == "development"
+        else (
+            "A database error occurred. The incident has been logged."
+            if is_db_error
+            else "An internal server error occurred."
+        )
     )
     return JSONResponse(
         status_code=500,

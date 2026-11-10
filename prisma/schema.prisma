@@ -22,8 +22,10 @@ model User {
   // Billing and Usage Tracking
   tier                  String        @default("FREE") // "FREE", "PRO", "ENTERPRISE"
   freeChecksUsed        Int           @default(0)
-  stripeCustomerId      String?       @unique
-  stripeSubscriptionId  String?       @unique
+  stripeCustomerId          String?       @unique
+  stripeSubscriptionId      String?       @unique
+  paystackCustomerCode      String?       @unique
+  paystackSubscriptionCode  String?       @unique
 
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
@@ -39,6 +41,7 @@ model User {
   customAliases         CustomAlias[]
   wells                 Well[]
   ownedFormationMarkers FormationMarker[] @relation("FormationMarkerOwner")
+  paymentTransactions   PaymentTransaction[]
 }
 
 model Field {
@@ -281,4 +284,25 @@ model SystemSetting {
   key       String   @unique
   value     String
   updatedAt DateTime @default(now()) @updatedAt
+}
+
+model PaymentTransaction {
+  id                   String    @id @default(uuid())
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reference            String    @unique
+  amount               Int
+  currency             String    @default("NGN")
+  plan                 String
+  status               String    @default("PENDING")
+  channel              String?
+  paystackCustomerCode String?
+  metadataPayload      String?
+  paidAt               DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now()) @updatedAt
+
+  @@index([userId])
+  @@index([reference])
+  @@index([status])
 }

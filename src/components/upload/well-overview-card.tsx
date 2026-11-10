@@ -126,12 +126,12 @@ export function WellOverviewCard({
             >
               View Well Log →
             </Link>
-            <Link
-              href={`/wells?highlight=${savedWell.id}`}
-              className="px-3 py-1.5 rounded-lg bg-wellqc-card border border-wellqc-border text-cyan-300 font-mono text-xs hover:border-cyan-400 transition-all"
+            <a
+              href="#database-wells-catalog"
+              className="px-3 py-1.5 rounded-lg bg-wellqc-card border border-wellqc-border text-cyan-300 font-mono text-xs hover:border-cyan-400 transition-all flex items-center gap-1"
             >
-              Manage Wells
-            </Link>
+              <span>Saved Wells Table ↓</span>
+            </a>
           </div>
         </div>
       )}

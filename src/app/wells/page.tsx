@@ -5,15 +5,13 @@ import { useRouter } from "next/navigation";
 
 /**
  * ============================================================================
- * WellQC Subsurface Platform - Well Asset Page
+ * WellQC Subsurface Platform - Well Asset Route
  * ============================================================================
- * NOTE: The standalone Well Asset page has been removed / merged into the
- * Data Upload Workstation (/upload) so uploaded well files and LAS logs are
- * managed directly on the upload page.
+ * NOTE: The standalone Well Asset page has been retired and merged into the
+ * Data Upload Workstation (/upload) where uploaded well files and LAS logs are
+ * managed directly via the Database Wells table.
  *
  * Direct navigation to /wells forwards automatically to /upload.
- * The original page implementation is archived in:
- * `src/app/wells/wells.backup.tsx`
  * ============================================================================
  */
 export default function WellManagementPage() {

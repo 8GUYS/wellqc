@@ -17,6 +17,7 @@ erDiagram
     USER ||--o{ ACTIVITY_LOG : "triggers (1:N via userId)"
     USER ||--o{ API_TOKEN : "generates (1:N via userId)"
     USER ||--o{ CUSTOM_ALIAS : "registers (1:N via userId)"
+    USER ||--o{ PAYMENT_TRANSACTION : "executes (1:N via userId)"
 
     FIELD ||--o{ WELL : "contains (1:N via fieldName)"
     OPERATOR ||--o{ WELL : "operates (1:N via operatorName)"
@@ -70,10 +71,26 @@ erDiagram
         datetime ndaAcceptedAt
         boolean isEmailVerified
         datetime emailVerifiedAt
-        string tier
+        string tier "FREE, PRO, ENTERPRISE"
         int freeChecksUsed
-        string stripeCustomerId UK
-        string stripeSubscriptionId UK
+        string paystackCustomerCode UK
+        string paystackSubscriptionCode UK
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    PAYMENT_TRANSACTION {
+        string id PK "uuid"
+        string userId FK "references USER(id) [CASCADE]"
+        string reference UK "Paystack unique transaction reference"
+        int amount "Amount in lowest currency unit (kobo or cents)"
+        string currency "NGN or USD"
+        string plan "PRO, ENTERPRISE, CREDITS"
+        string status "PENDING, SUCCESS, FAILED, ABANDONED"
+        string channel "card, bank_transfer, ussd, mobile_money"
+        string paystackCustomerCode "Customer ID on Paystack"
+        datetime paidAt "Settlement timestamp"
+        string metadata "JSON string containing audit log and cart details"
         datetime createdAt
         datetime updatedAt
     }
@@ -229,6 +246,7 @@ Every entity in WellQC uses **UUID v4 strings** as its primary key (`id`). The t
 | **`User`** | $1 : N$ | **`ActivityLog`** | `ActivityLog.userId` | `User.id` | `SetNull` | Compliance and audit trail attribution. |
 | **`User`** | $1 : N$ | **`APIToken`** | `APIToken.userId` | `User.id` | `Cascade` | Deleting a user revokes all their programmatic API tokens. |
 | **`User`** | $1 : N$ | **`CustomAlias`** | `CustomAlias.userId` | `User.id` | `Cascade` | User-scoped petrophysical mnemonic aliases strictly isolated per account. |
+| **`User`** | $1 : N$ | **`PaymentTransaction`** | `PaymentTransaction.userId` | `User.id` | `Cascade` | Billing transactions, Paystack references, and subscription payment audit history. |
 | **`Field`** | $1 : N$ | **`Well`** | `Well.fieldName` | `Field.name` | `NoAction` / Default | Categorizes wells by regional geological basin/field. |
 | **`Operator`** | $1 : N$ | **`Well`** | `Well.operatorName` | `Operator.name` | `NoAction` / Default | Tracks oilfield operating companies (e.g., Shell, Chevron). |
 | **`Well`** | $1 : N$ | **`LASFile`** | `LASFile.wellId` | `Well.id` | `Cascade` | A well can have multiple log runs/files over its lifecycle. |
@@ -298,3 +316,56 @@ When an engineer uploads a LAS file via the **Upload Workspace** (`POST /api/las
 * **Custom Alias Privacy:** Custom mnemonic mappings (`CustomAlias`) are strictly isolated to the creating user (`CustomAlias.userId == current_user.id` or `CustomAlias.userEmail == current_user.email`). Unauthenticated users and other tenants cannot view, edit, or delete custom aliases added by other users. A unique compound index (`standardMnemonic`, `alias`, `userId`) prevents duplicate mappings within a user's workspace while allowing different tenants to map the same mnemonic differently.
 * **Activity & Audit Trail Isolation:** `ActivityLog` queries are scoped strictly to `ActivityLog.userId == current_user.id`, ensuring audit logs and user actions remain private to each individual account.
 * **Role-Based Access Control (RBAC):** Privileged actions (e.g. system administration, user provisioning, webhook configuration, email dispatch settings) enforce strict administrator permission checks (`role == "ADMIN"`). Standard user accounts (`role == "USER"`, with legacy backward-compatible normalization for records previously stored as `PETROPHYSICIST`, `DATA_ENGINEER`, `GEOSCIENTIST`, or `VIEWER`) enjoy full subsurface analytical capabilities within their workspace boundaries. Domain disciplines are maintained in `User.department` without fragmenting security policies.
+
+---
+
+## 5. Payment Transaction Lifecycle & Paystack Security Architecture
+
+The platform integrates **Paystack** for enterprise NGN and USD subscription billing, gating petrophysical remediation and high-volume fleet analytics behind verified license entitlements:
+
+```
+                    ┌──────────────┐
+                    │     USER     │ (Requests Checkout for Plan / Tier)
+                    └──────┬───────┘
+                           │
+                           ▼
+             ┌───────────────────────────┐
+             │    PAYMENT_TRANSACTION    │ (Created with status="PENDING", reference="wqc_ref_...")
+             └─────────────┬─────────────┘
+                           │
+                           ▼
+             ┌───────────────────────────┐
+             │  PAYSTACK HOSTED CHECKOUT │ (External PCI-DSS Compliant Card / Transfer / USSD)
+             └─────────────┬─────────────┘
+                           │
+                           ▼
+             ┌───────────────────────────┐
+             │     PAYSTACK WEBHOOK      │ (POST /api/payments/webhook with HMAC-SHA512 header)
+             └─────────────┬─────────────┘
+                           │
+                           ▼
+             ┌───────────────────────────┐
+             │   ATOMIC DB PROVISIONING  │ (Transaction status -> "SUCCESS", User.tier -> "PRO")
+             └───────────────────────────┘
+```
+
+1. **Transaction Initialization (`POST /api/payments/initialize`):**
+   - The user selects an authorized tier (`PRO` or `ENTERPRISE`).
+   - The server resolves the immutable price in kobo/cents from server-side configuration (preventing client-side price tampering).
+   - A `PAYMENT_TRANSACTION` row is inserted in PostgreSQL with `status="PENDING"` and a cryptographically unique `reference` (`wqc_ref_<uuid>`).
+   - Paystack returns an `authorization_url` to which the client is redirected.
+
+2. **Cryptographic Webhook Validation (`POST /api/payments/webhook`):**
+   - Paystack sends asynchronous server-to-server notifications on events like `charge.success`.
+   - The backend validates the `x-paystack-signature` header against raw request bytes using `HMAC-SHA512` and `PAYSTACK_SECRET_KEY`.
+   - Invalid or forged signatures return `401 Unauthorized` and abort immediately.
+
+3. **Idempotent Subscription Entitlement & State Mutation:**
+   - The backend queries the `PAYMENT_TRANSACTION` record matching the payload's `reference`.
+   - If the transaction is already marked `SUCCESS`, the webhook exits immediately with HTTP 200 (preventing replay attacks or duplicate credit).
+   - Within an atomic database transaction:
+     - `PAYMENT_TRANSACTION.status` is set to `"SUCCESS"`.
+     - `PAYMENT_TRANSACTION.paidAt` is stamped with UTC time.
+     - `PAYMENT_TRANSACTION.channel` and settlement details are archived in `metadata`.
+     - `User.tier` is upgraded to the corresponding tier (e.g. `"PRO"`), unlocking unlimited LAS remediation and NUPRC certificates.
+     - An audit entry is recorded in `ACTIVITY_LOG`.

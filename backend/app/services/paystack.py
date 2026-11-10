@@ -87,7 +87,7 @@ PLANS_CATALOG: Dict[str, Dict[str, Any]] = {
             "1 Certified Cleaned LAS Export",
             "Official Form WQC-08-A Certificate",
             "1-Month Cloud Storage & Audit Lineage",
-            "Full Multi-Track Wireline Viewer Access",
+            "Full Anomaly Remediation & Despiking Pass",
         ],
         "popular": False,
     },

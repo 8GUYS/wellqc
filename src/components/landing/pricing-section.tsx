@@ -156,9 +156,9 @@ export function PricingSection() {
                     <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                     <span>Installable PWA Workstation (Offline rig mode for all users)</span>
                   </li>
-                  <li className="flex items-start gap-2 text-slate-400">
-                    <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-                    <span className="line-through">Interactive Wireline Log Viewer (Pro only)</span>
+                  <li className="flex items-start gap-2 text-wellqc-text">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>Interactive Multi-Track Wireline Log Viewer</span>
                   </li>
                   <li className="flex items-start gap-2 text-slate-400">
                     <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />

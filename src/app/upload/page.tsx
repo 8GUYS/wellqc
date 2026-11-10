@@ -772,12 +772,6 @@ export default function LASUploadPage() {
                 >
                   <Layers className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Wireline Log Viewer</span>
-                  {isFreeTier && (
-                    <span className="flex items-center space-x-1 px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-bold">
-                      <Lock className="w-2.5 h-2.5 text-amber-400" />
-                      <span>PRO</span>
-                    </span>
-                  )}
                 </button>
                 <button
                   type="button"
@@ -831,73 +825,15 @@ export default function LASUploadPage() {
 
               {activeTab === "viewer" && parsedLAS && (
                 <div className="p-4">
-                  {isFreeTier ? (
-                    <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-950/20 via-slate-900/60 to-slate-950/80 p-8 text-center space-y-5">
-                      <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/10">
-                        <Lock className="w-6 h-6" />
-                      </div>
-                      <div className="space-y-2 max-w-xl mx-auto">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider">
-                          <Sparkles className="w-3 h-3" />
-                          <span>WellQC Pro Tier Feature</span>
-                        </div>
-                        <h3 className="text-xl font-black text-white font-mono">
-                          Wireline Log Viewer is Locked
-                        </h3>
-                        <p className="text-xs text-slate-400 font-mono leading-relaxed">
-                          Upgrade to WellQC Pro to unlock deep multi-track wireline rendering, logarithmic resistivity overlays, real-time depth tracking, and anomaly highlights for <span className="text-white font-semibold">{parsedLAS.wellInfo.wellName || fileName}</span>.
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto text-left">
-                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
-                          <div className="text-cyan-400 font-mono text-xs font-bold flex items-center gap-1.5">
-                            <Layers className="w-3.5 h-3.5" />
-                            <span>3-Track Composite</span>
-                          </div>
-                          <p className="text-[11px] text-slate-400 font-mono">
-                            Lithology (GR/SP), Resistivity (ILD/MSFL), and Porosity (NPHI/RHOB/DT) tracks.
-                          </p>
-                        </div>
-                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
-                          <div className="text-amber-400 font-mono text-xs font-bold flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>Anomaly Banding</span>
-                          </div>
-                          <p className="text-[11px] text-slate-400 font-mono">
-                            Visual depth intervals for sensor flatlines, extreme spikes, and cycle skips.
-                          </p>
-                        </div>
-                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
-                          <div className="text-purple-400 font-mono text-xs font-bold flex items-center gap-1.5">
-                            <Download className="w-3.5 h-3.5" />
-                            <span>High-Res Export</span>
-                          </div>
-                          <p className="text-[11px] text-slate-400 font-mono">
-                            Export depth-indexed CSV points tables and print NUPRC-compliant certificates.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setUpgradeModalOpen(true)}
-                          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs font-mono shadow-lg shadow-cyan-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2"
-                        >
-                          <Sparkles className="w-4 h-4 text-slate-950" />
-                          <span>Upgrade to WellQC Pro (₦75,000 / $49)</span>
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <WellLogViewer
-                      wellName={`${parsedLAS.wellInfo.wellName || fileName} (Original Untouched Raw)`}
-                      depthUnit={parsedLAS.wellInfo.depthUnit || "FT"}
-                      startDepth={parsedLAS.wellInfo.startDepth}
-                      stopDepth={parsedLAS.wellInfo.stopDepth}
-                      curvesData={parsedLAS.data}
-                      anomalies={qaResult?.anomalies || []}
-                    />
-                  )}
+                  <WellLogViewer
+                    wellName={`${parsedLAS.wellInfo.wellName || fileName} (Original Untouched Raw)`}
+                    depthUnit={parsedLAS.wellInfo.depthUnit || "FT"}
+                    startDepth={parsedLAS.wellInfo.startDepth}
+                    stopDepth={parsedLAS.wellInfo.stopDepth}
+                    curvesData={parsedLAS.data}
+                    anomalies={qaResult?.anomalies || []}
+                    onUpgradeRequest={() => setUpgradeModalOpen(true)}
+                  />
                 </div>
               )}
 

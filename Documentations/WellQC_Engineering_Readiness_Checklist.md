@@ -90,7 +90,7 @@
 
 ### 💳 Freemium / Feature Gate
 - [x] Free tier hard cap: 3 LAS file uploads per account (enforced via `freeChecksUsed` counter and LAS ownership query)
-- [x] Wireline Log Viewer gated behind PRO tier for Free users (both in `/upload` and `/wells/[id]` dossier)
+- [x] Wireline Log Viewer accessible to all tiers (including Free tier users) across `/upload` and `/wells/[id]` dossier
 - [x] Quality Anomalies detailed diagnostics gated behind PRO tier for Free users (locked paywall card with upgrade CTA)
 - [x] Admin-only well asset deletion governance: standard users cannot delete well assets, eliminating quota evasion and protecting NUPRC compliance
 - [x] File cleaning / auto-fix endpoint gated behind PRO tier

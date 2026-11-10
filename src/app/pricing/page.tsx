@@ -235,6 +235,10 @@ function PricingContent() {
                 </li>
                 <li className="flex items-center space-x-2">
                   <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Interactive Multi-Track Wireline Log Viewer</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>Installable PWA (Offline Rig Mode for All)</span>
                 </li>
                 <li className="flex items-center space-x-2 text-slate-500">

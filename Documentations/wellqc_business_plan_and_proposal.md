@@ -22,22 +22,20 @@ WellQC eliminates this risk by delivering an automated, AI-driven quality assura
 
 ### The "Diagnosis is Free; Remediation is Monetized" Funnel
 WellQC employs an ultra-high-converting **Product-Led Growth (PLG)** revenue model:
-* **Free Discovery Tier (Up to 3 LAS Files):** New users can upload and audit up to **3 LAS files completely free**. They gain visibility into the well's headline health metrics: overall composite quality score (0–100), health grading (*Excellent*, *Good*, *Poor*, *Critical*), curve inventory (~CURVE count & null percentages), and raw LAS syntax checks.
-* **Feature Gating on Free Tier:** To drive conversion, the platform strictly gates high-value engineering workflows behind WellQC Pro:
-  1. **Interactive Wireline Log Viewer:** Locked on both the `/upload` workspace and `/wells/[id]` dossier page with a Pro paywall card.
-  2. **Detailed Quality Anomalies Diagnostics:** Specific anomaly descriptions, depth boundaries, severity scores, and remediation recipes are locked.
-  3. **QA Engine Repair Studio:** Automated despiking, physical limit boundary clamping, duplicate depth resolution, and KNN/Spline ML null imputation are locked.
-  4. **Multi-Well Stratigraphic Comparison:** Offset cross-correlation, dynamic lag depth shifts, and Niger Delta reservoir continuity verification are locked.
-  5. **Certified Exports & Reports:** Production-ready LAS 2.0 file downloads, CSV data tables, JSON audit trails, and official NUPRC Form WQC-08-A digital certificates require Pro activation.
-* **The Pro Upgrade Trigger:** When a user navigates to the Wireline Log Viewer, Quality Anomalies tab, QA Engine, or Multi-Well Comparison, the platform presents the **Paystack Pro Payment Modal** (₦75,000 / $49 per month or ₦750,000 / $490 per year).
+* **Free Discovery Tier (Up to 3 LAS Files):** New users can upload and audit up to **3 LAS files completely free**. They gain visibility into the well's headline health metrics: overall composite quality score (0–100), health grading (*Excellent*, *Good*, *Poor*, *Critical*), curve inventory (~CURVE count & null percentages), raw LAS syntax checks, and **full access to the Interactive Multi-Track Wireline Log Viewer & Telemetry HUD**.
+* **Feature Gating on Free Tier:** To drive conversion, the platform strictly gates high-value remediation workflows behind WellQC Pro:
+  1. **Detailed Quality Anomalies Diagnostics:** Specific anomaly descriptions, depth boundaries, severity scores, and automated remediation recipes are locked.
+  2. **QA Engine Repair Studio:** Automated despiking, physical limit boundary clamping, duplicate depth resolution, and KNN/Spline ML null imputation are locked.
+  3. **Multi-Well Stratigraphic Comparison:** Offset cross-correlation, dynamic lag depth shifts, and Niger Delta reservoir continuity verification are locked.
+  4. **Certified Exports & Reports:** Production-ready LAS 2.0 file downloads, CSV data tables, JSON audit trails, and official NUPRC Form WQC-08-A digital certificates require Pro activation.
+* **The Pro Upgrade Trigger:** When a user navigates to the Quality Anomalies remediation tab, QA Engine, Multi-Well Comparison, or attempts file exports, the platform presents the **Paystack Pro Payment Modal** (₦75,000 / $49 per month or ₦750,000 / $490 per year).
 
 ```mermaid
 graph TD
     A[User Ingests LAS Log - Up to 3 Free Files] --> B[Automated Syntax & Header Validation]
-    B --> C[0-100 Quality Score & Curve Inventory]
+    B --> C[0-100 Quality Score, Curve Inventory & Wireline Viewer]
     C --> D{User Accesses Gated Workflows?}
-    D -->|Wireline Log Viewer| E[Pro Paywall Gatekeeper]
-    D -->|Quality Anomalies Catalog| E
+    D -->|Quality Anomalies Catalog & Recipes| E[Pro Paywall Gatekeeper]
     D -->|QA Engine Automated Repairs| E
     D -->|Multi-Well Comparison| E
     D -->|LAS / CSV / NUPRC Exports| E
@@ -161,7 +159,7 @@ pie title Projected Revenue Contribution (Year 2)
 
 | Tier | Target Customer | Pricing (NGN) | Pricing (USD) | Key Entitlements & Paywall Boundary |
 |---|---|---|---|---|
-| **Free Discovery Tier** | Students, independent consultants, rig interns evaluating well data | **₦0** (Free) | **$0** (Free) | **Up to 3 free LAS files.** Automated parsing, 0–100 QA score, curve inventory, raw header verification, and **Universal Installable PWA Workstation (Offline Rig Mode for all users)**. **Gated Paywall Boundary:** Wireline Log Viewer, Quality Anomalies details, QA Engine automated repair, Multi-Well comparison, and certified exports require WellQC Pro. |
+| **Free Discovery Tier** | Students, independent consultants, rig interns evaluating well data | **₦0** (Free) | **$0** (Free) | **Up to 3 free LAS files.** Automated parsing, 0–100 QA score, curve inventory, raw header verification, **Interactive Multi-Track Wireline Log Viewer & Telemetry HUD**, and **Universal Installable PWA Workstation (Offline Rig Mode for all users)**. **Gated Paywall Boundary:** Quality Anomalies details & remediation recipes, QA Engine automated repair, Multi-Well comparison, and certified exports require WellQC Pro. |
 | **Pro Monthly** | Active freelance petrophysicists, small consultancies | **₦75,000** / month | **$49** / month | **Complete Subsurface Studio Unlocked.** Unlimited LAS uploads, full multi-track wireline log viewer, detailed anomaly diagnostics, automated QA repairs (despiking, clamping, duplicate depth resolution, KNN/Spline null imputation), standardisation dictionary, closed-loop QA database persistence, multi-well correlation, and uncapped CSV/LAS/NUPRC Form WQC-08-A exports. |
 | **Pro Annual** | Mid-size consultancies, dedicated G&G teams | **₦750,000** / year *(2 months free)* | **$490** / year | All Pro features + priority ML imputation benchmarks, batch queue processing, offline PWA rig mode, cleaned LAS export downloads, priority email support. |
 | **Enterprise Asset License** | Independent E&P Operators, Marginal Field Holders | **₦18,000,000 – ₦36,000,000** / year | **$15,000 – $30,000** / year | Up to 25 seats, unlimited well log assets, Multi-Well Stratigraphic Correlation Engine, NUPRC Digital Signature suite, custom API keys, webhooks, dedicated account manager. |
@@ -169,16 +167,15 @@ pie title Projected Revenue Contribution (Year 2)
 
 ### 5.2 The Pro Paywall Conversion Mechanics
 1. **Zero-Friction Ingestion:** User drags in up to 3 LAS well logs on the `/upload` workspace without submitting payment details. Once ingested, well assets cannot be deleted by standard users (only system administrators retain deletion authority), preventing quota evasion through deletion/re-upload cycles while preserving immutable subsurface compliance records.
-2. **Transparent Health Discovery:** The platform calculates the composite Well Quality Score (e.g. 52/100, POOR), displays curve summaries, and indicates the presence of critical anomalies.
+2. **Transparent Health Discovery:** The platform calculates the composite Well Quality Score (e.g. 52/100, POOR), displays curve summaries, renders the interactive wireline log curves with real-time telemetry, and indicates the presence of critical anomalies.
 3. **The Gated Experience:** When the petrophysicist attempts to:
-   * View the interactive wireline log curves,
-   * Inspect detailed quality anomalies and depth ranges,
+   * Inspect detailed quality anomalies and specific depth ranges,
    * Launch automated cleaning in the QA Engine,
    * Run multi-well correlation comparisons, or
    * Export cleaned LAS files / NUPRC certificates,
    the application presents the **Paystack Pro Payment Modal**:
    * *Headline:* "Unlock WellQC Pro Subsurface Studio"
-   * *Value Proposition:* "Access deep multi-track wireline visualization, detailed anomaly diagnostics, automated despiking, KNN/Spline null imputation, and official NUPRC compliance certificates."
+   * *Value Proposition:* "Access detailed anomaly remediation recipes, automated despiking, KNN/Spline null imputation, multi-well correlation, and official NUPRC compliance certificates."
    * *Plan Options:* ₦75,000/mo ($49/mo) or ₦750,000/yr ($490/yr).
    * *Payment Rails:* Instant automated checkout via Debit Cards, Bank Transfer, USSD, and Mobile Money.
 4. **Immediate Fulfillment:** Upon successful transaction verification via Paystack webhook, `User.tier` transitions to `PRO`, immediately granting full access across all platform workspaces.
@@ -224,10 +221,10 @@ pie title Projected Revenue Contribution (Year 2)
 ```mermaid
 flowchart TD
     GTM1[Product-Led Growth PLG] --> C1[Free Discovery Tier: Up to 3 Free Files Audit]
-    C1 --> C2[Discovers Quality Score & Flagged Anomalies]
-    C2 --> C3[Attempts to Access Wireline Viewer, Anomalies, or QA Engine]
+    C1 --> C2[Discovers Quality Score, Curves & Wireline Log]
+    C2 --> C3[Attempts to Access Quality Anomalies Details, QA Engine or Exports]
     C3 --> C4[Prompted to Pay via Paystack ₦75,000 / $49]
-    C4 --> C5[Unlocks Full Wireline Viewer, QA Repair & Certified Exports]
+    C4 --> C5[Unlocks Full QA Repair, Anomaly Recipes & Certified Exports]
     
     GTM2[Direct Enterprise Sales] --> D1[Outreach to E&P Asset Managers & Chief Petrophysicists]
     D1 --> D2[Complimentary 10-Well Fleet Audit]

@@ -81,3 +81,124 @@ class AnomalyType(str, Enum):
     CYCLE_SKIP = "CYCLE_SKIP"
     FLATLINE = "FLATLINE"
     MISSING_CORE_CURVE = "MISSING_CORE_CURVE"
+
+
+# ─── Payment & Billing Enums ──────────────────────────────────────────────────
+
+class PaymentStatus(str, Enum):
+    """Paystack transaction settlement status."""
+    PENDING = "PENDING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    ABANDONED = "ABANDONED"
+
+TransactionStatus = PaymentStatus
+
+
+class PaymentChannel(str, Enum):
+    """Payment channels supported by Paystack."""
+    CARD = "card"
+    BANK_TRANSFER = "bank_transfer"
+    USSD = "ussd"
+    MOBILE_MONEY = "mobile_money"
+    QR = "qr"
+    EFT = "eft"
+
+
+class BillingInterval(str, Enum):
+    """Subscription billing cadence."""
+    MONTHLY = "monthly"
+    ANNUALLY = "annually"
+    ONE_TIME = "one-time"
+
+
+# ─── File & Asset Operational Statuses ────────────────────────────────────────
+
+class LASFileStatus(str, Enum):
+    """LAS file parsing and persistence lifecycle status."""
+    PENDING = "PENDING"
+    PROCESSED = "PROCESSED"
+    FAILED = "FAILED"
+    COMMITTED = "COMMITTED"
+
+
+class UploadStatus(str, Enum):
+    """Frontend upload workspace queue status."""
+    READY = "ready"
+    SAVING = "saving"
+    SAVED = "saved"
+    ERROR = "error"
+    PROCESSING = "processing"
+    PENDING = "pending"
+
+
+class CurveStatus(str, Enum):
+    """Individual curve channel integrity status."""
+    VALID = "VALID"
+    WARNING = "WARNING"
+    CORRUPTED = "CORRUPTED"
+    FLAGGED = "FLAGGED"
+
+
+class AnomalyStatus(str, Enum):
+    """Log anomaly resolution state."""
+    OPEN = "OPEN"
+    RESOLVED = "RESOLVED"
+    IGNORED = "IGNORED"
+    REVIEWED = "REVIEWED"
+
+
+# ─── Stratigraphy & Multi-Well Comparison Enums ───────────────────────────────
+
+class FormationMarkerSource(str, Enum):
+    """Provenance and source methodology for formation tops."""
+    INTERPRETER = "INTERPRETER"
+    BIOSTRATIGRAPHY = "BIOSTRATIGRAPHY"
+    CORE = "CORE"
+    SEISMIC = "SEISMIC"
+    ESTIMATED = "ESTIMATED"
+    VERIFIED = "VERIFIED"
+
+
+class StratigraphicContinuity(str, Enum):
+    """Pairwise curve cross-correlation continuity grade."""
+    HIGH = "HIGH"
+    MODERATE = "MODERATE"
+    LOW = "LOW"
+    DISCONTINUOUS = "DISCONTINUOUS"
+
+
+class ComparisonMatchGrade(str, Enum):
+    """Overall multi-well stratigraphic alignment grade."""
+    EXCELLENT_MATCH = "EXCELLENT_MATCH"
+    GOOD_MATCH = "GOOD_MATCH"
+    MODERATE_MATCH = "MODERATE_MATCH"
+    POOR_MATCH = "POOR_MATCH"
+
+
+class CurveAvailability(str, Enum):
+    """Curve presence classification across comparison pairs."""
+    BOTH = "BOTH"
+    WELL_A_ONLY = "WELL_A_ONLY"
+    WELL_B_ONLY = "WELL_B_ONLY"
+
+
+# ─── Governance & Audit Action Enums ──────────────────────────────────────────
+
+class ActivityAction(str, Enum):
+    """Audit trail activity action tags."""
+    LOGIN = "LOGIN"
+    LOGOUT = "LOGOUT"
+    REGISTER = "REGISTER"
+    UPLOAD_LAS = "UPLOAD_LAS"
+    COMMIT_WELL = "COMMIT_WELL"
+    EXPORT_LAS = "EXPORT_LAS"
+    EXPORT_CSV = "EXPORT_CSV"
+    EXPORT_PDF = "EXPORT_PDF"
+    QA_REPAIR = "QA_REPAIR"
+    STANDARDISE = "STANDARDISE"
+    PAYMENT_INITIALIZE = "PAYMENT_INITIALIZE"
+    PAYMENT_SUCCESS = "PAYMENT_SUCCESS"
+    ADMIN_VERIFY_EMAIL = "ADMIN_VERIFY_EMAIL"
+    ADMIN_UPDATE_USER = "ADMIN_UPDATE_USER"
+    ADMIN_DELETE_USER = "ADMIN_DELETE_USER"

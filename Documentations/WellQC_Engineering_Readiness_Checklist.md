@@ -89,16 +89,14 @@
 - [x] Database stores only the R2 object key, not the file bytes
 
 ### 💳 Freemium / Feature Gate
-- [ ] Free tier hard cap: 2 LAS file uploads per account (uses existing `freeChecksUsed` counter)
-- [ ] Free tier anomaly view: only first N anomalies shown per file (rest locked server-side) — awaiting team threshold decision
-- [ ] Server-side truncation: anomaly list capped before response leaves backend (not client-side blur)
-- [ ] Response shape for FREE users: `anomalies` array contains first N only, plus `anomaliesLocked` and `totalAnomalyCount` fields
-- [ ] Full anomaly list unlocked for PRO users (tier check on every QA response)
-- [ ] File cleaning / auto-fix endpoint gated behind PRO tier
-- [ ] Report download (PDF/JSON) gated behind PRO tier
-- [ ] Curve visualisation remains fully free (no gate)
-- [ ] Paywall UI: locked anomalies shown as blurred/locked rows with upgrade CTA
-- [ ] Upgrade flow tested end-to-end: free → Paystack → PRO tier unlocked
+- [x] Free tier hard cap: 3 LAS file uploads per account (enforced via `freeChecksUsed` counter and LAS ownership query)
+- [x] Wireline Log Viewer gated behind PRO tier for Free users (both in `/upload` and `/wells/[id]` dossier)
+- [x] Quality Anomalies detailed diagnostics gated behind PRO tier for Free users (locked paywall card with upgrade CTA)
+- [x] Admin-only well asset deletion governance: standard users cannot delete well assets, eliminating quota evasion and protecting NUPRC compliance
+- [x] File cleaning / auto-fix endpoint gated behind PRO tier
+- [x] Certified report and export downloads (PDF/JSON/Cleaned LAS) gated behind PRO tier
+- [x] Paywall UI: locked workstation components display Pro badges and trigger `<PaystackUpgradeModal />`
+- [x] Upgrade flow tested end-to-end: free → Paystack checkout (NGN/USD with automatic sandbox fallback) → PRO tier unlocked
 
 ---
 

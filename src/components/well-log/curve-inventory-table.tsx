@@ -3,18 +3,22 @@
 import React, { useState } from "react";
 import { CurveHealthSummary } from "@/lib/las/quality-engine";
 import { ParsedLAS } from "@/lib/las/parser";
-import { CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight, Lock } from "lucide-react";
 
 interface CurveInventoryTableProps {
   curveSummaries: CurveHealthSummary[];
   parsedLAS?: ParsedLAS | null;
   onSelectCurveForTrack?: (mnemonic: string, track: 1 | 2 | 3) => void;
+  isFreeTier?: boolean;
+  onUpgradeRequest?: () => void;
 }
 
 export function CurveInventoryTable({
   curveSummaries,
   parsedLAS,
   onSelectCurveForTrack,
+  isFreeTier = false,
+  onUpgradeRequest,
 }: CurveInventoryTableProps) {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
@@ -137,28 +141,48 @@ export function CurveInventoryTable({
                 {isExpanded && hasAnomalies && (
                   <tr className="bg-wellqc-dark/50">
                     <td colSpan={onSelectCurveForTrack ? 9 : 8} className="p-3 pl-10">
-                      <div className="space-y-1.5 border-l-2 border-amber-500/50 pl-3">
-                        <div className="text-[11px] font-bold text-amber-300 uppercase">
-                          Petrophysical Anomalies Flagged on {curve.mnemonic}:
-                        </div>
-                        {curve.anomalies.map((anom, idx) => (
-                          <div
-                            key={`${curve.mnemonic}-anom-${idx}`}
-                            className="text-xs text-slate-300 flex items-start gap-2"
-                          >
-                            <span className="text-amber-400 font-bold">•</span>
+                      {isFreeTier ? (
+                        <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between flex-wrap gap-3">
+                          <div className="flex items-center space-x-2.5 text-xs text-amber-300">
+                            <Lock className="w-4 h-4 text-amber-400 shrink-0" />
                             <span>
-                              <strong className="text-white">[{anom.anomalyType.replace(/_/g, " ")}]</strong>{" "}
-                              {anom.description}
-                              {anom.suggestedCorrection && (
-                                <span className="text-cyan-300 block text-[11px]">
-                                  Remediation: {anom.suggestedCorrection}
-                                </span>
-                              )}
+                              Detailed anomaly diagnoses &amp; automated remediation recipes for <strong>{curve.mnemonic}</strong> require WellQC Pro.
                             </span>
                           </div>
-                        ))}
-                      </div>
+                          {onUpgradeRequest && (
+                            <button
+                              type="button"
+                              onClick={onUpgradeRequest}
+                              className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs font-mono transition-colors shadow-sm"
+                            >
+                              Upgrade to Unlock
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 border-l-2 border-amber-500/50 pl-3">
+                          <div className="text-[11px] font-bold text-amber-300 uppercase">
+                            Petrophysical Anomalies Flagged on {curve.mnemonic}:
+                          </div>
+                          {curve.anomalies.map((anom, idx) => (
+                            <div
+                              key={`${curve.mnemonic}-anom-${idx}`}
+                              className="text-xs text-slate-300 flex items-start gap-2"
+                            >
+                              <span className="text-amber-400 font-bold">•</span>
+                              <span>
+                                <strong className="text-white">[{anom.anomalyType.replace(/_/g, " ")}]</strong>{" "}
+                                {anom.description}
+                                {anom.suggestedCorrection && (
+                                  <span className="text-cyan-300 block text-[11px]">
+                                    Remediation: {anom.suggestedCorrection}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 )}

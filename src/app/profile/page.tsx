@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import {
   User,
@@ -17,6 +18,8 @@ import {
   UploadCloud,
   Camera,
   Trash2,
+  CreditCard,
+  Sparkles,
 } from "lucide-react";
 
 interface UserProfileData {
@@ -595,6 +598,37 @@ export default function UserProfilePage() {
                     <span className="font-mono font-bold text-emerald-400">ACTIVE</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Paystack Billing & Subscription Card */}
+              <div className="bg-wellqc-card border border-wellqc-border rounded-2xl p-5 shadow-xl space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center space-x-2">
+                    <CreditCard className="w-4 h-4 text-cyan-400" />
+                    <span>Paystack Subscription</span>
+                  </h3>
+                  <span className={`px-2 py-0.5 rounded-full font-mono text-[9px] font-bold ${
+                    (profile?.tier || "FREE") === "FREE"
+                      ? "bg-slate-800 text-slate-300 border border-slate-700"
+                      : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                  }`}>
+                    {profile?.tier || "FREE"}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                  {(profile?.tier || "FREE") === "FREE"
+                    ? "You are on the Free Starter tier. Upgrade to WellQC Pro for unlimited petrophysical anomaly repairs and NUPRC certificates."
+                    : "You are on the Professional tier with unlimited file repair, NUPRC certificates, and offset well correlation."}
+                </p>
+
+                <Link
+                  href="/pricing"
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-mono font-bold text-xs flex items-center justify-center space-x-1.5 transition-all shadow-md active:scale-95"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+                  <span>{(profile?.tier || "FREE") === "FREE" ? "Upgrade to Pro" : "Change Subscription Plan"}</span>
+                </Link>
               </div>
             </div>
           </div>

@@ -56,7 +56,7 @@ WellQC is a full-stack cloud platform that automatically validates, cleans, stan
 - **Direct Post-Auth Focus**: User login, registration, and email verification immediately route directly to the Data Upload workstation (`/upload`).
 - **Zero-Click Database Auto-Save**: Files dropped or selected into the ingestion dropzone are automatically parsed, validated, and saved to the multi-tenant database without requiring manual button clicks.
 - **Universal Tour Guide Header Trigger**: Replaced static status pills with a permanent top header Tour Guide button that launches an interactive guided onboarding tour from any page.
-- **Dynamic Audit Certificates & Cleaned LAS Exports**: The Audit Reports suite (`/reports`) binds live previews, cryptographic seals, and certified LAS 2.0 downloads directly to whichever file is selected in the batch queue or database table.
+- **Dynamic Audit Certificates & Cleaned LAS Exports**: The Reports suite (`/reports`) binds live previews, cryptographic seals, and certified LAS 2.0 downloads directly to whichever file is selected in the batch queue or database table.
 - **Responsive Workspace Palette**: Integrated a compact theme switcher icon in the sidebar footer profile card with responsive, viewport-aware popover positioning.
 
 ### 🧭 Interactive Dashboard Onboarding Tour
@@ -78,44 +78,32 @@ WellQC is a full-stack cloud platform that automatically validates, cleans, stan
 - Full **Paystack-powered subscription gateway** supporting:
   - 🇳🇬 **Nigerian Naira (₦ NGN)** via Cards (Verve, Mastercard, Visa), Direct Bank Transfer, USSD & Mobile Money
   - 🌍 **US Dollars ($ USD)** for international users
-- **Freemium Tier Model**: 2 free LAS quality checks before upgrade prompt
+- **Freemium Tier Model**: 3 free LAS quality checks before upgrade prompt
 - **Pro Monthly Plan**: ₦75,000/month ($49/month)
 - **Pro Annual Plan**: ₦750,000/year ($490/year — 2 months free)
-- Payment Modal using React `createPortal` with `z-[99999]` correctly floating above all page layers
-- Public Pricing & Plans portal at `/pricing`
-- Paystack webhook listener with HMAC-SHA512 signature validation
-- Automatic PRO tier activation on verified payment
-
-### 📱 Progressive Web App (PWA) & Offline-First Rig Mobility
-- **Offline Service Worker (`sw.js`)**: Intelligent cache-first strategy for static assets and scripts, network-first with automatic offline cache fallback for application navigation routes, and transparent bypass for live `/api/` mutations.
-- **Web App Manifest (`manifest.json` & `manifest.ts`)**: Configures standalone display mode, orientation locking, branded high-DPI icons (`192x192`, `512x512`), theme background tokens, and quick-launch shortcuts (`/dashboard`, `/upload`, `/wells`).
-- **Dedicated Offline Experience (`/offline`)**: Custom subsurface offline screen providing real-time network reconnect telemetry and cached well indicators.
-- **Native 1-Click Install Banner (`pwa-client.tsx`)**: Responsive, non-intrusive install banner hooking into browser `beforeinstallprompt` events with automated local storage state dismissal.
-- **iOS & Desktop App-Like Experience**: Full support for iOS Safari home screen (`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style: black-translucent`) and cross-platform desktop PWA installation on Chrome, Edge, and macOS Safari.
-
-### 🎨 Apple SF Pro Typography & Radiant Theme Studio
-- **Apple San Francisco Typography**: Native offline typography powered by Apple SF Pro Display webfonts (`SFPRODISPLAYREGULAR`, `SFPRODISPLAYMEDIUM`, `SFPRODISPLAYBOLD`), featuring optical kerning, tabular figures, and calibrated letter spacing (`-0.015em` body, `-0.024em` headings).
-- **Curated Theme Presets**:
-  - **Subsurface Dark**: High-contrast petroleum engineering dark theme.
-  - **Apple Studio Light**: Creamy tactile background (`#fcfbfa` / `#f6f4ee`) with high-elevation card shadows and crisp typography.
-  - **Radiant Gradient Presets**: `Aurora Borealis`, `Sunset Horizon`, `Deep Ocean Trench`, `Cyberpunk Terminal`, and `Emerald Energy`.
-- **Interactive Theme Customizer Studio**: In-app floating design studio allowing engineers to construct custom CSS linear gradients, dial in angle rotations (0°–360°), adjust card/panel surface opacity, configure accent glow radiance, and persist preferences to `localStorage`.
-- **Dynamic Hardware Showcase**: Hero section featuring an interactive, auto-advancing hardware slideshow demonstrating live multi-theme captures of the Petrophysical QA Engine, Imputation Benchmark, Command Telemetry, and Parser across Dark and Light modes.
+- **Zero-Key Mock Sandbox Fallback**: Automatic mock checkout simulation during local testing and MVP demonstrations when live Paystack secret keys are not configured.
+- **Context-Preserving Checkout Return Flow**: Preserves `targetWellId` throughout the payment journey; the verification card dynamically fetches well metadata and personalizes the return CTA (e.g. `Proceed to Repair "Well-Name" →`), routing directly into the QA Engine with that borehole focused.
+- **User Transaction & Receipt History**: Real-time billing history table on `/pricing` displaying settlement dates, currency amounts, transaction references, and current plan status.
+- **Pro Feature Gating & Comprehensive Export Protection**: Upfront visual `PRO` lock badges and inline upgrade triggers across the Upload table (`/upload`), Well Assets (`/wells`), Dossier (`/wells/[id]`), QA Engine (`/qa-engine`), Well Comparison (`/comparison`), and Log Data Tables. Free tier users are strictly gated from all file exports (Cleaned LAS, Cleaned CSV, Correlation matrices) and NUPRC PDF compliance certificate downloads.
+- Payment Modal using React `createPortal` with `z-[99999]` correctly floating above all page layers.
+- Public Pricing & Plans portal at `/pricing`.
+- Paystack webhook listener with HMAC-SHA512 signature validation.
+- Automatic PRO tier activation on verified payment.
 
 ### 🏢 Enterprise Platform Modules
 | Module | Description |
 |---|---|
 | **Command Dashboard** | 8 KPI telemetry cards, 7-day rolling quality trend, field performance breakdown, interactive onboarding tour guide, payment success banners |
-| **Well Management** | Full CRUD asset management with coordinates, curve inventory & quality history |
-| **LAS Upload Workspace** | Drag-and-drop uploader with real-time parsing, pre-check QA scoring, instant analysis tabs (Curve Health, Wireline Viewer, Anomalies, Headers) directly below quality score, and database upload |
-| **Curve Standardisation Dictionary** | Alias mapping dictionary & manual override controls with persistent custom aliases |
-| **QA Rule Engine Inspector** | Threshold tuning, live batch evaluation & stakeholder alignment mode |
-| **Basin Analytics** | Operator comparison charts, error frequency & anomaly distribution |
-| **Well Comparison** | Side-by-side log curve comparison across wells |
-| **Reports & Downloads** | PDF executive certificates, Excel workbooks, CSV audit logs & cleaned LAS exports |
-| **Activity & Audit Trail** | Immutable action log for compliance |
-| **Admin Panel** | RBAC role simulator, API tokens & webhook dispatch configuration |
-| **Pricing & Plans** | Paystack-integrated subscription portal with NGN/USD toggle and billing cycle toggle |
+| **Well Assets Registry (`/wells`)** | Fleet-wide asset management with real-time search, quality grade filtering (EXCELLENT, GOOD, FAIR, POOR), single and bulk deletion with modal confirmation, and deep dossier links (`/wells/[id]`) with multi-curve visualization and cross-module shortcuts ("Standardise Curves", "Compare Well", "Fix in QA Engine") |
+| **Well Dossier (`/wells/[id]`)** | Single-well command dossier featuring interactive multi-track log inspection, AI petrophysical health summary, anomaly lists, and direct launch actions |
+| **LAS Upload Workspace (`/upload`)** | Drag-and-drop uploader with real-time parsing, pre-check QA scoring, instant analysis tabs (Curve Health, Wireline Viewer, Anomalies, Headers), and automated database persistence |
+| **Closed-Loop QA Engine (`/qa-engine`)** | Anomaly remediation with single/multi-curve/auto repair algorithms, before/after curve comparisons, and 1-click **"Upload Cleaned Log to Database"** writing calibrated curves directly into the database as updated asset versions |
+| **Curve Standardisation Dictionary (`/standardisation`)** | Alias mapping dictionary & manual override controls with persistent custom aliases and cross-well routing |
+| **Stratigraphic Well Comparison (`/comparison`)** | Side-by-side log curve comparison across wells with URL-based Offset A/B pre-selection |
+| **Audit Certificates & Reports (`/reports`)** | Dual-document export suite: NUPRC Form WQC-08-A certificates, SHA-256 cryptographic verification seals, and multi-well batch ZIP bundles. Cleaned LAS 2.0 exports are strictly gated behind Pro tier licenses |
+| **Admin Operations Console (`/admin`)** | Enterprise user management, user detail inspector, password resets, 1-click backend email verification, system health statistics, activity logs, and custom mnemonic aliases |
+| **Enterprise Licensing & Billing (`/pricing`)** | Paystack-integrated billing hub with NGN/USD toggle, monthly/annual billing cycle selector, transaction history receipts, and context-preserving return redirects |
+| **Activity & Audit Trail (`/activity`)** | Immutable action log for compliance and data governance |
 
 ---
 
@@ -358,7 +346,7 @@ Key schema highlights:
 
 | Plan | Price (NGN) | Price (USD) | Features |
 |---|---|---|---|
-| **Starter Free** | ₦0 | $0 | 2 LAS quality checks, basic anomaly detection |
+| **Starter Free** | ₦0 | $0 | 3 LAS quality checks, basic anomaly detection |
 | **Pro Monthly** | ₦75,000 / mo | $49 / mo | Unlimited checks, KNN imputation, PDF certificates, all modules |
 | **Pro Annual** | ₦750,000 / yr | $490 / yr | All Pro features, 2 months free (17% saving) |
 
@@ -414,7 +402,8 @@ Payment channels supported: **Verve, Mastercard, Visa**, **Bank Transfer**, **US
 ## 🔐 Security Model
 
 - **Multi-Tenant Isolation**: Every API query enforces `where: { ownerId: user.id }`. Cross-tenant URL access returns `404 Not Found`.
-- **Freemium Gate**: `FREE` tier users are blocked at `POST /api/las` after 2 checks, returning `402 Payment Required`.
+- **Freemium Gate**: `FREE` tier users are blocked at `POST /api/las` after 3 checks, returning `403 Forbidden`.
+- **Admin-Only Well Deletion**: Well assets cannot be deleted by standard users after upload (`DELETE /api/wells/{id}` and `/api/wells/bulk-delete` strictly require `ADMIN` role). This prevents quota evasion (uploading, deleting, re-uploading) and protects compliance audit trails.
 - **httpOnly Session Cookies**: 7-day expiry, HTTPS-only in production.
 - **Paystack Webhook HMAC**: All incoming Paystack webhooks are verified using `HMAC-SHA512` before any data mutation.
 

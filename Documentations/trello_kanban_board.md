@@ -120,8 +120,13 @@ In Trello, create a list, click **+ Add a card**, paste the block, press **Enter
 [SE1] [Milestone] Milestone: Multi-Well Platform, Dynamic Workstation & Core Feature Complete (✅)
 ```
 
-### 📋 List: `Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale`
+### 📋 List: `Sprint 8: Commercial Licensing, Asset Governance & Production Deployment`
 ```text
+[SE2] [Monetization] Paystack Multi-Channel Payment Gateway & Subscription Portal (SE2) (✅)
+[SE2] [Frontend] Freemium 3-LAS File Ingestion Hard Cap & Dropzone Lock UI (SE2) (✅)
+[SE1] [Security] Admin-Only Well Asset Deletion Governance & Quota Protection (SE1, CE2) (✅)
+[SE2] [Frontend] Pro Feature Gating on Wireline Log Viewer & Quality Anomalies (SE2) (✅)
+[CE1] [Frontend] Universal Offline Progressive Web App (PWA) Workstation (CE1, SE2) (✅)
 [CE1] [DevOps & Cloud] Multi-Region Cloud Deployment & Kubernetes Orchestration (CE1) (⏳ Upcoming)
 [DA4] [Compliance] Live NUPRC Operator Pilot Program & Formal Submission Validation (DA4, SE2) (⏳ Upcoming)
 [SE1] [Backend] Real-Time Wellsite Telemetry Streaming Ingestion (WITSML / OPC-UA) (SE1, CE2) (⏳ Upcoming)
@@ -131,7 +136,7 @@ In Trello, create a list, click **+ Add a card**, paste the block, press **Enter
 [CE2] [Backend] Outbound Webhook Cloud Storage Automated Sync Dispatcher (CE2) (⏳ Upcoming)
 [DA3] [Compliance] Curated In-App Demonstration Well Package for Operator Pilot (DA3) (⏳ Upcoming)
 [CE2] [Security] Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Logs (CE2, SE2) (⏳ Upcoming)
-[SE1] [Milestone] Milestone: Production Release & NUPRC Pilot Sign-off (All) (⏳ Upcoming)
+[SE1] [Milestone] Milestone: Commercial Monetization, Production Pilot & NUPRC Pilot Sign-off (All) (⏳ Upcoming)
 ```
 
 ### 📋 List: `Sprint 9: Enterprise Scale, Real-Time Analytics & Hypercare Operational Handoff`
@@ -257,21 +262,26 @@ In Trello, create a list, click **+ Add a card**, paste the block, press **Enter
 
 ---
 
-### 🗂️ Sprint 8: Production Deployment, NUPRC Operator Pilot & Cloud Scale — Status: `0%`
+### 🗂️ Sprint 8: Commercial Licensing, Asset Governance & Production Deployment — Status: `75%`
 **Timeline:** 2026-11-02 to 2026-11-13  
 
 | ID | Card Title & Assignment | Assignees | Progress | Labels | Due Date |
 |---|---|---|---|---|---|
-| **#63** | [CE1] [DevOps & Cloud] Multi-Region Cloud Deployment & Kubernetes Orchestration (CE1) (⏳ Upcoming) | `CE1` | ⏳ **Upcoming (0%)** | `DevOps & Cloud` `Upcoming` | 2026-11-06 |
+| **#62A** | [SE2] [Monetization] Paystack Multi-Channel Payment Gateway & Subscription Portal (✅) | `SE2` | ✅ **100%** | `Monetization` `Completed` | 2026-11-04 |
+| **#62B** | [SE2] [Frontend] Freemium 3-LAS File Ingestion Hard Cap & Dropzone Lock UI (✅) | `SE2` | ✅ **100%** | `Frontend` `Completed` | 2026-11-06 |
+| **#62C** | [SE1] [Security] Admin-Only Well Asset Deletion Governance & Quota Protection (✅) | `SE1, CE2` | ✅ **100%** | `Security` `Completed` | 2026-11-08 |
+| **#62D** | [SE2] [Frontend] Pro Feature Gating on Wireline Log Viewer & Quality Anomalies (✅) | `SE2` | ✅ **100%** | `Frontend` `Completed` | 2026-11-09 |
+| **#62E** | [CE1] [Frontend] Universal Offline Progressive Web App (PWA) Workstation (✅) | `CE1, SE2` | ✅ **100%** | `Frontend` `Completed` | 2026-11-09 |
+| **#63** | [CE1] [DevOps & Cloud] Multi-Region Cloud Deployment & Kubernetes Orchestration (CE1) (⏳ Upcoming) | `CE1` | ⏳ **Upcoming (0%)** | `DevOps & Cloud` `Upcoming` | 2026-11-10 |
 | **#64** | [DA4] [Compliance] Live NUPRC Operator Pilot Program & Formal Submission Validation (DA4, SE2) (⏳ Upcoming) | `DA4, SE2` | ⏳ **Upcoming (0%)** | `Compliance` `Upcoming` | 2026-11-10 |
 | **#65** | [SE1] [Backend] Real-Time Wellsite Telemetry Streaming Ingestion (WITSML / OPC-UA) (SE1, CE2) (⏳ Upcoming) | `SE1, CE2` | ⏳ **Upcoming (0%)** | `Backend` `ML & Analytics` `Upcoming` | 2026-11-11 |
-| **#66** | [SE1] [Petrophysics] Unsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2) (⏳ Upcoming) | `SE1, DA2` | ⏳ **Upcoming (0%)** | `Petrophysics` `ML & Analytics` `Upcoming` | 2026-11-09 |
-| **#67** | [DA1] [Petrophysics] Advanced Reservoir Rock Physics Module (Sw, Permeability, Net-to-Gross) (DA1, DA2) (⏳ Upcoming) | `DA1, DA2` | ⏳ **Upcoming (0%)** | `Petrophysics` `Upcoming` | 2026-11-11 |
-| **#68** | [CE1] [DevOps & Cloud] Asynchronous Background Ingestion Task Workers & Cloud Queue (CE1, CE2) (⏳ Upcoming) | `CE1, CE2` | ⏳ **Upcoming (0%)** | `DevOps & Cloud` `Upcoming` | 2026-11-11 |
+| **#66** | [SE1] [Petrophysics] Unsupervised ML Lithology Clustering on GR-RHOB-NPHI (SE1, DA2) (⏳ Upcoming) | `SE1, DA2` | ⏳ **Upcoming (0%)** | `Petrophysics` `ML & Analytics` `Upcoming` | 2026-11-11 |
+| **#67** | [DA1] [Petrophysics] Advanced Reservoir Rock Physics Module (Sw, Permeability, Net-to-Gross) (DA1, DA2) (⏳ Upcoming) | `DA1, DA2` | ⏳ **Upcoming (0%)** | `Petrophysics` `Upcoming` | 2026-11-12 |
+| **#68** | [CE1] [DevOps & Cloud] Asynchronous Background Ingestion Task Workers & Cloud Queue (CE1, CE2) (⏳ Upcoming) | `CE1, CE2` | ⏳ **Upcoming (0%)** | `DevOps & Cloud` `Upcoming` | 2026-11-12 |
 | **#69** | [CE2] [Backend] Outbound Webhook Cloud Storage Automated Sync Dispatcher (CE2) (⏳ Upcoming) | `CE2` | ⏳ **Upcoming (0%)** | `Backend` `DevOps & Cloud` `Upcoming` | 2026-11-12 |
-| **#70** | [DA3] [Compliance] Curated In-App Demonstration Well Package for Operator Pilot (DA3) (⏳ Upcoming) | `DA3` | ⏳ **Upcoming (0%)** | `Compliance` `Upcoming` | 2026-11-11 |
+| **#70** | [DA3] [Compliance] Curated In-App Demonstration Well Package for Operator Pilot (DA3) (⏳ Upcoming) | `DA3` | ⏳ **Upcoming (0%)** | `Compliance` `Upcoming` | 2026-11-13 |
 | **#71** | [CE2] [Security] Enterprise SSO Integration (SAML 2.0 / Azure AD / Okta) & Audit Logs (CE2, SE2) (⏳ Upcoming) | `CE2, SE2` | ⏳ **Upcoming (0%)** | `Security` `ML & Analytics` `Compliance` `Upcoming` | 2026-11-13 |
-| **#72** | [SE1] [Milestone] Milestone: Production Release & NUPRC Pilot Sign-off (All) (⏳ Upcoming) | `SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4` | ⏳ **Upcoming (0%)** | `Milestone` `Compliance` `Upcoming` | 2026-11-13 |
+| **#72** | [SE1] [Milestone] Milestone: Commercial Monetization, Production Pilot & NUPRC Pilot Sign-off (All) (⏳ Upcoming) | `SE1, SE2, CE1, CE2, DA1, DA2, DA3, DA4` | ⏳ **Upcoming (0%)** | `Milestone` `Compliance` `Upcoming` | 2026-11-13 |
 
 ---
 

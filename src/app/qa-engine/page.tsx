@@ -40,7 +40,12 @@ import {
   X,
   FileDown,
   ChevronDown,
+  Lock,
+  ArrowRight,
+  Database,
+  Eye,
 } from "lucide-react";
+import { PaystackUpgradeModal } from "@/components/payments/paystack-upgrade-modal";
 
 // The four problems dealt with on the Quality Engine page
 export type TargetProblemType =
@@ -464,33 +469,86 @@ export default function QAEngineWorkspace() {
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [copiedCertId, setCopiedCertId] = useState<boolean>(false);
   const [reportExported, setReportExported] = useState<boolean>(false);
+  const [isUploadingToDb, setIsUploadingToDb] = useState<boolean>(false);
+  const [uploadSuccessWell, setUploadSuccessWell] = useState<{ id: string; name: string; qualityScore?: number } | null>(null);
+  const [uploadDbError, setUploadDbError] = useState<string | null>(null);
 
-  // 1. Initial Load: Fetch DB Wells and inspect local Active Upload
+  // ─── Subscription & Paywall Gatekeeper State ──────────────────────────────
+  const [userProfile, setUserProfile] = useState<{
+    tier: string;
+    role: string;
+    name: string;
+    email: string;
+  } | null>(null);
+  const [isVerifyingTier, setIsVerifyingTier] = useState<boolean>(true);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState<boolean>(false);
+
+  const isLicensed = userProfile
+    ? (userProfile.tier !== "FREE" || userProfile.role === "ADMIN")
+    : false;
+  const isPaidUser = isLicensed;
+
   useEffect(() => {
     let active = true;
 
-    async function loadDbWells() {
+    async function verifyUserSubscription() {
       try {
-        setIsLoadingWells(true);
-        const res = await fetch("/api/wells", { cache: "no-store" });
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
         if (res.ok) {
-          const data = await res.json();
-          if (active && Array.isArray(data.wells)) {
-            setDbWells(data.wells);
+          const { user } = await res.json();
+          if (active && user) {
+            setUserProfile({
+              tier: (user.tier || "FREE").toUpperCase(),
+              role: (user.role || "USER").toUpperCase(),
+              name: user.name || "",
+              email: user.email || "",
+            });
           }
         }
-      } catch (e) {
-        console.warn("Failed to load DB wells for Quality Engine:", e);
+      } catch (err) {
+        console.warn("Failed to check subscription tier:", err);
       } finally {
-        if (active) setIsLoadingWells(false);
+        if (active) setIsVerifyingTier(false);
       }
     }
 
-    loadDbWells();
+    verifyUserSubscription();
+
+    const handleUserUpdate = () => verifyUserSubscription();
+    window.addEventListener("wellqc_user_updated", handleUserUpdate);
+    return () => {
+      active = false;
+      window.removeEventListener("wellqc_user_updated", handleUserUpdate);
+    };
+  }, []);
+
+  // 1. Initial Load: Fetch DB Wells and inspect local Active Upload
+  const loadDbWells = useCallback(async () => {
+    try {
+      setIsLoadingWells(true);
+      const res = await fetch("/api/wells", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.wells)) {
+          setDbWells(data.wells);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load DB wells for Quality Engine:", e);
+    } finally {
+      setIsLoadingWells(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) loadDbWells();
+    });
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadDbWells]);
 
   // 2. Load the active upload saved by the upload page. useSyncExternalStore gives the server
   // render and the first client render the same (empty) value, then supplies the saved value
@@ -563,6 +621,8 @@ export default function QAEngineWorkspace() {
     setErrorMessage("");
     setReportExported(false);
     setGapRecommendations({});
+    setUploadSuccessWell(null);
+    setUploadDbError(null);
   }, []);
 
   // Handle selecting a database well
@@ -1056,6 +1116,8 @@ export default function QAEngineWorkspace() {
 
     setIsExecutingRepair(true);
     setErrorMessage("");
+    setUploadSuccessWell(null);
+    setUploadDbError(null);
 
     try {
       // Build per-row approved fixes list
@@ -1133,12 +1195,20 @@ export default function QAEngineWorkspace() {
 
   // ─── Downloads & Exports ───────────────────────────────────────────────────
   const handleExportLAS = () => {
+    if (!isLicensed) {
+      setUpgradeModalOpen(true);
+      return;
+    }
     if (!repairResult?.cleanedLasText) return;
     const cleanFileName = `${wellName.replace(/\s+/g, "_")}_CLEANED.las`;
     downloadTextFile(cleanFileName, repairResult.cleanedLasText, "text/plain");
   };
 
   const handleExportCSV = () => {
+    if (!isLicensed) {
+      setUpgradeModalOpen(true);
+      return;
+    }
     if (!repairResult?.cleanedCsvText) return;
     const cleanFileName = `${wellName.replace(/\s+/g, "_")}_CLEANED.csv`;
     downloadTextFile(cleanFileName, repairResult.cleanedCsvText, "text/csv");
@@ -1146,6 +1216,10 @@ export default function QAEngineWorkspace() {
 
   // Change report (CSV) - Item 10: Real sample counts and real values before and after
   const handleExportReport = () => {
+    if (!isLicensed) {
+      setUpgradeModalOpen(true);
+      return;
+    }
     if (!targetAnomalies.length) return;
 
     const rows: string[] = [
@@ -1186,9 +1260,195 @@ export default function QAEngineWorkspace() {
     setTimeout(() => setCopiedCertId(false), 2000);
   };
 
+  const handleUploadCleanedLogToDatabase = async () => {
+    if (!repairResult?.cleanedLasText) return;
+    setIsUploadingToDb(true);
+    setUploadDbError(null);
+
+    try {
+      const baseName = wellName.replace(/_CLEANED$/i, "").replace(/\s+/g, "_");
+      const cleanFileName = `${baseName}_CLEANED.las`;
+
+      const response = await fetch("/api/las", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: cleanFileName,
+          content: repairResult.cleanedLasText,
+        }),
+      });
+
+      let resultData: { message?: string; well?: { id: string; name: string; qualityScore?: number }; error?: string; detail?: string } | null = null;
+      try {
+        resultData = await response.json();
+      } catch {
+        throw new Error(`Server returned HTTP ${response.status} (${response.statusText || "Unexpected response"}).`);
+      }
+
+      if (!response.ok || !resultData?.well) {
+        throw new Error(resultData?.error || resultData?.detail || `Unable to upload cleaned log to database (HTTP ${response.status}).`);
+      }
+
+      setUploadSuccessWell(resultData.well);
+
+      try {
+        window.dispatchEvent(new Event("wellqc_wells_updated"));
+      } catch { }
+
+      await loadDbWells();
+    } catch (err: unknown) {
+      setUploadDbError(err instanceof Error ? err.message : "Failed to upload cleaned log to database.");
+    } finally {
+      setIsUploadingToDb(false);
+    }
+  };
+
   // Current quality score before cleaning
   const currentScore = qaResult?.overallScore ?? (sourceChoice === "ACTIVE_UPLOAD" ? 75 : 80);
   const currentGrade = qaResult?.qualityGrade ?? "GOOD";
+
+  if (isVerifyingTier) {
+    return (
+      <AppShell>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+          <div className="w-10 h-10 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
+          <p className="text-xs font-mono text-slate-400">Verifying subsurface license credentials...</p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!isPaidUser) {
+    return (
+      <AppShell>
+        <div className="space-y-8 pb-20 max-w-5xl mx-auto pt-2">
+          {/* Paywall Header */}
+          <div className="flex items-center justify-between bg-slate-900/60 border border-amber-500/30 p-4 rounded-2xl backdrop-blur-md">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white font-mono">Quality Engine Access Restricted</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    FREE TIER
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">
+                  Automated petrophysical repairs and AI imputation are available exclusively on WellQC Pro.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/upload"
+              className="px-3.5 py-1.5 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-800 text-slate-300 text-xs font-mono transition-all flex items-center gap-1.5 shrink-0"
+            >
+              <span>Back to Upload</span>
+            </Link>
+          </div>
+
+          {/* Paywall Hero Banner */}
+          <div className="relative rounded-3xl border border-cyan-500/30 bg-gradient-to-b from-slate-900/90 via-slate-950 to-slate-950 p-8 md:p-12 shadow-2xl overflow-hidden backdrop-blur-xl text-center space-y-6">
+            <div className="absolute -top-24 -right-24 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>WELLQC PRO PETROPHYSICAL ENGINE</span>
+            </div>
+
+            <div className="max-w-2xl mx-auto space-y-3">
+              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+                Unlock Automated Repairs &amp; NUPRC Compliance
+              </h1>
+              <p className="text-sm text-slate-300 leading-relaxed font-sans">
+                You are currently on the <span className="text-cyan-400 font-bold font-mono">Free Tier</span>.
+                You can upload and detect wireline anomalies without limits on the Data Upload page.
+                To execute verified non-destructive despiking, physical clipping, multi-curve gap imputation, and download certified CWLS LAS 2.0 logs, upgrade to WellQC Pro.
+              </p>
+            </div>
+
+            {/* Feature comparison cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left max-w-4xl mx-auto pt-4">
+              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-all space-y-2">
+                <div className="flex items-center gap-2 text-cyan-400 font-bold font-mono text-sm">
+                  <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                  <span>Verified Petrophysical Despiking</span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono leading-relaxed">
+                  Two-point neighbour mean replacement on sonic DT curves to eliminate telemetry spikes without compromising formation matrix signals.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-all space-y-2">
+                <div className="flex items-center gap-2 text-cyan-400 font-bold font-mono text-sm">
+                  <Sparkles className="w-4 h-4 text-cyan-400" />
+                  <span>Multi-Curve AI Gap Imputation</span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono leading-relaxed">
+                  KNN, Random Forest, Spline, and Linear benchmarking with per-gap NRMSE validation to reconstruct lost sensor intervals accurately.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-all space-y-2">
+                <div className="flex items-center gap-2 text-cyan-400 font-bold font-mono text-sm">
+                  <BadgeCheck className="w-4 h-4 text-cyan-400" />
+                  <span>NUPRC Form WQC-08-A Audit Trails</span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono leading-relaxed">
+                  Cryptographic before-and-after change certificates and audit logs formatted to Nigerian upstream petroleum compliance standards.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-all space-y-2">
+                <div className="flex items-center gap-2 text-cyan-400 font-bold font-mono text-sm">
+                  <Download className="w-4 h-4 text-cyan-400" />
+                  <span>Uncapped Cleaned LAS &amp; CSV Exports</span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono leading-relaxed">
+                  Export production-grade cleaned CWLS LAS files with zero row distortion, ready for direct ingestion into Petrel, Techlog, and Landmark.
+                </p>
+              </div>
+            </div>
+
+            {/* CTA action buttons */}
+            <div className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-3.5">
+              <button
+                type="button"
+                onClick={() => setUpgradeModalOpen(true)}
+                className="w-full sm:w-auto px-7 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono font-black text-sm tracking-wide shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-4 h-4 text-slate-950" />
+                <span>Upgrade to WellQC Pro (₦75,000 / $49)</span>
+              </button>
+
+              <Link
+                href="/pricing"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl border border-slate-700 hover:border-cyan-500/50 bg-slate-900/80 hover:bg-slate-800 text-slate-200 font-mono font-bold text-xs transition-all flex items-center justify-center gap-2"
+              >
+                <span>Compare Plans &amp; Pricing</span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+              </Link>
+            </div>
+
+            <p className="text-[11px] font-mono text-slate-500 pt-2">
+              Instant activation via Paystack (Debit/Credit Card, Bank Transfer, USSD). Cancel anytime.
+            </p>
+          </div>
+        </div>
+
+        {/* Paystack Upgrade Modal */}
+        <PaystackUpgradeModal
+          isOpen={upgradeModalOpen}
+          onClose={() => setUpgradeModalOpen(false)}
+          defaultPlanId="PRO_MONTHLY"
+          reason="Unlock Automated Repairs and Imputation in the Quality Engine"
+        />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -2014,6 +2274,36 @@ export default function QAEngineWorkspace() {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
+                id="upload-cleaned-log-to-db-btn"
+                onClick={handleUploadCleanedLogToDatabase}
+                disabled={isUploadingToDb}
+                className={`px-4 py-2.5 rounded-xl font-mono font-bold text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer ${
+                  uploadSuccessWell
+                    ? "bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/50"
+                    : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-emerald-950/40"
+                }`}
+                title="Save calibrated, repaired curves directly into your persistent Well Assets database"
+              >
+                {isUploadingToDb ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    <span>Uploading to Database...</span>
+                  </>
+                ) : uploadSuccessWell ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                    <span>Uploaded to Database (Re-upload)</span>
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-4 h-4 text-slate-950" />
+                    <span>Upload Cleaned Log to Database</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
                 onClick={handleExportLAS}
                 className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs transition-all shadow-md flex items-center gap-2"
               >
@@ -2060,6 +2350,62 @@ export default function QAEngineWorkspace() {
                 <span>View in Audit Reports →</span>
               </Link>
             </div>
+
+            {/* Uploaded to Database Banner */}
+            {uploadSuccessWell && (
+              <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-500/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono text-xs shadow-lg animate-in fade-in duration-300">
+                <div className="flex items-start sm:items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-white flex items-center gap-2">
+                      <span>Cleaned Log Uploaded to Database Successfully!</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold uppercase">
+                        ACTIVE ASSET
+                      </span>
+                    </div>
+                    <p className="text-slate-300 text-[11px] mt-0.5">
+                      Persisted as <strong className="text-emerald-300">{uploadSuccessWell.name}</strong> in your central Well Assets repository.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    href={`/wells/${uploadSuccessWell.id}`}
+                    className="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Inspect Well Dossier</span>
+                  </Link>
+                  <Link
+                    href="/wells"
+                    className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all"
+                  >
+                    <Database className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Well Assets</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {uploadDbError && (
+              <div className="p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-300 text-xs font-mono flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{uploadDbError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUploadDbError(null)}
+                  className="text-rose-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
 
             {/* The Report Table */}
             <div className="space-y-2">

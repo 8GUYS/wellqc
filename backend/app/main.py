@@ -19,6 +19,7 @@ from backend.app.api import (
     auth,
     dashboard,
     las,
+    payments,
     qa_engine,
     standardisation,
     user,
@@ -47,6 +48,35 @@ async def lifespan(app: FastAPI):
                 conn.execute(text('ALTER TABLE "User" ADD COLUMN "isEmailVerified" BOOLEAN NOT NULL DEFAULT false;'))
             if "emailVerifiedAt" not in cols:
                 conn.execute(text('ALTER TABLE "User" ADD COLUMN "emailVerifiedAt" TIMESTAMP(3);'))
+            if "paystackCustomerCode" not in cols:
+                conn.execute(text('ALTER TABLE "User" ADD COLUMN "paystackCustomerCode" TEXT;'))
+            if "paystackSubscriptionCode" not in cols:
+                conn.execute(text('ALTER TABLE "User" ADD COLUMN "paystackSubscriptionCode" TEXT;'))
+
+            has_payment_tx = conn.execute(text(
+                """select to_regclass('public."PaymentTransaction"') is not null""")).scalar()
+            if not has_payment_tx:
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS "PaymentTransaction" (
+                        "id" TEXT NOT NULL PRIMARY KEY,
+                        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+                        "reference" TEXT NOT NULL UNIQUE,
+                        "amount" INTEGER NOT NULL,
+                        "currency" TEXT NOT NULL DEFAULT 'NGN',
+                        "plan" TEXT NOT NULL,
+                        "status" TEXT NOT NULL DEFAULT 'PENDING',
+                        "channel" TEXT,
+                        "paystackCustomerCode" TEXT,
+                        "metadataPayload" JSONB,
+                        "paidAt" TIMESTAMP(3),
+                        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                '''))
+                conn.execute(text('CREATE INDEX IF NOT EXISTS "PaymentTransaction_userId_idx" ON "PaymentTransaction"("userId");'))
+                conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "PaymentTransaction_reference_key" ON "PaymentTransaction"("reference");'))
+            else:
+                conn.execute(text('ALTER TABLE "PaymentTransaction" ADD COLUMN IF NOT EXISTS "paystackCustomerCode" TEXT;'))
             if not has_setting:
                 conn.execute(text('''
                     CREATE TABLE "SystemSetting" (
@@ -259,6 +289,7 @@ app.include_router(activity.router)       # /api/activity: Audit trail and secur
 app.include_router(qa_engine.router)      # /api/qa-engine: QA Engine rules and petrophysical repairs
 app.include_router(user.router)           # /api/user: User profile, settings, API tokens
 app.include_router(admin.router)          # /api/admin: Tenant administration & user management
+app.include_router(payments.router)       # /api/payments: Paystack checkout, webhook, plans catalog
 
 @app.get("/health", include_in_schema=False)
 @app.get("/api/health", tags=["system"], summary="Service Health Probe")

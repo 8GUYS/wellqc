@@ -29,14 +29,16 @@ def get_browser_exe():
 def get_auth_token():
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.email == "wwanaemi@gmail.com").first()
+        user = db.query(User).filter(User.email == "chidiekwebelam@gmail.com").first()
         if not user:
             user = db.query(User).first()
         token = create_session_token({
             "id": user.id,
             "email": user.email,
-            "name": user.name or "Petrophysicist",
+            "name": user.name or "Ebube Williams",
             "role": user.role,
+            "tier": "PRO",
+            "ndaAcceptedAt": user.ndaAcceptedAt.isoformat() if user.ndaAcceptedAt else "2026-11-08T00:00:00",
         })
         return token
     finally:
@@ -119,6 +121,40 @@ async def main():
     print(f"Browser: {browser_exe}")
     print(f"Auth token generated for cookie injection.")
 
+    # 1. Start local servers
+    print("Starting local backend on port 8000...")
+    backend_proc = subprocess.Popen(
+        [sys.executable, "start_engine.py"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    print("Starting local Next.js on port 3000...")
+    frontend_proc = subprocess.Popen(
+        ["cmd.exe", "/c", "npx next dev --port 3000"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+
+    # Wait for Next.js to become ready
+    print("Waiting for http://localhost:3000 to be ready...")
+    ready = False
+    for i in range(40):
+        try:
+            with urllib.request.urlopen("http://localhost:3000", timeout=1.5) as r:
+                if r.status in (200, 304, 307, 308):
+                    ready = True
+                    break
+        except Exception:
+            time.sleep(1)
+            print(f"Waiting for server ({i+1}/40)...")
+
+    if not ready:
+        backend_proc.terminate()
+        frontend_proc.terminate()
+        raise RuntimeError("Frontend server failed to start within 40 seconds.")
+
+    print("Servers are ready! Launching headless browser...")
+
     user_data_dir = tempfile.mkdtemp(prefix="chrome_snap_")
 
     chrome_cmd = [
@@ -133,7 +169,6 @@ async def main():
         "about:blank",
     ]
 
-    print("Launching headless browser...")
     proc = subprocess.Popen(chrome_cmd)
     time.sleep(2)
 
@@ -145,7 +180,6 @@ async def main():
         targets = json.loads(req.read().decode())
         page_targets = [t for t in targets if t.get("type") == "page"]
         if not page_targets:
-            # Create a new page target
             new_req = urllib.request.urlopen("http://localhost:9222/json/new")
             page_target = json.loads(new_req.read().decode())
         else:
@@ -171,28 +205,36 @@ async def main():
             brand_dir = Path("public/brand")
             brand_dir.mkdir(parents=True, exist_ok=True)
 
-            # 1. Dashboard Dark (OLED Obsidian)
-            await capture_page(ws, "http://localhost:3000/dashboard", brand_dir / "dashboard-dark.png", theme="dark", wait_seconds=3.0)
+            BASE_URL = "http://localhost:3000"
 
-            # 2. Dashboard Light (Apple Studio Light)
-            await capture_page(ws, "http://localhost:3000/dashboard", brand_dir / "dashboard-light.png", theme="light", wait_seconds=3.0)
+            # 1. Log Ingestion & Wireline Track Plotter (/upload)
+            await capture_page(ws, f"{BASE_URL}/upload", brand_dir / "las-upload.png", theme="dark", wait_seconds=7.0)
 
-            # 3. QA Engine (Petrophysical Anomaly Detection)
-            await capture_page(ws, "http://localhost:3000/qa-engine", brand_dir / "qa-engine.png", theme="dark", wait_seconds=3.5)
+            # 2. Interactive QA Engine & Petrophysical Repair (/qa-engine)
+            await capture_page(ws, f"{BASE_URL}/qa-engine", brand_dir / "qa-engine.png", theme="dark", wait_seconds=7.0)
 
-            # 4. LAS Parser / Standardisation (Curve Standardisation Engine)
-            await capture_page(ws, "http://localhost:3000/standardisation", brand_dir / "las-parser.png", theme="dark", wait_seconds=3.5)
+            # 3. Mnemonic Standardisation Dictionary (/standardisation)
+            await capture_page(ws, f"{BASE_URL}/standardisation", brand_dir / "las-parser.png", theme="dark", wait_seconds=6.0)
 
-            # 5. LAS Upload / Ingestion Screen
-            await capture_page(ws, "http://localhost:3000/upload", brand_dir / "las-upload.png", theme="dark", wait_seconds=3.0)
+            # 4. Multi-Well Stratigraphic Correlation (/comparison)
+            await capture_page(ws, f"{BASE_URL}/comparison", brand_dir / "well-comparison.png", theme="dark", wait_seconds=7.0)
+
+            # 5. NUPRC Compliance & Audit Reports (/reports)
+            await capture_page(ws, f"{BASE_URL}/reports", brand_dir / "audit-reports.png", theme="dark", wait_seconds=6.0)
+
+            # 6. Petrophysical Pricing & Paystack Gateway (/pricing)
+            await capture_page(ws, f"{BASE_URL}/pricing", brand_dir / "pricing-plans.png", theme="dark", wait_seconds=6.0)
 
     finally:
-        print("Terminating browser process...")
+        print("Terminating browser and local server processes...")
         proc.terminate()
+        backend_proc.terminate()
         try:
-            proc.wait(timeout=3)
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(frontend_proc.pid)], capture_output=True)
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(backend_proc.pid)], capture_output=True)
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
         except Exception:
-            proc.kill()
+            pass
         try:
             shutil.rmtree(user_data_dir, ignore_errors=True)
         except Exception:

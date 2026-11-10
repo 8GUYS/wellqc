@@ -22,6 +22,7 @@ export function LandingNavbar() {
     { name: "Home", href: "#home" },
     { name: "About Us", href: "#about" },
     { name: "Services & Features", href: "#services" },
+    { name: "Pricing", href: "#pricing" },
     { name: "Contact Us", href: "#contact" },
   ];
 

@@ -61,7 +61,7 @@ export function Header({
 
   return (
     <header className="h-12 bg-wellqc-panel border-b border-wellqc-border px-3 md:px-4 flex items-center justify-between sticky top-0 z-20 select-none">
-      {/* Left section: Mobile toggle & Brand */}
+      {/* Left section: Mobile menu toggle */}
       <div className="flex items-center space-x-2.5">
         <button
           onClick={onToggleMobileNav}
@@ -70,16 +70,18 @@ export function Header({
         >
           <Menu className="w-4 h-4" />
         </button>
-        <Link href="/upload" className="md:hidden flex items-center space-x-1.5">
-          <span className="font-extrabold text-xs text-white tracking-wider flex items-center gap-1 font-mono">
-            <span className="text-cyan-400">WellQC</span>
-            <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">STUDIO</span>
-          </span>
-        </Link>
       </div>
 
       {/* Right section: System telemetry + Notifications + User context */}
       <div className="flex items-center space-x-2 md:space-x-3">
+        {/* Tier Badge (Paid / Licensed Users Only) */}
+        {(currentUser.tier || "FREE").toUpperCase() !== "FREE" && (
+          <span className="flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-mono text-[9px] font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span>{(currentUser.tier || "PRO").toUpperCase()}</span>
+          </span>
+        )}
+
         {/* Interactive Tour Guide Button */}
         <TourGuideButton
           onClick={() => {

@@ -9,7 +9,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 
 from backend.app.core.database import get_db
-from backend.app.core.dependencies import get_current_user_optional, get_current_user
+from backend.app.core.dependencies import (
+    get_current_user_optional,
+    get_current_user,
+    require_paid_subscription,
+)
 from backend.app.core.security import normalize_role
 from backend.app.models.models import ActivityLog, User, Well, QualityReport, Anomaly
 from backend.app.services.cleaner import clean_las_log_data, CleaningOptions, ApprovedFix, NullMarkerMissingError
@@ -53,7 +57,7 @@ class GapRecommendationRequest(BaseModel):
 
 @router.get("")
 def get_qa_engine_overview(
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(require_paid_subscription),
     db: Session = Depends(get_db),
 ):
     """
@@ -465,7 +469,7 @@ def _build_change_report(
 @router.post("/repair")
 def repair_anomalies(
     req: QARepairRequest,
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(require_paid_subscription),
     db: Session = Depends(get_db),
 ):
     """
@@ -599,7 +603,7 @@ def repair_anomalies(
 @router.post("/rank-gaps")
 def rank_gaps_for_clusters(
     req: GapRecommendationRequest,
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(require_paid_subscription),
     db: Session = Depends(get_db),
 ):
     """

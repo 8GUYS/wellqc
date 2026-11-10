@@ -96,7 +96,7 @@ class WellDetailResponse(BaseModel):
     anomalies: List[Dict[str, Any]]
 
 class BulkDeleteWellsRequest(BaseModel):
-    wellIds: List[str] = Field(..., min_length=1, max_length=500)
+    wellIds: List[str] = Field(default_factory=list, max_length=500)
 
     @field_validator("wellIds")
     @classmethod

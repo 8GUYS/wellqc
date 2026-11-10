@@ -754,12 +754,6 @@ def bulk_delete_wells(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if normalize_role(current_user.role) != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: Only system administrators are authorized to perform bulk deletion of well assets to prevent quota manipulation and preserve compliance audit trails.",
-        )
-
     target_ids = []
     if payload and payload.wellIds:
         target_ids.extend(payload.wellIds)
@@ -777,6 +771,12 @@ def bulk_delete_wells(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No valid well IDs provided for bulk deletion.",
+        )
+
+    if normalize_role(current_user.role) != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access to bulk delete wells is restricted: Only system administrators are authorized to perform bulk deletion of well assets to prevent quota manipulation and preserve compliance audit trails.",
         )
 
     wells = (
@@ -839,7 +839,7 @@ def delete_well(
     if normalize_role(current_user.role) != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: Only system administrators are authorized to delete well records to ensure compliance audit trails and prevent quota manipulation.",
+            detail="Access to delete this well is restricted: Only system administrators are authorized to delete well records to ensure compliance audit trails and prevent quota manipulation.",
         )
 
     clean_id = (id or "").strip()

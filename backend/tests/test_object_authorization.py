@@ -242,10 +242,21 @@ def test_user_cannot_delete_another_users_well():
     finally:
         db.close()
 
-    # User Alpha CAN delete their own well
+    # Non-admin User Alpha CANNOT delete well (restricted to administrators)
     res_alpha = client.delete("/api/wells/well-alpha-delete-target", cookies=user_alpha["cookies"])
-    assert res_alpha.status_code == 200
-    assert res_alpha.json()["success"] is True
+    assert res_alpha.status_code == 403
+    assert "restricted" in res_alpha.json()["detail"].lower()
+
+    # System Administrator CAN delete the well
+    db_admin = TestingSessionLocal()
+    try:
+        admin_user = create_test_user(db_admin, "admin-del-exec-id", "admin_del@example.com", "Admin Del", role="ADMIN")
+    finally:
+        db_admin.close()
+
+    res_admin = client.delete("/api/wells/well-alpha-delete-target", cookies=admin_user["cookies"])
+    assert res_admin.status_code == 200
+    assert res_admin.json()["success"] is True
 
     # Verify well is now deleted
     db = TestingSessionLocal()
@@ -310,14 +321,29 @@ def test_bulk_delete_wells_authorization():
     )
     assert res_empty.status_code == 400
 
-    # 3. User Alpha CAN bulk delete their own wells
+    # 3. Non-admin User Alpha CANNOT bulk delete wells (restricted to administrators)
     res_alpha = client.post(
         "/api/wells/bulk-delete",
         json={"wellIds": ["well-bulk-1", "well-bulk-2"]},
         cookies=user_alpha["cookies"],
     )
-    assert res_alpha.status_code == 200
-    data = res_alpha.json()
+    assert res_alpha.status_code == 403
+    assert "restricted" in res_alpha.json()["detail"].lower()
+
+    # 4. System Administrator CAN bulk delete the wells
+    db_admin = TestingSessionLocal()
+    try:
+        admin_user = create_test_user(db_admin, "admin-bulk-exec-id", "admin_bulk@example.com", "Admin Bulk", role="ADMIN")
+    finally:
+        db_admin.close()
+
+    res_admin = client.post(
+        "/api/wells/bulk-delete",
+        json={"wellIds": ["well-bulk-1", "well-bulk-2"]},
+        cookies=admin_user["cookies"],
+    )
+    assert res_admin.status_code == 200
+    data = res_admin.json()
     assert data["success"] is True
     assert data["deletedCount"] == 2
     assert "well-bulk-1" in data["deletedIds"]

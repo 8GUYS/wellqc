@@ -107,23 +107,31 @@ def update_user_account(
     # Update Role
     if req.role:
         role_cand = req.role.strip().upper()
-        if role_cand in VALID_ROLES:
-            if req.userId == admin.id and role_cand != "ADMIN":
-                other_admins = db.query(User).filter(User.role == "ADMIN", User.id != admin.id).count()
-                if other_admins == 0:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Cannot demote the only remaining administrator account.",
-                    )
-            target_user.role = role_cand
-            changes.append(f"role to {role_cand}")
+        if role_cand not in VALID_ROLES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid role '{req.role}'. Valid roles are: {', '.join(sorted(VALID_ROLES))}",
+            )
+        if req.userId == admin.id and role_cand != "ADMIN":
+            other_admins = db.query(User).filter(User.role == "ADMIN", User.id != admin.id).count()
+            if other_admins == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot demote the only remaining administrator account.",
+                )
+        target_user.role = role_cand
+        changes.append(f"role to {role_cand}")
 
     # Update Subscription Tier
     if req.tier:
         tier_cand = req.tier.strip().upper()
-        if tier_cand in ("FREE", "PRO", "ENTERPRISE"):
-            target_user.tier = tier_cand
-            changes.append(f"tier to {tier_cand}")
+        if tier_cand not in ("FREE", "PRO", "ENTERPRISE"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid subscription tier '{req.tier}'. Valid tiers are: FREE, PRO, ENTERPRISE",
+            )
+        target_user.tier = tier_cand
+        changes.append(f"tier to {tier_cand}")
 
     # Update / Reset Password
     if req.password and req.password.strip():

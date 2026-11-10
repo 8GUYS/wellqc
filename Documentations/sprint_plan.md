@@ -254,7 +254,7 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
 ### 🟡 SPRINT 8 (Weeks 15–16: Nov 02 – Nov 13, 2026): Production Deployment, Commercial Licensing & Cloud Scale [IN PROGRESS]
 
 * **Theme:** Paystack monetization & subscription gateway, freemium 3-file hard cap, administrative asset deletion governance, Pro feature gating, enterprise cloud containerization, multi-operator pilot onboarding, and universal offline PWA workstation.
-* **Current Progress:** **85% Complete** — Full Paystack checkout gateway (NGN & USD) with zero-key sandbox testing fallback landed; Freemium 3-LAS file hard cap enforced on backend and frontend; Admin-only well deletion governance active; Wireline Log Viewer and Quality Anomalies gated for Free users; Universal PWA offline rig mode available for all tiers; Reports navigation standardized.
+* **Current Progress:** **85% Complete** — Full Paystack checkout gateway (NGN & USD) with zero-key sandbox testing fallback landed; Freemium 3-LAS file hard cap enforced on backend and frontend; Admin-only well deletion governance active; Wireline Log Viewer unlocked for all tiers (including Free); Quality Anomalies recipes and QA Engine repairs gated for Free users; Universal PWA offline rig mode available for all tiers; Reports navigation standardized.
 * **SE2 (Enterprise Frontend, Payments & Monetization Lead):**
   - **P0 — Paystack Multi-Channel Payment Gateway & Subscription Portal (Completed):**
     - Full-stack Paystack integration supporting Nigerian Naira (NGN) and international USD checkout (Cards, Bank Transfer, USSD).
@@ -266,7 +266,7 @@ Architecture    & Auth Setup  LAS Ingestion   Visualisation Monetization     Rel
     - Dynamic dropzone telemetry showing remaining slots (`X of 3 left`) and locking with amber alert and upgrade CTA when limit is reached.
     - Auto-slicing batch queue to remaining available slots with upgrade prompt.
   - **P2 — Pro Entitlement Gating & UI Badging (Completed):**
-    - Gated interactive Wireline Log Viewer on `/upload` and `/wells/[id]` behind Pro paywall cards.
+    - Enabled interactive Multi-Track Wireline Log Viewer across all tiers (including Free users) on `/upload` and `/wells/[id]`.
     - Gated detailed Quality Anomalies list and depth boundaries behind Pro paywall cards.
     - Standardized sidebar navigation item to "Reports".
 * **SE1 & CE2 (Backend Security & Asset Governance):**

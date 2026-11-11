@@ -282,7 +282,7 @@ export default function WellAssetsManagementPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-mono mt-0.5">
-                Central subsurface database repository. Inspect wireline curves, manage logs, and track petrophysical asset quality.
+                Central subsurface repository. Inspect wireline curves, manage logs, and track petrophysical asset quality.
               </p>
             </div>
           </div>
@@ -293,7 +293,7 @@ export default function WellAssetsManagementPage() {
               onClick={loadWells}
               disabled={isLoading}
               className="px-3.5 py-2 rounded-xl bg-wellqc-card hover:bg-slate-800 border border-wellqc-border hover:border-cyan-500/40 text-slate-300 hover:text-white font-mono text-xs transition-colors flex items-center space-x-1.5 disabled:opacity-50"
-              title="Refresh database wells list"
+              title="Refresh wells list"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isLoading ? "animate-spin" : ""}`} />
               <span>Refresh</span>
@@ -735,7 +735,7 @@ export default function WellAssetsManagementPage() {
               </div>
 
               <p className="text-xs text-slate-400 font-mono leading-relaxed">
-                Are you sure you want to permanently remove this well asset, all its associated raw LAS logs, and quality diagnostic history from the database?
+                Are you sure you want to permanently remove this well asset, all its associated raw LAS logs, and quality diagnostic history?
               </p>
 
               <div className="flex items-center justify-end space-x-3 pt-2">
@@ -782,7 +782,7 @@ export default function WellAssetsManagementPage() {
                   <h3 className="text-lg font-bold text-white font-mono">
                     Bulk Delete {selectedIds.size} Well Assets?
                   </h3>
-                  <p className="text-xs text-rose-300 font-mono">Irreversible database operation</p>
+                  <p className="text-xs text-rose-300 font-mono">Irreversible operation</p>
                 </div>
               </div>
 
@@ -809,7 +809,7 @@ export default function WellAssetsManagementPage() {
               </div>
 
               <p className="text-xs text-slate-400 font-mono leading-relaxed">
-                Are you sure you want to permanently delete all <strong className="text-white font-bold">{selectedIds.size}</strong> selected well assets? This will purge all associated raw LAS curves, petrophysical diagnostic summaries, and audit reports from the database.
+                Are you sure you want to permanently delete all <strong className="text-white font-bold">{selectedIds.size}</strong> selected well assets? This will purge all associated raw LAS curves, petrophysical diagnostic summaries, and audit reports.
               </p>
 
               <div className="flex items-center justify-end space-x-3 pt-2 border-t border-wellqc-border/60">

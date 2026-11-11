@@ -12,6 +12,15 @@ describe("Mnemonic Standardisation & Aliasing Engine", () => {
       expect(STANDARD_CURVES["NPHI"]).toBeDefined();
       expect(STANDARD_CURVES["DT"]).toBeDefined();
       expect(STANDARD_CURVES["DEPT"]).toBeDefined();
+      expect(STANDARD_CURVES["TVD"]).toBeDefined();
+      expect(STANDARD_CURVES["CGR"]).toBeDefined();
+      expect(STANDARD_CURVES["POTA"]).toBeDefined();
+      expect(STANDARD_CURVES["THOR"]).toBeDefined();
+      expect(STANDARD_CURVES["URAN"]).toBeDefined();
+      expect(STANDARD_CURVES["RM"]).toBeDefined();
+      expect(STANDARD_CURVES["BS"]).toBeDefined();
+      expect(STANDARD_CURVES["TEMP"]).toBeDefined();
+      expect(Object.keys(STANDARD_CURVES).length).toBe(19);
     });
 
     it("has valid physical measurement limits for standard curves", () => {
@@ -39,6 +48,21 @@ describe("Mnemonic Standardisation & Aliasing Engine", () => {
 
       const sonicVendor = standardiseMnemonic("DTCO", "US/F");
       expect(sonicVendor.standardMnemonic).toBe("DT");
+
+      const computedGr = standardiseMnemonic("HCGR", "GAPI");
+      expect(computedGr.standardMnemonic).toBe("CGR");
+
+      const potassium = standardiseMnemonic("HFK", "%");
+      expect(potassium.standardMnemonic).toBe("POTA");
+
+      const bitSize = standardiseMnemonic("BIT", "IN");
+      expect(bitSize.standardMnemonic).toBe("BS");
+
+      const temperature = standardiseMnemonic("TEMPERATURE", "DEGC");
+      expect(temperature.standardMnemonic).toBe("TEMP");
+
+      const tvd = standardiseMnemonic("TVDEPTH", "FT");
+      expect(tvd.standardMnemonic).toBe("TVD");
     });
 
     it("detects unit compatibility and flags mismatches", () => {

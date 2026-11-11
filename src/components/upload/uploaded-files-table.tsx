@@ -286,7 +286,7 @@ export function UploadedFilesTable({
 
       setFeedback({
         type: "success",
-        message: `Successfully deleted ${deletedCount} well asset${deletedCount === 1 ? "" : "s"} and their associated LAS logs from database.`,
+        message: `Successfully deleted ${deletedCount} well asset${deletedCount === 1 ? "" : "s"} and their associated LAS logs.`,
       });
       setTimeout(() => setFeedback(null), 6000);
     } catch (err) {
@@ -436,7 +436,7 @@ export function UploadedFilesTable({
         {isLoading && wells.length === 0 ? (
           <div className="p-12 text-center text-cyan-300 text-xs font-mono flex items-center justify-center space-x-2">
             <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
-            <span>Loading uploaded well files from database...</span>
+            <span>Loading uploaded well files...</span>
           </div>
         ) : error ? (
           <div className="p-8 text-center text-red-300 text-xs font-mono space-y-2">
@@ -705,7 +705,7 @@ export function UploadedFilesTable({
                               onClick={() => setDeleteConfirmWell(well)}
                               disabled={deletingId === well.id}
                               className="p-1.5 rounded-lg bg-wellqc-card hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-wellqc-border hover:border-rose-500/40 transition-colors disabled:opacity-50"
-                              title="Delete well from database"
+                              title="Delete well"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>

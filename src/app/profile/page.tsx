@@ -140,13 +140,13 @@ export default function UserProfilePage() {
                 }),
               });
               if (res.ok) {
-                setFeedback({ type: "success", message: "Profile picture saved to your account in the database!" });
+                setFeedback({ type: "success", message: "Profile picture saved to your account!" });
                 window.dispatchEvent(new Event("wellqc_user_updated"));
               } else {
-                setFeedback({ type: "error", message: "Failed to persist profile picture to database." });
+                setFeedback({ type: "error", message: "Failed to persist profile picture." });
               }
             } catch {
-              setFeedback({ type: "error", message: "Connection error while saving picture to database." });
+              setFeedback({ type: "error", message: "Connection error while saving picture." });
             }
           }
         };
@@ -170,11 +170,11 @@ export default function UserProfilePage() {
         }),
       });
       if (res.ok) {
-        setFeedback({ type: "success", message: "Profile picture removed from database." });
+        setFeedback({ type: "success", message: "Profile picture removed." });
         window.dispatchEvent(new Event("wellqc_user_updated"));
       }
     } catch {
-      setFeedback({ type: "error", message: "Could not remove picture from database." });
+      setFeedback({ type: "error", message: "Could not remove picture." });
     }
   };
 
@@ -453,7 +453,7 @@ export default function UserProfilePage() {
                         <button
                           type="button"
                           onClick={handleRemovePhoto}
-                          title="Remove picture from database"
+                          title="Remove picture"
                           className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 text-xs font-semibold transition-all"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

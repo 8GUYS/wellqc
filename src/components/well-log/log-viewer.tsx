@@ -17,10 +17,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Activity,
-  Lock,
-  Sparkles,
-  Download,
-  Layers,
 } from "lucide-react";
 import { WellLogDataTable } from "./log-data-table";
 import { STANDARD_CURVES, standardiseMnemonic } from "@/lib/las/standardiser";
@@ -189,8 +185,8 @@ export function WellLogViewer({
   layoutMode: externalLayoutMode,
   onLayoutModeChange,
   initialSelectedCurves,
-  isFreeTier = false,
-  onUpgradeRequest,
+  isFreeTier: _isFreeTier = false,
+  onUpgradeRequest: _onUpgradeRequest,
 }: LogViewerProps) {
   const [internalLayoutMode, setInternalLayoutMode] = useState<"GRAPH" | "SPLIT" | "TABLE">(
     externalLayoutMode || initialLayoutMode

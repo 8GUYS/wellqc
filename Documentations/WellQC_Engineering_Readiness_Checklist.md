@@ -126,14 +126,14 @@
 ### 🗄️ Database
 - [ ] Neon upgraded to paid plan (Launch tier)
 - [ ] `SELECT FOR UPDATE` or `UPDATE ... WHERE version = :v` on any resource updated concurrently (wells, freeChecksUsed counter)
-- [ ] Atomic increment for `freeChecksUsed` (single UPDATE statement, no read-then-write)
+- [x] Atomic increment for `freeChecksUsed` (single UPDATE statement, no read-then-write via `func.coalesce(User.freeChecksUsed, 0) + 1`)
 - [ ] Slow query logging enabled (Neon dashboard or pg_stat_statements)
 - [ ] At least one `EXPLAIN ANALYZE` review of your top 5 most-used queries
 
 ### 🔄 Resilience
 - [ ] Outbound HTTP calls to EmailJS, Paystack have explicit timeouts (10 s max)
 - [ ] Retry with fixed delay on outbound HTTP calls (max 3 attempts)
-- [ ] DB connection failure returns a user-friendly error (not a 500 stack trace)
+- [x] DB connection failure returns a user-friendly error (not a 500 stack trace — masked in production via global exception handler)
 - [ ] Upload gate Retry-After header tested and confirmed working
 
 ### 📊 Observability

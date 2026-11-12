@@ -167,6 +167,25 @@ A story is accepted as done when:
     And subsequent uploads containing "RDEP" automatically resolve to "RT"
   ```
 
+#### US-STD-03: Full 19-Family Petrophysical Curve Standardisation & Trajectory Support
+- **As a** Petrophysicist (PER-1) or Subsurface Data Engineer (PER-2),
+- **I want** the standardisation dictionary to support all 19 standard petroleum log families (`DEPT`, `TVD`, `GR`, `CGR`, `POTA`, `THOR`, `URAN`, `RHOB`, `NPHI`, `DT`, `RT`, `RM`, `LLS`, `MSFL`, `CALI`, `BS`, `PEF`, `SP`, `TEMP`) across both client and server engines with strict separation between True Vertical Depth (`TVD`) and Measured Depth (`DEPT`), and Bit Size (`BS`) and Caliper (`CALI`),
+- **So that** directional well trajectories and multi-sensor logs are correctly categorized without conflating physical depths or tool diameters.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 7 · DA1 / SE1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Standardising trajectory and spectral curves
+    Given raw curves ["TVD", "HCGR", "HFK", "BIT", "TEMPERATURE"]
+    When the standardisation engine analyzes the curve list
+    Then "TVD" is mapped to "TVD" under category "TRAJECTORY"
+    And "DEPT" is not overwritten or aliased by "TVD"
+    And "HCGR" maps to Computed Gamma Ray "CGR"
+    And "HFK" maps to Potassium "POTA"
+    And "BIT" maps to Bit Size "BS" under category "CALIPER"
+    And "TEMPERATURE" maps to Temperature "TEMP" under category "TEMPERATURE"
+  ```
+
 ---
 
 ### 🧠 Epic 3: AI Quality Scoring, Anomaly Detection & Risk Assessment
@@ -342,6 +361,22 @@ A story is accepted as done when:
     And clicking "Standard 3" activates GR, RT, and DT presets
     And clicking "Only" next to a curve isolates that single track immediately
     And each rendered track header provides an inline curve switcher and dismiss button
+  ```
+
+#### US-VIW-04: Free Tier Inclusive Multi-Track Wireline Log Viewer Access
+- **As a** Free Tier Geoscience Explorer (PER-3),
+- **I want to** access and interact with the multi-track wireline log viewer across `/upload` and `/wells/[id]` dossier without being blocked by a Pro paywall,
+- **So that** I can visually inspect my well curves, depth intervals, and lithology immediately after uploading my initial free files.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 7 · SE1 / SE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Free tier user viewing wireline log tracks
+    Given a user authenticated on the FREE subscription tier
+    When the user navigates to the "Wireline Log Viewer" tab on `/upload` or opens `/wells/[id]`
+    Then the multi-track SVG wireline viewer renders without paywall lock overlays
+    And no PRO gating badge is displayed on the Wireline Log Viewer tab header
+    And anomaly remediation diagnostics and clean log exports remain gated behind PRO tier
   ```
 
 ---
@@ -887,7 +922,7 @@ A story is accepted as done when:
     Given a user on the `/upload` workstation
     When one or more LAS files are dropped into the dropzone or selected
     Then each file is immediately validated and committed to the backend database asynchronously
-    And status updates to "Saved to Database ✓" without requiring manual button clicks
+    And status updates to "Saved ✓" (or "All Saved ✓" for batch queues) without requiring manual button clicks
   ```
 
 #### US-RPT-03: Real-Time Dynamic Audit Certificate Preview & Export for Selected Well Files

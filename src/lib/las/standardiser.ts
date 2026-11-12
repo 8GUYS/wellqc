@@ -8,10 +8,23 @@ export interface CustomAliasEntry {
   userEmail?: string;
 }
 
+export type CurveCategory =
+  | 'DEPTH'
+  | 'TRAJECTORY'
+  | 'GAMMA'
+  | 'DENSITY'
+  | 'POROSITY'
+  | 'SONIC'
+  | 'RESISTIVITY'
+  | 'CALIPER'
+  | 'POTENTIAL'
+  | 'TEMPERATURE'
+  | 'OTHER';
+
 export interface StandardCurveDef {
   standardMnemonic: string;
   name: string;
-  category: 'DEPTH' | 'GAMMA' | 'DENSITY' | 'POROSITY' | 'SONIC' | 'RESISTIVITY' | 'CALIPER' | 'POTENTIAL' | 'OTHER';
+  category: CurveCategory;
   standardUnit: string;
   acceptableUnits: string[];
   aliases: string[];
@@ -21,17 +34,33 @@ export interface StandardCurveDef {
   description: string;
 }
 
+// Unit lists shared by standard curves
+const RES_UNITS = ['OHMM', 'OHM.M', 'OHM-M', 'OHMS'];
+const POROSITY_UNITS = ['V/V', 'PU', 'P.U.', '%', 'PERCENT', 'PCT', 'DECIMAL', 'M3/M3', 'FRAC'];
+const DEPTH_UNITS = ['FT', 'M', 'FEET', 'METERS', 'METRES'];
+
 export const STANDARD_CURVES: Record<string, StandardCurveDef> = {
   DEPT: {
     standardMnemonic: 'DEPT',
     name: 'Measured Depth',
     category: 'DEPTH',
     standardUnit: 'FT',
-    acceptableUnits: ['FT', 'M', 'FEET', 'METERS'],
-    aliases: ['DEPT', 'DEPTH', 'MD', 'TVD', 'DEPT_FT', 'DEPT_M'],
+    acceptableUnits: DEPTH_UNITS,
+    aliases: ['DEPT', 'DEPTH', 'MD', 'DEPT_FT', 'DEPT_M'],
     minPhysical: 0,
-    maxPhysical: 50000,
+    maxPhysical: 25000,
     description: 'Measured depth along borehole trajectory',
+  },
+  TVD: {
+    standardMnemonic: 'TVD',
+    name: 'True Vertical Depth',
+    category: 'TRAJECTORY',
+    standardUnit: 'FT',
+    acceptableUnits: DEPTH_UNITS,
+    aliases: ['TVD', 'TVDEPTH'],
+    minPhysical: 0,
+    maxPhysical: 25000,
+    description: 'True vertical depth',
   },
   GR: {
     standardMnemonic: 'GR',
@@ -39,17 +68,61 @@ export const STANDARD_CURVES: Record<string, StandardCurveDef> = {
     category: 'GAMMA',
     standardUnit: 'GAPI',
     acceptableUnits: ['GAPI', 'API', 'EU', 'CPS'],
-    aliases: ['GR', 'GAMMA', 'GRC', 'GAM', 'GR_CORR', 'GRR', 'SGR', 'ECGR', 'HGR'],
+    aliases: ['GR', 'GAMMA', 'GRC', 'GAM', 'GR_CORR', 'GRR', 'SGR', 'ECGR', 'HGR', 'GRS'],
     minPhysical: 0,
     maxPhysical: 150,
     description: 'Natural gamma ray radiation log',
+  },
+  CGR: {
+    standardMnemonic: 'CGR',
+    name: 'Computed Gamma Ray (K+Th)',
+    category: 'GAMMA',
+    standardUnit: 'GAPI',
+    acceptableUnits: ['GAPI', 'API'],
+    aliases: ['CGR', 'HCGR'],
+    minPhysical: 0,
+    maxPhysical: 150,
+    description: 'Gamma ray without uranium contribution',
+  },
+  POTA: {
+    standardMnemonic: 'POTA',
+    name: 'Potassium',
+    category: 'GAMMA',
+    standardUnit: 'PCT',
+    acceptableUnits: ['PCT', '%', 'PERCENT'],
+    aliases: ['HFK'],
+    minPhysical: 0,
+    maxPhysical: 6,
+    description: 'Spectral gamma ray potassium',
+  },
+  THOR: {
+    standardMnemonic: 'THOR',
+    name: 'Thorium',
+    category: 'GAMMA',
+    standardUnit: 'PPM',
+    acceptableUnits: ['PPM'],
+    aliases: ['HTHO'],
+    minPhysical: 0,
+    maxPhysical: 30,
+    description: 'Spectral gamma ray thorium',
+  },
+  URAN: {
+    standardMnemonic: 'URAN',
+    name: 'Uranium',
+    category: 'GAMMA',
+    standardUnit: 'PPM',
+    acceptableUnits: ['PPM'],
+    aliases: ['HURA'],
+    minPhysical: 0,
+    maxPhysical: 10,
+    description: 'Spectral gamma ray uranium',
   },
   RHOB: {
     standardMnemonic: 'RHOB',
     name: 'Bulk Density',
     category: 'DENSITY',
     standardUnit: 'G/CC',
-    acceptableUnits: ['G/CC', 'G/CM3', 'KGM3', 'KG/M3', 'KG/M^3', 'G/C3', 'KGM/-3'],
+    acceptableUnits: ['G/CC', 'G/CM3', 'KGM3', 'KG/M3', 'KG/M^3', 'G/C3'],
     aliases: ['RHOB', 'DEN', 'RHOZ', 'BDEN', 'ZDEN', 'RHO', 'RHOB_CORR', 'RHO8'],
     minPhysical: 1.65,
     maxPhysical: 2.65,
@@ -60,21 +133,21 @@ export const STANDARD_CURVES: Record<string, StandardCurveDef> = {
     name: 'Neutron Porosity',
     category: 'POROSITY',
     standardUnit: 'V/V',
-    acceptableUnits: ['V/V', 'PU', 'P.U.', '%', 'PERCENT', 'PCT', 'DECIMAL', 'M3/M3'],
+    acceptableUnits: POROSITY_UNITS,
     aliases: ['NPHI', 'NEUT', 'CNL', 'NPOR', 'TNPH', 'PHIN', 'NPHI_LS', 'NPLC', 'NPR'],
     minPhysical: 0,
-    maxPhysical: 0.60,
+    maxPhysical: 0.6,
     description: 'Thermal neutron porosity log',
   },
   DT: {
     standardMnemonic: 'DT',
     name: 'Sonic Travel Time',
     category: 'SONIC',
-    standardUnit: 'US/F',
+    standardUnit: 'US/FT',
     acceptableUnits: ['US/F', 'US/FT', 'US/M', 'US/MET', 'US/MTR', 'US/METER', 'US/METRE'],
-    aliases: ['DT', 'DTCO', 'AC', 'DTC', 'SONI', 'DELTA_T', 'DTC1', 'DT35'],
-    minPhysical: 20,
-    maxPhysical: 240,
+    aliases: ['DT', 'DTCO', 'AC', 'DTC', 'SONIC', 'DELTA_T', 'DTC1', 'DT35', 'BCSL'],
+    minPhysical: 40.0,
+    maxPhysical: 240.0,
     description: 'Compressional wave acoustic travel time',
   },
   RT: {
@@ -82,22 +155,66 @@ export const STANDARD_CURVES: Record<string, StandardCurveDef> = {
     name: 'True Deep Resistivity',
     category: 'RESISTIVITY',
     standardUnit: 'OHMM',
-    acceptableUnits: ['OHMM', 'OHM.M', 'OHM-M', 'OHMS'],
+    acceptableUnits: RES_UNITS,
     aliases: ['RT', 'ILD', 'LLD', 'RD', 'RES_DEEP', 'AT90', 'RDEP', 'HDRS', 'R40O', 'AO90'],
     minPhysical: 0.2,
     maxPhysical: 2000,
     description: 'Deep un-invaded formation resistivity',
+  },
+  RM: {
+    standardMnemonic: 'RM',
+    name: 'Medium Resistivity',
+    category: 'RESISTIVITY',
+    standardUnit: 'OHMM',
+    acceptableUnits: RES_UNITS,
+    aliases: ['RM', 'RMED', 'ILM', 'RES_MED', 'AT30', 'AT60', 'AO30', 'AO60'],
+    minPhysical: 0.2,
+    maxPhysical: 2000,
+    description: 'Medium-depth formation resistivity',
+  },
+  LLS: {
+    standardMnemonic: 'LLS',
+    name: 'Shallow Resistivity',
+    category: 'RESISTIVITY',
+    standardUnit: 'OHMM',
+    acceptableUnits: ['OHMM', 'OHM.M'],
+    aliases: ['LLS', 'RS', 'RES_SHAL', 'AT10', 'AT20', 'RLA2', 'AO10', 'AO20'],
+    minPhysical: 0.2,
+    maxPhysical: 2000,
+    description: 'Shallow invaded zone resistivity',
+  },
+  MSFL: {
+    standardMnemonic: 'MSFL',
+    name: 'Micro-spherical Focused Resistivity',
+    category: 'RESISTIVITY',
+    standardUnit: 'OHMM',
+    acceptableUnits: ['OHMM', 'OHM.M'],
+    aliases: ['MSFL', 'RXO', 'MICRO', 'RFOC', 'RMFL'],
+    minPhysical: 0.2,
+    maxPhysical: 2000,
+    description: 'Flushed zone micro-resistivity',
   },
   CALI: {
     standardMnemonic: 'CALI',
     name: 'Caliper',
     category: 'CALIPER',
     standardUnit: 'IN',
-    acceptableUnits: ['IN', 'INCH', 'MM', 'CM', 'MILLIMETER', 'CENTIMETER'],
-    aliases: ['CALI', 'CAL', 'HCAL', 'CALS', 'CALP', 'BS', 'CLP', 'HDAR'],
+    acceptableUnits: ['IN', 'INCH', 'INCHES', 'MM', 'CM', 'MILLIMETER', 'CENTIMETER'],
+    aliases: ['CALI', 'CAL', 'HCAL', 'CALS', 'CALP', 'CLP', 'HDAR', 'CALX', 'CALY'],
     minPhysical: 6,
     maxPhysical: 16,
     description: 'Borehole diameter measurement log',
+  },
+  BS: {
+    standardMnemonic: 'BS',
+    name: 'Bit Size',
+    category: 'CALIPER',
+    standardUnit: 'IN',
+    acceptableUnits: ['IN', 'INCH', 'INCHES', 'MM', 'CM'],
+    aliases: ['BS', 'BIT', 'BITSIZE', 'BIT_SIZE'],
+    minPhysical: 6,
+    maxPhysical: 16,
+    description: 'Drill bit diameter',
   },
   PEF: {
     standardMnemonic: 'PEF',
@@ -115,33 +232,22 @@ export const STANDARD_CURVES: Record<string, StandardCurveDef> = {
     name: 'Spontaneous Potential',
     category: 'POTENTIAL',
     standardUnit: 'MV',
-    acceptableUnits: ['MV', 'VOLTS', 'MILLIVOLTS'],
+    acceptableUnits: ['MV', 'MILLIVOLTS'],
     aliases: ['SP', 'SPC', 'SPO', 'SP_CORR'],
     minPhysical: -250,
     maxPhysical: 250,
     description: 'Spontaneous electrical potential log',
   },
-  MSFL: {
-    standardMnemonic: 'MSFL',
-    name: 'Micro-spherical Focused Resistivity',
-    category: 'RESISTIVITY',
-    standardUnit: 'OHMM',
-    acceptableUnits: ['OHMM', 'OHM.M'],
-    aliases: ['MSFL', 'RXO', 'MICRO', 'RFOC', 'RMFL'],
-    minPhysical: 0.2,
-    maxPhysical: 2000,
-    description: 'Flushed zone micro-resistivity',
-  },
-  LLS: {
-    standardMnemonic: 'LLS',
-    name: 'Shallow Resistivity',
-    category: 'RESISTIVITY',
-    standardUnit: 'OHMM',
-    acceptableUnits: ['OHMM', 'OHM.M'],
-    aliases: ['LLS', 'ILM', 'RS', 'RES_SHAL', 'AT20', 'RLA2'],
-    minPhysical: 0.2,
-    maxPhysical: 2000,
-    description: 'Shallow invaded zone resistivity',
+  TEMP: {
+    standardMnemonic: 'TEMP',
+    name: 'Temperature',
+    category: 'TEMPERATURE',
+    standardUnit: 'DEGC',
+    acceptableUnits: ['DEGC', 'C'],
+    aliases: ['TEMP', 'TEMPERATURE', 'MTEM', 'TEMP_C'],
+    minPhysical: 4.0,
+    maxPhysical: 220.0,
+    description: 'Borehole or formation temperature',
   },
 };
 

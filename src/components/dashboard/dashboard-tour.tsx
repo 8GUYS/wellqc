@@ -62,11 +62,11 @@ const TOUR_STEPS: TourStep[] = [
     badge: "Module 1: Ingestion",
     icon: <UploadCloud className="w-5 h-5 text-cyan-400" />,
     description:
-      "Drag-and-drop raw LAS 2.0 or 3.0 well files into your workstation. The parser automatically validates section syntax (~VERSION, ~WELL, ~CURVE, ~ASCII), verifies depth increments, and immediately saves verified assets into your secure local database.",
+      "Drag-and-drop raw LAS 2.0 or 3.0 well files into your workstation. The parser automatically validates section syntax (~VERSION, ~WELL, ~CURVE, ~ASCII), verifies depth increments, and immediately saves verified assets into your workstation.",
     highlights: [
       "Frictionless Drag & Drop or File Browser Ingestion",
       "Real-time Syntax, Header & Null Value Verification",
-      "Database Wells Registry with Direct QA Repair Shortcuts",
+      "Well Assets Registry with Direct QA Repair Shortcuts",
     ],
     actionLink: {
       href: "/upload",
@@ -135,12 +135,12 @@ const TOUR_STEPS: TourStep[] = [
     badge: "Module 5: Remediation",
     icon: <Wrench className="w-5 h-5 text-cyan-400" />,
     description:
-      "Remediate data quality faults through an interactive 4-step workflow: Review flagged anomalies, select recommended fixes via the toggleable Suggested Fixes menu (Despiking, Outlier Clipping, Spline/KNN Null Imputation), preview before/after curves, and upload clean logs directly to the database.",
+      "Remediate data quality faults through an interactive 4-step workflow: Review flagged anomalies, select recommended fixes via the toggleable Suggested Fixes menu (Despiking, Outlier Clipping, Spline/KNN Null Imputation), preview before/after curves, and save clean logs directly to your assets.",
     highlights: [
       "Step 1: Automated Physical Bounds & Spike Diagnostics",
       "Step 2: Toggleable Suggested Fixes Dropdown Menu",
       "Step 3: Interactive Before vs After Diff Preview",
-      "Step 4: 1-Click Upload Cleaned Log to Database & LAS/CSV Export",
+      "Step 4: 1-Click Save Cleaned Log & LAS/CSV Export",
     ],
     actionLink: {
       href: "/qa-engine",
@@ -1024,7 +1024,7 @@ function QARepairSimulator() {
       {repaired && (
         <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-mono text-emerald-300 text-center flex items-center justify-center gap-1.5">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Closed-Loop: Ready to &quot;Upload Cleaned Log to Database&quot;</span>
+          <span>Closed-Loop: Ready to &quot;Save Cleaned Log&quot;</span>
         </div>
       )}
     </div>

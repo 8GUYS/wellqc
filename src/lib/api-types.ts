@@ -665,27 +665,8 @@ export interface ImputationBenchmarkResult {
   recommendationReason: string;
 }
 
-export interface StandardCurveDef {
-  mnemonic: string;
-  name: string;
-  unit: string;
-  description: string;
-  category: "LITHOLOGY" | "POROSITY" | "RESISTIVITY" | "CALIPER" | "GEOCHEMICAL" | "CORE";
-  aliases: string[];
-  minValid?: number;
-  maxValid?: number;
-  required?: boolean;
-}
-
-export interface CustomAliasEntry {
-  id: string;
-  rawMnemonic: string;
-  standardMnemonic: string;
-  addedBy: string;
-  addedAt: string;
-  userId?: string;
-  userEmail?: string;
-}
+// Re-export standardiser domain contracts from single source of truth
+export type { StandardCurveDef, CustomAliasEntry, CurveCategory } from "./las/standardiser";
 
 export interface CurveCorrelationStat {
   mnemonic: string;

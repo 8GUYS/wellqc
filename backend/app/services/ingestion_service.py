@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 import json
 import math
 from typing import Any, Dict, List
+from sqlalchemy import func, update
 from sqlalchemy.orm import Session
 from backend.app.core.security import normalize_role
 from backend.app.models.models import (
@@ -228,10 +229,13 @@ def commit_las_file_transaction(
         )
         db.add(anom_rec)
 
-    # Increment user's free checks counter if on Free tier
+    # Increment user's free checks counter atomically if on Free tier (race-condition safe)
     if (user.tier or "FREE").upper() == "FREE" and normalize_role(user.role) != "ADMIN":
-        user.freeChecksUsed = (user.freeChecksUsed or 0) + 1
-        db.add(user)
+        db.execute(
+            update(User)
+            .where(User.id == user.id)
+            .values(freeChecksUsed=func.coalesce(User.freeChecksUsed, 0) + 1)
+        )
 
     # Activity log
     log = ActivityLog(
@@ -241,7 +245,7 @@ def commit_las_file_transaction(
         action="UPLOAD_LAS",
         targetType="WELL",
         targetId=well.id,
-        details=f"Uploaded LAS file {file_name} to database for well {well.name} (Score: {qa.overallScore}/100, Grade: {qa.qualityGrade}).",
+        details=f"Saved LAS file {file_name} for well {well.name} (Score: {qa.overallScore}/100, Grade: {qa.qualityGrade}).",
     )
     db.add(log)
     db.commit()

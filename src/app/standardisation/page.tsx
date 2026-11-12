@@ -199,7 +199,20 @@ export default function StandardisationPage() {
     return matchesSearch && matchesCategory;
   });
 
-  const categories = ["ALL", "DEPTH", "GAMMA", "DENSITY", "POROSITY", "SONIC", "RESISTIVITY", "CALIPER", "POTENTIAL", "OTHER"];
+  const categories = [
+    "ALL",
+    "DEPTH",
+    "TRAJECTORY",
+    "GAMMA",
+    "DENSITY",
+    "POROSITY",
+    "SONIC",
+    "RESISTIVITY",
+    "CALIPER",
+    "POTENTIAL",
+    "TEMPERATURE",
+    "OTHER",
+  ];
 
   // Open Add Alias Modal
   const openAddModal = (curveMnemonic: string) => {

@@ -286,7 +286,7 @@ export function UploadedFilesTable({
 
       setFeedback({
         type: "success",
-        message: `Successfully deleted ${deletedCount} well asset${deletedCount === 1 ? "" : "s"} and their associated LAS logs from database.`,
+        message: `Successfully deleted ${deletedCount} well asset${deletedCount === 1 ? "" : "s"} and their associated LAS logs.`,
       });
       setTimeout(() => setFeedback(null), 6000);
     } catch (err) {
@@ -317,7 +317,7 @@ export function UploadedFilesTable({
               </span>
             </div>
             <p className="text-xs text-slate-400 font-mono">
-              Persisted well logs saved in your database repository. Inspect curves, repair in QA Engine, and track petrophysical asset quality.
+              Persisted well logs. Inspect curves, repair in QA Engine, and track petrophysical asset quality.
             </p>
           </div>
         </div>
@@ -328,7 +328,7 @@ export function UploadedFilesTable({
             onClick={loadWells}
             disabled={isLoading}
             className="px-3 py-1.5 rounded-xl bg-wellqc-card hover:bg-slate-800 border border-wellqc-border hover:border-cyan-500/40 text-slate-300 hover:text-white font-mono text-xs transition-colors flex items-center space-x-1.5 disabled:opacity-50"
-            title="Refresh database wells list"
+            title="Refresh wells list"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isLoading ? "animate-spin" : ""}`} />
             <span>Refresh</span>
@@ -436,7 +436,7 @@ export function UploadedFilesTable({
         {isLoading && wells.length === 0 ? (
           <div className="p-12 text-center text-cyan-300 text-xs font-mono flex items-center justify-center space-x-2">
             <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
-            <span>Loading uploaded well files from database...</span>
+            <span>Loading uploaded well files...</span>
           </div>
         ) : error ? (
           <div className="p-8 text-center text-red-300 text-xs font-mono space-y-2">
@@ -458,7 +458,7 @@ export function UploadedFilesTable({
             <p className="text-xs text-slate-400 font-mono max-w-md mx-auto">
               {searchQuery || gradeFilter !== "ALL"
                 ? "Try adjusting your search criteria or clearing filters above."
-                : "Drop or select LAS well logs in the upload box above to automatically parse, audit, and save them to the database."}
+                : "Drop or select LAS well logs in the upload box above to automatically parse, audit, and save them."}
             </p>
           </div>
         ) : (
@@ -705,7 +705,7 @@ export function UploadedFilesTable({
                               onClick={() => setDeleteConfirmWell(well)}
                               disabled={deletingId === well.id}
                               className="p-1.5 rounded-lg bg-wellqc-card hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-wellqc-border hover:border-rose-500/40 transition-colors disabled:opacity-50"
-                              title="Delete well from database"
+                              title="Delete well"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -746,7 +746,7 @@ export function UploadedFilesTable({
             </div>
 
             <p className="text-xs text-slate-400 font-mono leading-relaxed">
-              Are you sure you want to permanently remove this well asset, all its associated raw LAS logs, and quality diagnostic history from the database?
+              Are you sure you want to permanently remove this well asset, all its associated raw LAS logs, and quality diagnostic history?
             </p>
 
             <div className="flex items-center justify-end space-x-3 pt-2">
@@ -793,7 +793,7 @@ export function UploadedFilesTable({
                 <h3 className="text-lg font-bold text-white font-mono">
                   Bulk Delete {selectedIds.size} Well Files?
                 </h3>
-                <p className="text-xs text-rose-300 font-mono">Irreversible database operation</p>
+                <p className="text-xs text-rose-300 font-mono">Irreversible operation</p>
               </div>
             </div>
 
@@ -820,7 +820,7 @@ export function UploadedFilesTable({
             </div>
 
             <p className="text-xs text-slate-400 font-mono leading-relaxed">
-              Are you sure you want to permanently delete all <strong className="text-white font-bold">{selectedIds.size}</strong> selected well assets? This will purge all associated raw LAS curves, petrophysical diagnostic summaries, and audit reports from the database.
+              Are you sure you want to permanently delete all <strong className="text-white font-bold">{selectedIds.size}</strong> selected well assets? This will purge all associated raw LAS curves, petrophysical diagnostic summaries, and audit reports.
             </p>
 
             <div className="flex items-center justify-end space-x-3 pt-2 border-t border-wellqc-border/60">

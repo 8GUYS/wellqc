@@ -351,11 +351,11 @@ export default function LASUploadPage() {
             } catch {}
           }
         } catch (commitErr) {
-          console.warn("Auto-save to database failed for", item.name, commitErr);
+          console.warn("Auto-save failed for", item.name, commitErr);
           committed.push({
             ...item,
             status: "error",
-            error: commitErr instanceof Error ? commitErr.message : "Failed to save to database",
+            error: commitErr instanceof Error ? commitErr.message : "Failed to save",
           });
         }
       }
@@ -413,7 +413,7 @@ export default function LASUploadPage() {
 
     if (!rawText && isDownsampled) {
       setSaveError(
-        "Only a downsampled preview is currently in browser memory. Please re-select or drop the original LAS file to ensure the complete, untouched raw log is uploaded to the database.",
+        "Only a downsampled preview is currently in browser memory. Please re-select or drop the original LAS file to ensure the complete, untouched raw log is saved.",
       );
       return;
     }
@@ -624,7 +624,7 @@ export default function LASUploadPage() {
             : "LOW";
 
       const reconstructedAI: AIAnalysisOutput = {
-        summary: data.aiSummary || "Interpretation-ready well log dataset loaded from database repository.",
+        summary: data.aiSummary || "Interpretation-ready well log dataset loaded from assets repository.",
         recommendations: Array.isArray(data.recommendations) ? data.recommendations : [],
         riskRating,
         confidenceScore: 0.94,
@@ -651,7 +651,7 @@ export default function LASUploadPage() {
         }, 120);
       }
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Unable to load well from database.");
+      setSaveError(err instanceof Error ? err.message : "Unable to load well.");
       throw err;
     } finally {
       setIsProcessing(false);

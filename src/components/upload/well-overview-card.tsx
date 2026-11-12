@@ -130,7 +130,7 @@ export function WellOverviewCard({
               href="#database-wells-catalog"
               className="px-3 py-1.5 rounded-lg bg-wellqc-card border border-wellqc-border text-cyan-300 font-mono text-xs hover:border-cyan-400 transition-all flex items-center gap-1"
             >
-              <span>Saved Wells Table ↓</span>
+              <span>Saved Wells ↓</span>
             </a>
           </div>
         </div>

@@ -704,7 +704,7 @@ export default function QAEngineWorkspace() {
         };
         setQaResult(qaFromDb);
       } catch (err: unknown) {
-        setErrorMessage((err instanceof Error && err.message) || "Failed to load database well details.");
+        setErrorMessage((err instanceof Error && err.message) || "Failed to load well details.");
       }
     },
     [resetWorkspaceState]
@@ -789,7 +789,7 @@ export default function QAEngineWorkspace() {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setErrorMessage((err instanceof Error && err.message) || "Failed to load database well details.");
+        setErrorMessage((err instanceof Error && err.message) || "Failed to load well details.");
       });
 
     return () => {
@@ -1286,7 +1286,7 @@ export default function QAEngineWorkspace() {
       }
 
       if (!response.ok || !resultData?.well) {
-        throw new Error(resultData?.error || resultData?.detail || `Unable to upload cleaned log to database (HTTP ${response.status}).`);
+        throw new Error(resultData?.error || resultData?.detail || `Unable to save cleaned log (HTTP ${response.status}).`);
       }
 
       setUploadSuccessWell(resultData.well);
@@ -1297,7 +1297,7 @@ export default function QAEngineWorkspace() {
 
       await loadDbWells();
     } catch (err: unknown) {
-      setUploadDbError(err instanceof Error ? err.message : "Failed to upload cleaned log to database.");
+      setUploadDbError(err instanceof Error ? err.message : "Failed to save cleaned log.");
     } finally {
       setIsUploadingToDb(false);
     }
@@ -1503,7 +1503,7 @@ export default function QAEngineWorkspace() {
                 className="w-full bg-wellqc-dark border border-wellqc-border rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
               >
                 <option value="ACTIVE_UPLOAD">Active upload (recently uploaded file)</option>
-                <option value="DATABASE_WELL">Saved database wells (stored in system)</option>
+                <option value="DATABASE_WELL">Saved well assets (stored in system)</option>
               </select>
             </div>
 
@@ -1531,9 +1531,9 @@ export default function QAEngineWorkspace() {
                   className="w-full bg-wellqc-dark border border-wellqc-border rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
                 >
                   {isLoadingWells ? (
-                    <option value="">Loading saved database wells...</option>
+                    <option value="">Loading saved well assets...</option>
                   ) : dbWells.length === 0 ? (
-                    <option value="">No database wells found</option>
+                    <option value="">No saved well assets found</option>
                   ) : (
                     dbWells.map((w) => (
                       <option key={w.id} value={w.id}>
@@ -1552,7 +1552,7 @@ export default function QAEngineWorkspace() {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-bold text-white font-mono">{wellName}</span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                  {sourceChoice === "ACTIVE_UPLOAD" ? "Active upload" : "Saved database well"}
+                  {sourceChoice === "ACTIVE_UPLOAD" ? "Active upload" : "Saved well asset"}
                 </span>
               </div>
 

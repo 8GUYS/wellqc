@@ -994,7 +994,7 @@ export default function AdminPanelPage() {
               {isLoading ? (
                 <div className="p-8 text-center text-slate-400 text-xs flex items-center justify-center">
                   <RefreshCw className="w-3.5 h-3.5 animate-spin mr-2 text-cyan-400" />
-                  Loading accounts from database...
+                  Loading accounts...
                 </div>
               ) : filteredUsers.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-500">

@@ -32,79 +32,11 @@ logger = logging.getLogger("uvicorn.error")
 async def lifespan(app: FastAPI):
     """
     Ensure database schema compatibility on service startup.
-    Verifies that User email verification columns and the SystemSetting table exist.
+    Executes isolated DDL migrations so failures in one statement never roll back others.
     """
-    from backend.app.core.database import engine
-    from sqlalchemy import text
+    from backend.app.core.migrate import run_migrations
     try:
-        with engine.begin() as conn:
-            # Idempotent column additions with IF NOT EXISTS to guarantee schema compatibility
-            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isEmailVerified" BOOLEAN NOT NULL DEFAULT false;'))
-            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "emailVerifiedAt" TIMESTAMP(3);'))
-            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "paystackCustomerCode" TEXT;'))
-            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "paystackSubscriptionCode" TEXT;'))
-            conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "User_paystackCustomerCode_key" ON "User"("paystackCustomerCode");'))
-            conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "User_paystackSubscriptionCode_key" ON "User"("paystackSubscriptionCode");'))
-
-            has_setting = conn.execute(text(
-                """select to_regclass('public."SystemSetting"') is not null""")).scalar()
-
-            has_payment_tx = conn.execute(text(
-                """select to_regclass('public."PaymentTransaction"') is not null""")).scalar()
-            if not has_payment_tx:
-                conn.execute(text('''
-                    CREATE TABLE IF NOT EXISTS "PaymentTransaction" (
-                        "id" TEXT NOT NULL PRIMARY KEY,
-                        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
-                        "reference" TEXT NOT NULL UNIQUE,
-                        "amount" INTEGER NOT NULL,
-                        "currency" TEXT NOT NULL DEFAULT 'NGN',
-                        "plan" TEXT NOT NULL,
-                        "status" TEXT NOT NULL DEFAULT 'PENDING',
-                        "channel" TEXT,
-                        "paystackCustomerCode" TEXT,
-                        "metadataPayload" JSONB,
-                        "paidAt" TIMESTAMP(3),
-                        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-                    );
-                '''))
-                conn.execute(text('CREATE INDEX IF NOT EXISTS "PaymentTransaction_userId_idx" ON "PaymentTransaction"("userId");'))
-                conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "PaymentTransaction_reference_key" ON "PaymentTransaction"("reference");'))
-            else:
-                conn.execute(text('ALTER TABLE "PaymentTransaction" ADD COLUMN IF NOT EXISTS "paystackCustomerCode" TEXT;'))
-            if not has_setting:
-                conn.execute(text('''
-                    CREATE TABLE "SystemSetting" (
-                        "id" TEXT NOT NULL PRIMARY KEY,
-                        "key" TEXT NOT NULL UNIQUE,
-                        "value" TEXT NOT NULL,
-                        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-                    );
-                '''))
-                conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "SystemSetting_key_key" ON "SystemSetting"("key");'))
-
-            has_markers = conn.execute(text(
-                """select to_regclass('public."FormationMarker"') is not null""")).scalar()
-            if not has_markers:
-                conn.execute(text('''
-                    CREATE TABLE IF NOT EXISTS "FormationMarker" (
-                        "id" TEXT NOT NULL PRIMARY KEY,
-                        "wellId" TEXT NOT NULL REFERENCES "Well"("id") ON DELETE CASCADE,
-                        "formationName" TEXT NOT NULL,
-                        "topDepth" DOUBLE PRECISION NOT NULL,
-                        "bottomDepth" DOUBLE PRECISION,
-                        "source" TEXT NOT NULL DEFAULT 'INTERPRETER',
-                        "pickedBy" TEXT,
-                        "notes" TEXT,
-                        "ownerId" TEXT REFERENCES "User"("id") ON DELETE CASCADE,
-                        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        CONSTRAINT "FormationMarker_wellId_formationName_key" UNIQUE ("wellId", "formationName")
-                    );
-                '''))
-                conn.execute(text('CREATE INDEX IF NOT EXISTS "FormationMarker_wellId_idx" ON "FormationMarker"("wellId");'))
-
+        run_migrations(stop_on_error=False)
         logger.info("Database schema compatibility check completed successfully.")
     except Exception as e:
         logger.warning(f"Database schema check warning on startup: {e}")

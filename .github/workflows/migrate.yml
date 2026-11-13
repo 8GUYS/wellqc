@@ -31,3 +31,15 @@ jobs:
           exit 1
         env:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
+      - name: Trigger Render Backend Deploy Hook
+        if: success()
+        run: |
+          if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "Triggering Render backend deployment after successful migration..."
+            curl -f -sS -X POST "$RENDER_DEPLOY_HOOK_URL"
+          else
+            echo "RENDER_DEPLOY_HOOK_URL not configured, skipping deploy hook."
+          fi
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL || secrets.RENDER_BACKEND_DEPLOY_HOOK }}

@@ -32,14 +32,111 @@ logger = logging.getLogger("uvicorn.error")
 async def lifespan(app: FastAPI):
     """
     Ensure database schema compatibility on service startup.
-    Executes isolated DDL migrations so failures in one statement never roll back others.
+    Verifies that User email verification columns and the SystemSetting table exist.
+    Fails loudly and logs errors to Sentry if schema is behind model.
     """
-    from backend.app.core.migrate import run_migrations
+    from backend.app.core.database import engine
+    from sqlalchemy import text
+    from backend.app.models.models import User
     try:
-        run_migrations(stop_on_error=False)
+        with engine.begin() as conn:
+            # Idempotent column additions with IF NOT EXISTS to guarantee schema compatibility
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isEmailVerified" BOOLEAN NOT NULL DEFAULT false;'))
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "emailVerifiedAt" TIMESTAMP(3);'))
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "paystackCustomerCode" TEXT;'))
+            conn.execute(text('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "paystackSubscriptionCode" TEXT;'))
+            conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "User_paystackCustomerCode_key" ON "User"("paystackCustomerCode");'))
+            conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "User_paystackSubscriptionCode_key" ON "User"("paystackSubscriptionCode");'))
+
+            has_setting = conn.execute(text(
+                """select to_regclass('public."SystemSetting"') is not null""")).scalar()
+
+            has_payment_tx = conn.execute(text(
+                """select to_regclass('public."PaymentTransaction"') is not null""")).scalar()
+            if not has_payment_tx:
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS "PaymentTransaction" (
+                        "id" TEXT NOT NULL PRIMARY KEY,
+                        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+                        "reference" TEXT NOT NULL UNIQUE,
+                        "amount" INTEGER NOT NULL,
+                        "currency" TEXT NOT NULL DEFAULT 'NGN',
+                        "plan" TEXT NOT NULL,
+                        "status" TEXT NOT NULL DEFAULT 'PENDING',
+                        "channel" TEXT,
+                        "paystackCustomerCode" TEXT,
+                        "metadataPayload" JSONB,
+                        "paidAt" TIMESTAMP(3),
+                        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                '''))
+                conn.execute(text('CREATE INDEX IF NOT EXISTS "PaymentTransaction_userId_idx" ON "PaymentTransaction"("userId");'))
+                conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "PaymentTransaction_reference_key" ON "PaymentTransaction"("reference");'))
+            else:
+                conn.execute(text('ALTER TABLE "PaymentTransaction" ADD COLUMN IF NOT EXISTS "paystackCustomerCode" TEXT;'))
+            if not has_setting:
+                conn.execute(text('''
+                    CREATE TABLE "SystemSetting" (
+                        "id" TEXT NOT NULL PRIMARY KEY,
+                        "key" TEXT NOT NULL UNIQUE,
+                        "value" TEXT NOT NULL,
+                        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                '''))
+                conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "SystemSetting_key_key" ON "SystemSetting"("key");'))
+
+            has_markers = conn.execute(text(
+                """select to_regclass('public."FormationMarker"') is not null""")).scalar()
+            if not has_markers:
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS "FormationMarker" (
+                        "id" TEXT NOT NULL PRIMARY KEY,
+                        "wellId" TEXT NOT NULL REFERENCES "Well"("id") ON DELETE CASCADE,
+                        "formationName" TEXT NOT NULL,
+                        "topDepth" DOUBLE PRECISION NOT NULL,
+                        "bottomDepth" DOUBLE PRECISION,
+                        "source" TEXT NOT NULL DEFAULT 'INTERPRETER',
+                        "pickedBy" TEXT,
+                        "notes" TEXT,
+                        "ownerId" TEXT REFERENCES "User"("id") ON DELETE CASCADE,
+                        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT "FormationMarker_wellId_formationName_key" UNIQUE ("wellId", "formationName")
+                    );
+                '''))
+                conn.execute(text('CREATE INDEX IF NOT EXISTS "FormationMarker_wellId_idx" ON "FormationMarker"("wellId");'))
+
         logger.info("Database schema compatibility check completed successfully.")
     except Exception as e:
-        logger.warning(f"Database schema check warning on startup: {e}")
+        logger.exception(f"Database schema check failure on startup: {e}")
+
+    # Check for missing columns on User model against information_schema
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text(
+                    """
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'User' AND table_schema = current_schema();
+                    """
+                )
+            )
+            db_columns = {row[0] for row in result.fetchall()}
+            if db_columns:
+                model_columns = {col.name for col in User.__table__.columns}
+                missing_columns = model_columns - db_columns
+                if missing_columns:
+                    logger.error(
+                        f"CRITICAL SCHEMA DRIFT: Database table 'User' is missing model columns: {sorted(missing_columns)}. "
+                        f"Ensure Prisma migration 20261110180000 has been deployed."
+                    )
+                else:
+                    logger.info("All User model columns verified in database schema.")
+    except Exception as e:
+        logger.exception(f"Failed to inspect information_schema for User model columns: {e}")
+
     yield
 
 from starlette.middleware.base import BaseHTTPMiddleware

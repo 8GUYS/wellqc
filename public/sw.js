@@ -1,7 +1,16 @@
-const CACHE_NAME = "wellqc-pwa-v2";
+/**
+ * WellQC Workstation — Progressive Web App (PWA) Service Worker
+ *
+ * Cache Strategy:
+ * - Cache Name: Bumped to wellqc-pwa-v3 to purge legacy stale RSC payloads.
+ * - Cache ONLY static immutable assets (fonts, brand images, icons, _next/static).
+ * - NEVER cache Next.js React Server Component (RSC) payloads (/_rsc=, headers).
+ * - NEVER cache dynamic HTML page data (navigation requests fallback to /offline when offline).
+ */
+
+const CACHE_NAME = "wellqc-pwa-v3";
 
 const PRECACHE_ASSETS = [
-  "/",
   "/offline",
   "/manifest.webmanifest",
   "/fonts/SFPRODISPLAYREGULAR.woff",
@@ -14,7 +23,7 @@ const PRECACHE_ASSETS = [
   "/brand/wellqc-logo-full-transparent.png",
 ];
 
-// Install: Cache core offline shell
+// Install: Cache offline fallback and core static assets
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
@@ -28,14 +37,19 @@ self.addEventListener("install", (event) => {
   );
 });
 
-// Activate: Clean up old cache versions & claim clients
+// Activate: Clean up all legacy cache versions & claim active clients
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
       .then((cacheNames) => {
         return Promise.all(
-          cacheNames.map((name) => caches.delete(name))
+          cacheNames
+            .filter((name) => name !== CACHE_NAME)
+            .map((name) => {
+              console.log("[WellQC SW] Purging obsolete cache:", name);
+              return caches.delete(name);
+            })
         );
       })
       .then(() => self.clients.claim())
@@ -47,56 +61,64 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Bypass non-GET and cross-origin requests
+  // 1. Bypass non-GET and cross-origin requests
   if (request.method !== "GET" || url.origin !== self.location.origin) {
     return;
   }
 
-  // Bypass localhost & local development entirely
+  // 2. Bypass localhost & local development entirely
   if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
     return;
   }
 
-  // Bypass Next.js chunks & hot reload assets
-  if (url.pathname.startsWith("/_next/")) {
-    return;
-  }
-
-  // Bypass API calls — live data should not be served stale
+  // 3. Bypass API endpoints — live subsurface telemetry should never be cached by SW
   if (url.pathname.startsWith("/api/")) {
     return;
   }
 
-  // 1. Navigation requests (HTML pages): Network-first with offline fallback
+  // 4. CRITICAL: Bypass Next.js React Server Component (RSC) payloads & server actions
+  // RSC payloads contain deployment-specific client component IDs. Caching them across
+  // deployments causes React error #130 ("Element type is invalid: expected string... got undefined").
+  const isRscRequest =
+    url.searchParams.has("_rsc") ||
+    url.search.includes("_rsc=") ||
+    request.headers.get("RSC") === "1" ||
+    request.headers.has("Next-Router-State-Tree") ||
+    request.headers.has("Next-Router-Prefetch") ||
+    request.headers.has("Next-Url") ||
+    request.headers.has("Next-Action");
+
+  if (isRscRequest) {
+    return;
+  }
+
+  // 5. Bypass internal Next.js server chunks & build manifests that are not static assets
+  if (url.pathname.startsWith("/_next/") && !url.pathname.startsWith("/_next/static/")) {
+    return;
+  }
+
+  // 6. Navigation requests (HTML pages): Network-first with offline fallback ONLY
+  // Do NOT cache page HTML responses in SW cache to prevent serving stale client references.
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
-        .catch(async () => {
-          // If offline, check if page is cached, else serve /offline fallback
-          const cached = await caches.match(request);
-          if (cached) return cached;
-          const offlinePage = await caches.match("/offline");
-          if (offlinePage) return offlinePage;
-          return new Response("Offline - WellQC Workstation requires an active connection.", {
-            headers: { "Content-Type": "text/html" },
-          });
-        })
+      fetch(request).catch(async () => {
+        const offlinePage = await caches.match("/offline");
+        if (offlinePage) return offlinePage;
+        return new Response("Offline - WellQC Workstation requires an active connection.", {
+          status: 503,
+          headers: { "Content-Type": "text/html" },
+        });
+      })
     );
     return;
   }
 
-  // 2. Static Assets (fonts, brand images, icons, _next static files): Cache-first
+  // 7. Static Assets (fonts, brand images, icons, _next/static immutable files): Cache-first
   const isStatic =
     url.pathname.startsWith("/fonts/") ||
     url.pathname.startsWith("/brand/") ||
     url.pathname.startsWith("/_next/static/") ||
+    url.pathname === "/manifest.webmanifest" ||
     /\.(?:png|jpg|jpeg|svg|webp|woff|woff2|ico|css|js)$/i.test(url.pathname);
 
   if (isStatic) {
@@ -117,22 +139,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Default: Stale-while-revalidate for other assets
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      const fetchPromise = fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return networkResponse;
-        })
-        .catch(() => cached);
-
-      return cached || fetchPromise;
-    })
-  );
+  // 8. Default: Allow all other dynamic requests to pass through to the network without caching
 });
 
 // Message listener (for skipWaiting updates)

@@ -33,9 +33,11 @@ async def lifespan(app: FastAPI):
     """
     Ensure database schema compatibility on service startup.
     Verifies that User email verification columns and the SystemSetting table exist.
+    Fails loudly and logs errors to Sentry if schema is behind model.
     """
     from backend.app.core.database import engine
     from sqlalchemy import text
+    from backend.app.models.models import User
     try:
         with engine.begin() as conn:
             # Idempotent column additions with IF NOT EXISTS to guarantee schema compatibility
@@ -107,7 +109,34 @@ async def lifespan(app: FastAPI):
 
         logger.info("Database schema compatibility check completed successfully.")
     except Exception as e:
-        logger.warning(f"Database schema check warning on startup: {e}")
+        logger.exception(f"Database schema check failure on startup: {e}")
+
+    # Check for missing columns on User model against information_schema
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text(
+                    """
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'User' AND table_schema = current_schema();
+                    """
+                )
+            )
+            db_columns = {row[0] for row in result.fetchall()}
+            if db_columns:
+                model_columns = {col.name for col in User.__table__.columns}
+                missing_columns = model_columns - db_columns
+                if missing_columns:
+                    logger.error(
+                        f"CRITICAL SCHEMA DRIFT: Database table 'User' is missing model columns: {sorted(missing_columns)}. "
+                        f"Ensure Prisma migration 20261110180000 has been deployed."
+                    )
+                else:
+                    logger.info("All User model columns verified in database schema.")
+    except Exception as e:
+        logger.exception(f"Failed to inspect information_schema for User model columns: {e}")
+
     yield
 
 from starlette.middleware.base import BaseHTTPMiddleware

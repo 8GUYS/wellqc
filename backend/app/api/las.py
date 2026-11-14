@@ -60,6 +60,7 @@ from backend.app.services.standardiser import (
 from backend.app.api.standardisation import _get_user_aliases
 from backend.app.services.ingestion_service import commit_las_file_transaction
 from backend.app.services import job_store
+from backend.app.services.outbound_webhook import fire_event as _fire_event
 
 router = APIRouter(prefix="/api/las", tags=["las"])
 
@@ -687,12 +688,33 @@ async def _run_batch(
             "qualityGrade": result.get("qualityGrade"),
         })
 
+        # CE2-34: fire las.committed outbound webhook (non-blocking)
+        asyncio.ensure_future(_fire_event(
+            "las.committed",
+            {
+                "jobId":        job_id,
+                "fileName":     file_name,
+                "wellId":       result.get("id"),
+                "wellName":     result.get("wellName"),
+                "overallScore": result.get("overallScore"),
+                "qualityGrade": result.get("qualityGrade"),
+            },
+            db,
+        ))
+
     # ── 5. All files processed — close the stream ─────────────────────────
     await job_store.push_event(job_id, {
         "type":  "batch_complete",
         "total": total,
     })
     await job_store.close_job(job_id)
+
+    # CE2-34: fire las.batch_complete outbound webhook (non-blocking)
+    asyncio.ensure_future(_fire_event(
+        "las.batch_complete",
+        {"jobId": job_id, "total": total},
+        db,
+    ))
 
 
 def _ingest_one(

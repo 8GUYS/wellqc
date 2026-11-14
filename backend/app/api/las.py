@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import asyncio
 import hashlib
 import json
 import math
@@ -6,8 +7,9 @@ import re
 import secrets
 import uuid
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user, get_current_user_optional
@@ -57,6 +59,7 @@ from backend.app.services.standardiser import (
 )
 from backend.app.api.standardisation import _get_user_aliases
 from backend.app.services.ingestion_service import commit_las_file_transaction
+from backend.app.services import job_store
 
 router = APIRouter(prefix="/api/las", tags=["las"])
 
@@ -561,4 +564,216 @@ def get_las_download_url(
     if las.rawContent:
         return {"content": las.rawContent, "source": "db"}
     raise HTTPException(status_code=404, detail="File content not available.")
+
+
+# ── Async SSE Batch Ingestion (CE1-31 · Sprint 9) ─────────────────────────
+
+from pydantic import BaseModel as _BaseModel  # noqa: E402
+
+
+class BatchItem(_BaseModel):
+    content:  str
+    fileName: str
+
+
+class BatchRequest(_BaseModel):
+    files: List[BatchItem]
+
+
+@router.post("/batch", status_code=202)
+async def submit_batch(
+    req: BatchRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Enqueue a batch of LAS files for async background ingestion.
+    Returns a job_id the client polls via GET /api/las/job/{job_id}/stream.
+
+    Freemium cap is enforced per-file inside the background task so the
+    per-file SSE event can carry the rejection reason rather than failing
+    the whole batch at submit time.
+    """
+    files = req.files
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided.")
+    if len(files) > 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 files per batch.")
+
+    job_id = await job_store.create_job(total=len(files))
+
+    # Fire-and-forget background coroutine — does NOT block the HTTP response
+    asyncio.ensure_future(
+        _run_batch(job_id=job_id, files=files, user=current_user, db=db)
+    )
+
+    return {"jobId": job_id, "total": len(files)}
+
+
+async def _run_batch(
+    job_id: str,
+    files: List[BatchItem],
+    user: User,
+    db: Session,
+) -> None:
+    """
+    Background coroutine: processes each file sequentially, pushing an SSE
+    event after each one, then signals stream end.
+    """
+    total = len(files)
+    server_aliases = _get_user_aliases(db, user)
+
+    for index, item in enumerate(files):
+        file_index = index + 1
+        content   = (item.content or "").strip()
+        file_name = (item.fileName or "").strip() or "uploaded-well-log.las"
+
+        # ── 1. Freemium cap check ──────────────────────────────────────────
+        tier = (user.tier or "FREE").upper()
+        role = normalize_role(user.role)
+        if tier == "FREE" and role != "ADMIN":
+            from backend.app.models.models import LASFile as _LASFile
+            uploaded_count = db.query(_LASFile).filter(
+                (_LASFile.ownerId == user.id) | (_LASFile.uploadedById == user.id)
+            ).count()
+            checks_used = max(user.freeChecksUsed or 0, uploaded_count)
+            if checks_used >= 3:
+                await job_store.push_event(job_id, {
+                    "type":      "file_error",
+                    "index":     file_index,
+                    "total":     total,
+                    "fileName":  file_name,
+                    "error":     "Free tier limit reached (3 files). Upgrade to WellQC Pro.",
+                    "limitHit":  True,
+                })
+                continue
+
+        # ── 2. Notify: starting ───────────────────────────────────────────
+        await job_store.push_event(job_id, {
+            "type":     "file_start",
+            "index":    file_index,
+            "total":    total,
+            "fileName": file_name,
+        })
+
+        # ── 3. Parse + QA + AI (CPU-bound → run in threadpool) ────────────
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                _ingest_one,
+                content, file_name, user, db, server_aliases,
+            )
+        except Exception as exc:
+            await job_store.push_event(job_id, {
+                "type":     "file_error",
+                "index":    file_index,
+                "total":    total,
+                "fileName": file_name,
+                "error":    str(exc),
+                "limitHit": False,
+            })
+            continue
+
+        # ── 4. Notify: done ───────────────────────────────────────────────
+        await job_store.push_event(job_id, {
+            "type":        "file_done",
+            "index":       file_index,
+            "total":       total,
+            "fileName":    file_name,
+            "wellId":      result.get("id"),
+            "wellName":    result.get("wellName"),
+            "overallScore": result.get("overallScore"),
+            "qualityGrade": result.get("qualityGrade"),
+        })
+
+    # ── 5. All files processed — close the stream ─────────────────────────
+    await job_store.push_event(job_id, {
+        "type":  "batch_complete",
+        "total": total,
+    })
+    await job_store.close_job(job_id)
+
+
+def _ingest_one(
+    content: str,
+    file_name: str,
+    user: User,
+    db: Session,
+    server_aliases: list,
+) -> dict:
+    """
+    Synchronous ingestion for one file — runs inside a threadpool executor
+    so it never blocks the event loop during CPU-heavy parse/QA/AI steps.
+    """
+    from backend.app.services.ai_analyzer import generate_ai_analysis
+    from backend.app.services.quality_engine import analyze_well_log_quality
+
+    if not content:
+        raise ValueError("LAS file content is empty.")
+
+    parsed = _parse_or_400(content, server_aliases)
+    qa     = analyze_well_log_quality(parsed, server_aliases)
+    ai     = generate_ai_analysis(parsed, qa)
+
+    return commit_las_file_transaction(
+        db=db,
+        user=user,
+        parsed=parsed,
+        qa=qa,
+        ai=ai,
+        raw_file_name=file_name,
+        content=content,
+        server_aliases=server_aliases,
+    )
+
+
+@router.get("/job/{job_id}/stream")
+async def stream_job(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Server-Sent Events stream for a batch ingestion job.
+
+    The client opens one persistent HTTP connection; this endpoint drains
+    the job's asyncio.Queue and forwards each event as an SSE frame until
+    the batch_complete sentinel is received.
+
+    Event format (text/event-stream):
+        data: {"type": "file_start"|"file_done"|"file_error"|"batch_complete", ...}
+    """
+    job = job_store.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found or expired.")
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        # Send a keep-alive comment immediately so the browser doesn't timeout
+        yield ": keep-alive\n\n"
+
+        while True:
+            try:
+                item = await asyncio.wait_for(job.queue.get(), timeout=30.0)
+            except asyncio.TimeoutError:
+                # Send heartbeat so the connection stays alive through Render's
+                # 55-second idle timeout
+                yield ": heartbeat\n\n"
+                continue
+
+            if item is job_store.SENTINEL:
+                # Stream finished
+                yield "event: done\ndata: {}\n\n"
+                break
+
+            yield f"data: {json.dumps(item)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control":    "no-cache",
+            "X-Accel-Buffering": "no",   # disables Nginx/Render buffering
+            "Connection":        "keep-alive",
+        },
+    )
 

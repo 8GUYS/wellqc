@@ -444,7 +444,7 @@ export default function ReportsPage() {
       setTargetUpgradeWellId(customWellId || effectiveSelectedReport?.id);
       setUpgradeModalOpen(true);
       setExportToast({
-        msg: "Official NUPRC PDF Certificate export requires a WellQC Pro license. Please upgrade to download and print certified compliance documents.",
+        msg: "Official NUPRC PDF Report export requires a WellQC Pro license. Please upgrade to download and print certified compliance documents.",
         ok: false,
       });
       return;
@@ -789,7 +789,7 @@ export default function ReportsPage() {
                   className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 border border-purple-500/40 text-purple-200 font-bold font-mono text-xs shadow-lg shadow-purple-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                 >
                   <Lock className="w-4 h-4 text-purple-300" />
-                  <span>Export PDF Certificate (PRO)</span>
+                  <span>Export PDF Report (PRO)</span>
                 </button>
               ) : (
                 <button
@@ -799,7 +799,7 @@ export default function ReportsPage() {
                   className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold font-mono text-xs shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Print / PDF Certificate</span>
+                  <span>Print / PDF Report</span>
                 </button>
               )}
             </div>
@@ -1062,7 +1062,7 @@ export default function ReportsPage() {
                                 setUpgradeModalOpen(true);
                               }}
                               className="px-2 py-1 rounded bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/30 text-purple-300 text-[11px] font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
-                              title="Upgrade to Pro to print or export PDF certificate"
+                              title="Upgrade to Pro to print or export PDF report"
                             >
                               <Lock className="w-3 h-3 text-purple-400" />
                               <span>PDF</span>
@@ -1076,7 +1076,7 @@ export default function ReportsPage() {
                                 handlePrintAuditCertificate(r.id);
                               }}
                               className="p-1 rounded bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[11px] font-bold inline-flex items-center transition-colors cursor-pointer"
-                              title="Print / PDF Certificate"
+                              title="Print / PDF Report"
                             >
                               <Printer className="w-3 h-3" />
                             </button>

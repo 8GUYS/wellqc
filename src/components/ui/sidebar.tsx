@@ -125,11 +125,11 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
           badge: isFreeTier ? "PRO" : undefined,
         },
         {
-          label: "Well Comparison",
+          label: "Log Comparison",
           href: "/comparison",
           icon: GitCompare,
           isLive: !isFreeTier,
-          badge: isFreeTier ? "PRO" : "MULTI-WELL",
+          badge: isFreeTier ? "PRO" : "MULTI-LOG",
         },
         { label: "Subsurface Analytics", href: "/analytics", icon: BarChart3 },
       ],

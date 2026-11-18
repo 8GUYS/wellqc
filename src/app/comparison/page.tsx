@@ -13,8 +13,6 @@ import {
   Layers,
   Download,
   AlertTriangle,
-  Info,
-  BarChart2,
   Sliders,
   Lock,
   Sparkles,
@@ -38,12 +36,12 @@ export default function ComparisonPage() {
   const [detail2, setDetail2] = useState<WellDetailResponse | null>(null);
   const [comparisonData, setComparisonData] = useState<WellComparisonResult | null>(null);
   const comparison = well1 && well2 ? comparisonData : null;
-  const [activeTab, setActiveTab] = useState<ComparisonTab>("analytics");
-  const [selectedOverlayCurve, setSelectedOverlayCurve] = useState<string>("");
-  const [matrixFilter, setMatrixFilter] = useState<"ALL" | "COMMON" | "PRIMARY_ONLY" | "OFFSET_ONLY">("ALL");
+  const [activeTab, setActiveTab] = useState<ComparisonTab>("sideBySide");
+  const [_selectedOverlayCurve, setSelectedOverlayCurve] = useState<string>("");
+  const [_matrixFilter, _setMatrixFilter] = useState<"ALL" | "COMMON" | "PRIMARY_ONLY" | "OFFSET_ONLY">("ALL");
   const [resampleDensity] = useState<number>(400);
   const [isLoadingWells, setIsLoadingWells] = useState(true);
-  const [isComparing, setIsComparing] = useState(false);
+  const [_isComparing, setIsComparing] = useState(false);
   const [error, setError] = useState("");
 
   // User Profile & License Gatekeeper State
@@ -69,7 +67,7 @@ export default function ComparisonPage() {
             });
           }
         }
-      } catch {} finally {
+      } catch { } finally {
         if (active) {
           setIsVerifyingTier(false);
         }
@@ -85,25 +83,25 @@ export default function ComparisonPage() {
 
   const isFreeTier = userProfile.tier === "FREE" && userProfile.role !== "ADMIN";
 
-  const filteredCorrelations = useMemo(() => {
+  const _filteredCorrelations = useMemo(() => {
     if (!comparison) return [];
-    if (matrixFilter === "COMMON") {
+    if (_matrixFilter === "COMMON") {
       return comparison.curve_correlations.filter(
         (c) => !c.availability || c.availability === "BOTH"
       );
     }
-    if (matrixFilter === "PRIMARY_ONLY") {
+    if (_matrixFilter === "PRIMARY_ONLY") {
       return comparison.curve_correlations.filter(
         (c) => c.availability === "WELL_A_ONLY"
       );
     }
-    if (matrixFilter === "OFFSET_ONLY") {
+    if (_matrixFilter === "OFFSET_ONLY") {
       return comparison.curve_correlations.filter(
         (c) => c.availability === "WELL_B_ONLY"
       );
     }
     return comparison.curve_correlations;
-  }, [comparison, matrixFilter]);
+  }, [comparison, _matrixFilter]);
 
   // Load committed wells list
   useEffect(() => {
@@ -179,7 +177,7 @@ export default function ComparisonPage() {
     loadDetail(well2, setDetail2, setError);
   }, [well2]);
 
-  // Execute multi-well correlation analysis
+  // Execute multi-log correlation analysis
   useEffect(() => {
     if (!well1 || !well2) {
       return;
@@ -245,18 +243,79 @@ export default function ComparisonPage() {
     setWell2(temp);
   };
 
-  const handleExportJson = () => {
+  const handleExportLas = () => {
     if (!comparison) return;
     if (isFreeTier) {
       setTargetUpgradeWellId(well1 || well2 || undefined);
       setUpgradeModalOpen(true);
       return;
     }
-    const blob = new Blob([JSON.stringify(comparison, null, 2)], { type: "application/json" });
+
+    const nullValue = -999.25;
+    const depthUnit = comparison.depth_unit || "FT";
+    const depths = comparison.resampled_depth || [];
+    const firstDepth = depths.length > 0 ? depths[0] : comparison.overlap_start_depth;
+    const lastDepth = depths.length > 0 ? depths[depths.length - 1] : comparison.overlap_stop_depth;
+    const step = depths.length > 1 ? Math.abs(depths[1] - depths[0]) : 0.5;
+
+    const curvesA = Object.keys(comparison.resampled_curves_a || {});
+    const curvesB = Object.keys(comparison.resampled_curves_b || {});
+
+    const curveInfoLines = [
+      `DEPT.${depthUnit.padEnd(5)}                             : 1 MEASURED DEPTH`,
+    ];
+    curvesA.forEach((c, idx) => {
+      curveInfoLines.push(`${(c + "_A").padEnd(10)}.                               : ${idx + 2} ${c} from ${comparison.well_a_name}`);
+    });
+    curvesB.forEach((c, idx) => {
+      curveInfoLines.push(`${(c + "_B").padEnd(10)}.                               : ${curvesA.length + idx + 2} ${c} from ${comparison.well_b_name}`);
+    });
+
+    const asciiLines = depths.map((d, rowIdx) => {
+      const rowValues = [
+        d.toFixed(4).padStart(12),
+        ...curvesA.map((c) => {
+          const val = comparison.resampled_curves_a[c]?.[rowIdx];
+          return (val !== undefined && Number.isFinite(val) ? val.toFixed(4) : nullValue.toFixed(2)).padStart(12);
+        }),
+        ...curvesB.map((c) => {
+          const val = comparison.resampled_curves_b[c]?.[rowIdx];
+          return (val !== undefined && Number.isFinite(val) ? val.toFixed(4) : nullValue.toFixed(2)).padStart(12);
+        }),
+      ];
+      return rowValues.join(" ");
+    });
+
+    const lasContent = [
+      "~VERSION INFORMATION",
+      "VERS.                 2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0",
+      "WRAP.                  NO : ONE LINE PER DEPTH STEP",
+      "~WELL INFORMATION",
+      `# WellQC Log Comparison Composite Export`,
+      `# Correlated Log A: ${comparison.well_a_name}`,
+      `# Correlated Log B: ${comparison.well_b_name}`,
+      `# Composite Match Score: ${comparison.composite_correlation_score}% (${comparison.overall_match_grade})`,
+      `# Suggested Depth Shift: ${comparison.recommended_depth_shift} ${depthUnit}`,
+      `STRT.${depthUnit.padEnd(5)}     ${firstDepth.toFixed(4).padStart(12)} : START DEPTH`,
+      `STOP.${depthUnit.padEnd(5)}     ${lastDepth.toFixed(4).padStart(12)} : STOP DEPTH`,
+      `STEP.${depthUnit.padEnd(5)}     ${step.toFixed(4).padStart(12)} : STEP VALUE`,
+      `NULL.           -999.2500 : NULL VALUE`,
+      `WELL.     ${(comparison.well_a_name + "_vs_" + comparison.well_b_name).replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30)} : LOG COMPARISON COMPOSITE`,
+      "~CURVE INFORMATION",
+      ...curveInfoLines,
+      "~PARAMETER INFORMATION",
+      `SCORE.    ${comparison.composite_correlation_score.toString().padStart(12)} : COMPOSITE CORRELATION SCORE`,
+      `GRADE.    ${comparison.overall_match_grade.padStart(12)} : CONTINUITY MATCH GRADE`,
+      `SHIFT.    ${comparison.recommended_depth_shift.toFixed(4).padStart(12)} : SUGGESTED LAG SHIFT`,
+      "~ASCII",
+      ...asciiLines,
+    ].join("\n");
+
+    const blob = new Blob([lasContent], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `WellQC_Correlation_${comparison.well_a_name}_vs_${comparison.well_b_name}.json`;
+    a.download = `WellQC_Log_Correlation_${comparison.well_a_name.replace(/[^a-zA-Z0-9_-]/g, "_")}_vs_${comparison.well_b_name.replace(/[^a-zA-Z0-9_-]/g, "_")}.las`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -335,13 +394,13 @@ export default function ComparisonPage() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-white font-mono">Well Comparison Restricted</span>
+                  <span className="text-sm font-bold text-white font-mono">Log Comparison Restricted</span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
                     FREE TIER
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 font-mono mt-0.5">
-                  Multi-well stratigraphic correlation, lag-shift analysis, and cross-well overlays are available on WellQC Pro.
+                  Multi-log stratigraphic correlation, lag-shift analysis, and cross-log overlays are available on WellQC Pro.
                 </p>
               </div>
             </div>
@@ -361,17 +420,17 @@ export default function ComparisonPage() {
 
             <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>WELLQC PRO CROSS-WELL SUITE</span>
+              <span>WELLQC PRO LOG COMPARISON SUITE</span>
             </div>
 
             <div className="max-w-2xl mx-auto space-y-3">
               <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
-                Unlock Multi-Well Petrophysical Correlation &amp; Comparison
+                Unlock Multi-Log Petrophysical Correlation &amp; Comparison
               </h1>
               <p className="text-sm text-slate-300 leading-relaxed font-sans">
                 You are currently on the <span className="text-cyan-400 font-bold font-mono">Free Tier</span>.
                 You can upload and inspect single-well wireline telemetry without limits on the Data Upload page.
-                To perform multi-well stratigraphic depth alignment, structural lag shifts (Δz), composite cross-track overlays, and side-by-side dual log tracks, upgrade to WellQC Pro.
+                To perform multi-log stratigraphic depth alignment, structural lag shifts (Δz), composite cross-track overlays, and side-by-side dual log tracks, upgrade to WellQC Pro.
               </p>
             </div>
 
@@ -410,10 +469,10 @@ export default function ComparisonPage() {
               <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-all space-y-2">
                 <div className="flex items-center gap-2 text-cyan-400 font-bold font-mono text-sm">
                   <Download className="w-4 h-4 text-cyan-400" />
-                  <span>Multi-Well Matrix CSV &amp; JSON Exports</span>
+                  <span>Multi-Log Matrix CSV &amp; LAS Exports</span>
                 </div>
                 <p className="text-xs text-slate-400 font-mono leading-relaxed">
-                  Export correlation matrices, lag depths, RMSD, and continuity classifications directly into geoscience workflows and basin models.
+                  Export correlation matrices, lag depths, RMSD, and aligned dual-log CWLS LAS 2.0 files directly into geoscience workflows and basin models.
                 </p>
               </div>
             </div>
@@ -445,7 +504,7 @@ export default function ComparisonPage() {
           onClose={() => setUpgradeModalOpen(false)}
           defaultPlanId="PRO_MONTHLY"
           targetWellId={targetUpgradeWellId}
-          reason="Upgrade to WellQC Pro to access multi-well petrophysical correlation, lag shift matching, and cross-well exports."
+          reason="Upgrade to WellQC Pro to access multi-log petrophysical correlation, lag shift matching, and cross-log exports."
         />
       </AppShell>
     );
@@ -460,12 +519,12 @@ export default function ComparisonPage() {
             <div className="flex items-center space-x-2">
 
               <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                Cross-Well Telemetry
+                Cross-Log Telemetry
               </span>
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight mt-1 flex items-center space-x-3">
               <GitCompare className="w-6 h-6 text-cyan-400" />
-              <span>Multi-Well Petrophysical Correlation &amp; Comparison</span>
+              <span>Log Comparison &amp; Stratigraphic Correlation</span>
             </h1>
             <p className="text-xs text-wellqc-muted font-mono mt-0.5">
               Stratigraphic depth alignment, Pearson correlation coefficient ($r$), structural lag shifts, and Niger Delta marker matching.
@@ -476,28 +535,26 @@ export default function ComparisonPage() {
             <div className="flex items-center space-x-2">
               <button
                 onClick={handleExportCsv}
-                className={`px-3 py-2 rounded-xl text-xs font-mono flex items-center space-x-2 transition ${
-                  isFreeTier
-                    ? "bg-purple-950/50 hover:bg-purple-900/70 border border-purple-500/40 text-purple-300"
-                    : "bg-wellqc-card border border-wellqc-border hover:border-cyan-500/50 text-cyan-300"
-                }`}
+                className={`px-3 py-2 rounded-xl text-xs font-mono flex items-center space-x-2 transition ${isFreeTier
+                  ? "bg-purple-950/50 hover:bg-purple-900/70 border border-purple-500/40 text-purple-300"
+                  : "bg-wellqc-card border border-wellqc-border hover:border-cyan-500/50 text-cyan-300"
+                  }`}
                 title={isFreeTier ? "Upgrade to Pro to export correlation CSV" : "Export correlation metrics as CSV"}
               >
                 {isFreeTier ? <Lock className="w-3.5 h-3.5 text-purple-400" /> : <Download className="w-3.5 h-3.5" />}
-                <span>CSV Matrix</span>
+                <span>CSV Export</span>
                 {isFreeTier && <span className="px-1 py-0.2 rounded bg-purple-500/30 text-purple-200 text-[9px] font-bold">PRO</span>}
               </button>
               <button
-                onClick={handleExportJson}
-                className={`px-3 py-2 rounded-xl text-xs font-mono flex items-center space-x-2 transition ${
-                  isFreeTier
-                    ? "bg-purple-950/50 hover:bg-purple-900/70 border border-purple-500/40 text-purple-300"
-                    : "bg-wellqc-card border border-wellqc-border hover:border-cyan-500/50 text-white"
-                }`}
-                title={isFreeTier ? "Upgrade to Pro to export comparison JSON" : "Export complete comparison payload as JSON"}
+                onClick={handleExportLas}
+                className={`px-3 py-2 rounded-xl text-xs font-mono flex items-center space-x-2 transition ${isFreeTier
+                  ? "bg-purple-950/50 hover:bg-purple-900/70 border border-purple-500/40 text-purple-300"
+                  : "bg-wellqc-card border border-wellqc-border hover:border-cyan-500/50 text-white"
+                  }`}
+                title={isFreeTier ? "Upgrade to Pro to export correlated LAS log" : "Export aligned dual-log composite as CWLS LAS 2.0"}
               >
                 {isFreeTier ? <Lock className="w-3.5 h-3.5 text-purple-400" /> : <Download className="w-3.5 h-3.5" />}
-                <span>JSON Report</span>
+                <span>LAS Export</span>
                 {isFreeTier && <span className="px-1 py-0.2 rounded bg-purple-500/30 text-purple-200 text-[9px] font-bold">PRO</span>}
               </button>
             </div>
@@ -522,9 +579,9 @@ export default function ComparisonPage() {
               <GitCompare className="w-6 h-6" />
             </div>
             <div className="space-y-1">
-              <h2 className="text-base font-bold text-white">Minimum Two Committed Wells Required</h2>
+              <h2 className="text-base font-bold text-white">Minimum Two Committed Logs Required</h2>
               <p className="text-xs text-wellqc-muted font-mono max-w-md mx-auto">
-                Multi-well correlation requires at least two distinct LAS-backed well assets to calculate cross-well continuity and depth overlap.
+                Multi-log correlation requires at least two distinct LAS-backed well assets to calculate cross-log continuity and depth overlap.
               </p>
             </div>
             <Link
@@ -541,7 +598,7 @@ export default function ComparisonPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center bg-wellqc-panel border border-wellqc-border p-4 rounded-2xl">
               <div className="lg:col-span-5">
                 <label className="block text-[11px] font-mono font-bold text-cyan-400 mb-1.5 flex items-center justify-between">
-                  <span>Primary Reference Well (Offset A):</span>
+                  <span>Primary Reference Log (Offset A):</span>
                   {wellAObj && (
                     <span className="text-[10px] text-wellqc-muted font-normal">
                       TD: {wellAObj.tdFt ? `${wellAObj.tdFt.toLocaleString()} FT` : "N/A"}
@@ -565,16 +622,16 @@ export default function ComparisonPage() {
                 <button
                   onClick={handleSwapWells}
                   className="p-2.5 rounded-xl bg-wellqc-card border border-wellqc-border hover:border-cyan-400 text-cyan-300 hover:text-white transition flex items-center justify-center shadow"
-                  title="Swap Primary and Comparison Wells"
+                  title="Swap Reference and Comparison Logs"
                 >
                   <ArrowLeftRight className="w-4 h-4" />
                 </button>
-                <span className="text-[10px] font-mono text-wellqc-muted">Swap Offsets</span>
+                <span className="text-[10px] font-mono text-wellqc-muted">Swap Logs</span>
               </div>
 
               <div className="lg:col-span-5">
                 <label className="block text-[11px] font-mono font-bold text-amber-400 mb-1.5 flex items-center justify-between">
-                  <span>Comparison Target Well (Offset B):</span>
+                  <span>Comparison Target Log (Offset B):</span>
                   {wellBObj && (
                     <span className="text-[10px] text-wellqc-muted font-normal">
                       TD: {wellBObj.tdFt ? `${wellBObj.tdFt.toLocaleString()} FT` : "N/A"}
@@ -601,10 +658,10 @@ export default function ComparisonPage() {
                 <div className="bg-wellqc-panel border border-wellqc-border p-4 rounded-xl flex items-center space-x-3.5">
                   <div
                     className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-base ${comparison.composite_correlation_score >= 80
-                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                        : comparison.composite_correlation_score >= 60
-                          ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                          : "bg-red-500/20 text-red-400 border border-red-500/30"
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                      : comparison.composite_correlation_score >= 60
+                        ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                        : "bg-red-500/20 text-red-400 border border-red-500/30"
                       }`}
                   >
                     {Math.round(comparison.composite_correlation_score)}%
@@ -680,10 +737,11 @@ export default function ComparisonPage() {
 
             {/* Interactive Workspace Tabs */}
             <div className="flex items-center space-x-2 border-b border-wellqc-border pb-2">
+              {/* Correlation Analytics & Matrix and Overlaid Stratigraphic Track tabs commented out
               <TabButton
                 active={activeTab === "analytics"}
                 onClick={() => setActiveTab("analytics")}
-                icon={BarChart2}
+                icon={TrendingUp}
                 label="Correlation Analytics & Matrix"
                 badge={comparison ? `${comparison.curve_correlations.length} Channels` : undefined}
               />
@@ -694,6 +752,7 @@ export default function ComparisonPage() {
                 label="Overlaid Stratigraphic Track"
                 badge="Resampled SVG"
               />
+              */}
               <TabButton
                 active={activeTab === "sideBySide"}
                 onClick={() => setActiveTab("sideBySide")}
@@ -702,7 +761,7 @@ export default function ComparisonPage() {
               />
             </div>
 
-            {/* TAB CONTENT 1: CORRELATION ANALYTICS MATRIX */}
+            {/* Correlation Analytics & Matrix & Overlaid Stratigraphic Track commented out per user request
             {activeTab === "analytics" && (
               <div className="space-y-4">
                 {isComparing ? (
@@ -943,7 +1002,7 @@ export default function ComparisonPage() {
               </div>
             )}
 
-            {/* TAB CONTENT 2: OVERLAID STRATIGRAPHIC TRACK (RESAMPLED SVG) */}
+            // TAB CONTENT 2: OVERLAID STRATIGRAPHIC TRACK (RESAMPLED SVG)
             {activeTab === "overlay" && (
               <div className="space-y-4">
                 {comparison && comparison.common_curves.length > 0 ? (
@@ -1002,6 +1061,7 @@ export default function ComparisonPage() {
                 )}
               </div>
             )}
+            */}
 
             {/* TAB CONTENT 3: SIDE-BY-SIDE DUAL LOG TRACKS */}
             {activeTab === "sideBySide" && (
@@ -1042,8 +1102,8 @@ function TabButton({
     <button
       onClick={onClick}
       className={`px-4 py-2.5 rounded-xl font-mono text-xs flex items-center space-x-2 transition ${active
-          ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
-          : "text-wellqc-muted hover:text-white hover:bg-wellqc-panel/60"
+        ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+        : "text-wellqc-muted hover:text-white hover:bg-wellqc-panel/60"
         }`}
     >
       <Icon className="w-3.5 h-3.5" />
@@ -1060,7 +1120,7 @@ function TabButton({
   );
 }
 
-function OverlaidCurveTrack({
+function _OverlaidCurveTrack({
   comparison,
   mnemonic,
 }: {

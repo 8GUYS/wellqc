@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { QueuedLASFile } from "@/types/upload";
-import { CheckCircle2, RefreshCw, X } from "lucide-react";
+import { CheckCircle2, RefreshCw, X, Eye } from "lucide-react";
 
 interface BatchQueueListProps {
   uploadQueue: QueuedLASFile[];
@@ -72,6 +73,16 @@ export function BatchQueueList({
                 ? "FAILED"
                 : "READY"}
             </span>
+            {file.savedWell?.id && (
+              <Link
+                href={`/wells/${file.savedWell.id}`}
+                className="px-2 py-1 rounded bg-cyan-500/15 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 text-[10px] font-mono font-bold flex items-center space-x-1 transition-colors"
+                title="Inspect in Well Assets"
+              >
+                <Eye className="w-3 h-3" />
+                <span>Inspect</span>
+              </Link>
+            )}
             <button
               onClick={() => onRemoveFile(file.id)}
               disabled={isSaving}

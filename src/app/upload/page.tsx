@@ -748,7 +748,6 @@ export default function LASUploadPage() {
           </div>
         )}
 
-        {isProcessing && (
         {isProcessing && batchStatus === "idle" && (
           <div className="p-6 bg-wellqc-panel border border-cyan-500/40 rounded-2xl text-center space-y-3">
             <RefreshCw className="w-8 h-8 text-cyan-400 animate-spin mx-auto" />

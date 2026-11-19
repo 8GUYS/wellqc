@@ -1120,7 +1120,7 @@ function TabButton({
   );
 }
 
-function _OverlaidCurveTrack({
+function OverlaidCurveTrack({
   comparison,
   mnemonic,
 }: {

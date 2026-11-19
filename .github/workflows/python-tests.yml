@@ -20,14 +20,14 @@ jobs:
       PY_TEST_DATABASE_URL: ${{ secrets.PY_TEST_DATABASE_URL }}
       AUTH_SECRET: ${{ secrets.PY_TEST_AUTH_SECRET }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Refuse to run against Primary
         run: |
           host=$(echo "$DATABASE_URL" | sed 's/^.*@//; s/\/.*$//')
           case "$host" in *ep-divine-field*) echo "DATABASE_URL points at Primary"; exit 1;; esac
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip

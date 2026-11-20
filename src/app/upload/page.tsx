@@ -24,6 +24,8 @@ import {
   ArrowRight,
   CheckCircle2,
   Eye,
+  Layers,
+  Lock,
   RefreshCw,
 } from "lucide-react";
 

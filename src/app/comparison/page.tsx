@@ -1120,6 +1120,7 @@ function TabButton({
   );
 }
 
+// eslint-disable-next-line unused-imports/no-unused-vars
 function OverlaidCurveTrack({
   comparison,
   mnemonic,

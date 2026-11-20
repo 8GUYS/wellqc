@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { ParsedLAS } from "@/lib/las/parser";
 import { QualityAnalysisResult, CurveHealthSummary, AnomalyReportItem } from "@/lib/las/quality-engine";
@@ -9,32 +10,23 @@ import { analyzeLAS } from "@/lib/las/api";
 import { reconstructRawLASText } from "@/lib/las/exporter";
 import { downsampleParsedLASForStorage } from "@/lib/las/storage-utils";
 import { saveFullLasText, clearFullLasText } from "@/lib/las/full-text-store";
-import { WellLogViewer } from "@/components/well-log/log-viewer";
-import { CurveInventoryTable } from "@/components/well-log/curve-inventory-table";
 import { UploadHeader } from "@/components/upload/upload-header";
 import { UploadDropzone } from "@/components/upload/upload-dropzone";
 import { BatchQueueList } from "@/components/upload/batch-queue-list";
 import { RestoredSessionBanner } from "@/components/upload/restored-session-banner";
-import { WellOverviewCard } from "@/components/upload/well-overview-card";
-import { AuditSummaryCards } from "@/components/upload/audit-summary-cards";
-import { AIInsightsPanel } from "@/components/upload/ai-insights-panel";
-import { AnomaliesListTab } from "@/components/upload/anomalies-list-tab";
-import { HeadersTab } from "@/components/upload/headers-tab";
 import { UploadedFilesTable } from "@/components/upload/uploaded-files-table";
 import { OnboardingWelcomeBanner } from "@/components/dashboard/dashboard-tour";
-import { QueuedLASFile, UploadWorkspaceState } from "@/types/upload";
+import { QueuedLASFile, UploadWorkspaceState, SavedWellSummary } from "@/types/upload";
 import { PaystackUpgradeModal } from "@/components/payments/paystack-upgrade-modal";
 import { useUploadProgress } from "@/lib/hooks/useUploadProgress";
 import {
-  Activity,
   AlertTriangle,
-  Download,
-  FileText,
+  ArrowRight,
+  CheckCircle2,
+  Eye,
   Layers,
   Lock,
   RefreshCw,
-  Sparkles,
-  Table,
 } from "lucide-react";
 
 function getInitialUploadWorkspace(): UploadWorkspaceState {
@@ -96,10 +88,9 @@ export default function LASUploadPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const [savedWell, setSavedWell] = useState<{ id: string; name: string; qualityScore: number } | null>(null);
+  const [savedWell, setSavedWell] = useState<SavedWellSummary | null>(null);
   const [uploadQueue, setUploadQueue] = useState<QueuedLASFile[]>([]);
   const [restoredFromStorage, setRestoredFromStorage] = useState(false);
-  const [activeTab, setActiveTab] = useState<"curves" | "anomalies" | "headers" | "raw" | "viewer">("curves");
   const [wellsRefreshKey, setWellsRefreshKey] = useState(0);
 
   // User Profile & Pro Gating State
@@ -694,8 +685,14 @@ export default function LASUploadPage() {
       setQaResult(reconstructedQA);
       setAiOutput(reconstructedAI);
       setSavedSuccess(true);
-      setSavedWell({ id: well.id, name: well.name, qualityScore: well.qualityScore });
-      setActiveTab("curves");
+      setSavedWell({
+        id: well.id,
+        name: well.name,
+        qualityScore: well.qualityScore,
+        operator: well.operator,
+        qualityGrade: well.qualityGrade,
+        curveCount: well.curveCount,
+      });
 
       if (typeof window !== "undefined") {
         setTimeout(() => {
@@ -739,6 +736,19 @@ export default function LASUploadPage() {
           maxFreeChecks={3}
           onUpgradeRequest={() => setUpgradeModalOpen(true)}
         />
+
+        {saveError && (
+          <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center justify-between text-xs text-rose-300 font-mono">
+            <span>{saveError}</span>
+            <button
+              type="button"
+              onClick={() => setSaveError("")}
+              className="text-rose-400 hover:text-white underline cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {isProcessing && batchStatus === "idle" && (
           <div className="p-6 bg-wellqc-panel border border-cyan-500/40 rounded-2xl text-center space-y-3">
@@ -825,226 +835,106 @@ export default function LASUploadPage() {
           />
         )}
 
-        {/* Ingestion Results Workspace */}
-        {parsedLAS && qaResult && aiOutput && !isProcessing && (
-          <main id="ingestion-results-workspace" aria-label="Ingestion Results Workspace" className="space-y-6 scroll-mt-6">
-            <WellOverviewCard
-              parsedLAS={parsedLAS}
-              qaResult={qaResult}
-              fileName={fileName}
-              isSaving={isSaving}
-              savedSuccess={savedSuccess}
-              saveError={saveError}
-              savedWell={savedWell}
-              onUploadToDatabase={handleCommitToDatabase}
-              onCommitToDatabase={handleCommitToDatabase}
-            />
-
-            {parsedLAS.warnings && parsedLAS.warnings.length > 0 && (
-              <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2">
-                <div className="flex items-center space-x-2 text-amber-400 font-mono text-xs font-bold uppercase tracking-wider">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span>Parser Warnings & Notices ({parsedLAS.warnings.length})</span>
+        {/* Ingestion Status & Immediate Actions Banner */}
+        {savedWell && !isProcessing && (
+          <div className="bg-wellqc-panel border border-emerald-500/30 rounded-2xl p-6 shadow-xl space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center space-x-3.5">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                  <CheckCircle2 className="w-6 h-6" />
                 </div>
-                <ul className="list-disc list-inside text-xs text-amber-200/90 space-y-1 font-mono">
-                  {parsedLAS.warnings.map((w, idx) => (
-                    <li key={idx}>{w}</li>
-                  ))}
-                </ul>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-white font-mono">{savedWell.name}</h3>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      UPLOADED
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 font-mono mt-0.5">
+                    {savedWell.operator || "Operator Unspecified"} • Quality Score:{" "}
+                    <span className="text-emerald-300 font-bold">{savedWell.qualityScore || 0}%</span> (
+                    {savedWell.qualityGrade || "GOOD"}) • {savedWell.curveCount || 0} Curves
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={`/wells/${savedWell.id}`}
+                  className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs font-mono transition-all flex items-center space-x-2 shadow-lg shadow-cyan-500/20"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Inspect Well Asset</span>
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </Link>
+                <Link
+                  href={`/qa-engine?wellId=${savedWell.id}`}
+                  className="px-4 py-2.5 rounded-xl bg-wellqc-card border border-wellqc-border hover:border-slate-500 text-slate-200 font-bold text-xs font-mono transition-all flex items-center space-x-2"
+                >
+                  <span>Fix in QA Engine</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleClearSession}
+                  className="px-3 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-slate-500 text-slate-300 text-xs font-mono transition-all"
+                >
+                  Upload Another
+                </button>
+              </div>
+            </div>
+
+            {uploadQueue.length > 1 && (
+              <div className="pt-4 border-t border-wellqc-border/60">
+                <BatchQueueList
+                  uploadQueue={uploadQueue}
+                  isSaving={isSaving}
+                  onUploadAll={handleCommitAll}
+                  onCommitAll={handleCommitAll}
+                  onLoadFile={loadQueuedFile}
+                  onRemoveFile={(id) => setUploadQueue((files) => files.filter((item) => item.id !== id))}
+                />
               </div>
             )}
+          </div>
+        )}
 
-            <BatchQueueList
-              uploadQueue={uploadQueue}
-              isSaving={isSaving}
-              onUploadAll={handleCommitAll}
-              onCommitAll={handleCommitAll}
-              onLoadFile={loadQueuedFile}
-              onRemoveFile={(id) => setUploadQueue((files) => files.filter((item) => item.id !== id))}
-            />
-
-
-
-            <AuditSummaryCards
-              parsedLAS={parsedLAS}
-              qaResult={qaResult}
-            />
-            <AIInsightsPanel aiOutput={aiOutput} />
-            {/* Tabbed Detailed Analysis Inspector */}
-            <section
-              aria-label="Detailed Analysis Tabs"
-              className="bg-wellqc-panel border border-wellqc-border rounded-2xl shadow-lg"
-            >
-              <div className="flex items-center border-b border-wellqc-border bg-wellqc-card/40 px-4 overflow-x-auto rounded-t-2xl">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("curves")}
-                  className={`px-4 py-3 text-xs font-mono font-bold border-b-2 transition-all flex items-center space-x-2 shrink-0 ${activeTab === "curves"
-                    ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
-                    : "border-transparent text-slate-400 hover:text-slate-200"
-                    }`}
-                >
-                  <Table className="w-3.5 h-3.5" />
-                  <span>Curve Health & Standardisation ({qaResult.curveSummaries.length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("viewer")}
-                  className={`px-4 py-3 text-xs font-mono font-bold border-b-2 transition-all flex items-center space-x-2 shrink-0 ${activeTab === "viewer"
-                    ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
-                    : "border-transparent text-slate-400 hover:text-slate-200"
-                    }`}
-                >
-                  <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Wireline Log Viewer</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("anomalies")}
-                  className={`px-4 py-3 text-xs font-mono font-bold border-b-2 transition-all flex items-center space-x-2 shrink-0 ${activeTab === "anomalies"
-                    ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
-                    : "border-transparent text-slate-400 hover:text-slate-200"
-                    }`}
-                >
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>Quality Anomalies ({qaResult.anomalies.length})</span>
-                  {isFreeTier && (
-                    <span className="flex items-center space-x-1 px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-bold">
-                      <Lock className="w-2.5 h-2.5 text-amber-400" />
-                      <span>PRO</span>
-                    </span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("headers")}
-                  className={`px-4 py-3 text-xs font-mono font-bold border-b-2 transition-all flex items-center space-x-2 shrink-0 ${activeTab === "headers"
-                    ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
-                    : "border-transparent text-slate-400 hover:text-slate-200"
-                    }`}
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Header Metadata (~WELL & ~CURVE)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("raw")}
-                  className={`px-4 py-3 text-xs font-mono font-bold border-b-2 transition-all flex items-center space-x-2 shrink-0 ${activeTab === "raw"
-                    ? "border-cyan-400 text-cyan-300 bg-cyan-500/5"
-                    : "border-transparent text-slate-400 hover:text-slate-200"
-                    }`}
-                >
-                  <Activity className="w-3.5 h-3.5" />
-                  <span>Raw LAS Header</span>
-                </button>
+        {/* Uncommitted or In-Flight Single File Status */}
+        {!savedWell && parsedLAS && qaResult && !isProcessing && (
+          <div className="bg-wellqc-panel border border-cyan-500/30 rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                <RefreshCw className={`w-5 h-5 ${isSaving ? "animate-spin" : ""}`} />
               </div>
+              <div>
+                <h4 className="text-sm font-bold text-white font-mono">{parsedLAS.wellInfo.wellName || fileName}</h4>
+                <p className="text-xs text-slate-400 font-mono">
+                  Parsed successfully • Quality Score: {qaResult.overallScore}% • {qaResult.curveSummaries.length} curves detected
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleCommitToDatabase()}
+              disabled={isSaving}
+              className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 font-bold text-xs font-mono transition-all flex items-center justify-center space-x-2"
+            >
+              {isSaving ? "Committing..." : "Save to Database"}
+            </button>
+          </div>
+        )}
 
-              {activeTab === "curves" && (
-                <CurveInventoryTable
-                  curveSummaries={qaResult.curveSummaries}
-                  parsedLAS={parsedLAS}
-                  isFreeTier={isFreeTier}
-                  onUpgradeRequest={() => setUpgradeModalOpen(true)}
-                />
-              )}
-
-              {activeTab === "viewer" && parsedLAS && (
-                <div className="p-4">
-                  <WellLogViewer
-                    wellName={`${parsedLAS.wellInfo.wellName || fileName} (Original Untouched Raw)`}
-                    depthUnit={parsedLAS.wellInfo.depthUnit || "FT"}
-                    startDepth={parsedLAS.wellInfo.startDepth}
-                    stopDepth={parsedLAS.wellInfo.stopDepth}
-                    curvesData={parsedLAS.data}
-                    anomalies={qaResult?.anomalies || []}
-                    onUpgradeRequest={() => setUpgradeModalOpen(true)}
-                  />
-                </div>
-              )}
-
-              {activeTab === "anomalies" && (
-                <div className="p-4">
-                  {isFreeTier ? (
-                    <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-950/20 via-slate-900/60 to-slate-950/80 p-8 text-center space-y-5">
-                      <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/10">
-                        <Lock className="w-6 h-6" />
-                      </div>
-                      <div className="space-y-2 max-w-xl mx-auto">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[10px] font-mono font-bold uppercase tracking-wider">
-                          <Sparkles className="w-3 h-3" />
-                          <span>WellQC Pro Tier Feature</span>
-                        </div>
-                        <h3 className="text-xl font-black text-white font-mono">
-                          Quality Anomalies Diagnostics ({qaResult.anomalies.length} Flagged)
-                        </h3>
-                        <p className="text-xs text-slate-400 font-mono leading-relaxed">
-                          We flagged <span className="text-amber-300 font-semibold">{qaResult.anomalies.length} anomalies</span> across this well log. Detailed depth interval coordinates, anomaly classification, severity scores, and automated remediation recipes are restricted to WellQC Pro subscribers.
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto text-left">
-                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
-                          <div className="text-amber-400 font-mono text-xs font-bold flex items-center gap-1.5">
-                            <AlertTriangle className="w-3.5 h-3.5" />
-                            <span>Depth &amp; Limits</span>
-                          </div>
-                          <p className="text-[11px] text-slate-400 font-mono">
-                            Duplicate depths, non-monotonic steps, depth gaps, and physical limit breaches.
-                          </p>
-                        </div>
-                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
-                          <div className="text-cyan-400 font-mono text-xs font-bold flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>Signal Integrity</span>
-                          </div>
-                          <p className="text-[11px] text-slate-400 font-mono">
-                            Extreme sensor spikes, acoustic cycle skips, sensor flatlines, and null clusters.
-                          </p>
-                        </div>
-                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
-                          <div className="text-emerald-400 font-mono text-xs font-bold flex items-center gap-1.5">
-                            <Download className="w-3.5 h-3.5" />
-                            <span>Automated Repair</span>
-                          </div>
-                          <p className="text-[11px] text-slate-400 font-mono">
-                            One-click despiking, boundary clamping, and KNN/Spline null imputation.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setUpgradeModalOpen(true)}
-                          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs font-mono shadow-lg shadow-cyan-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2"
-                        >
-                          <Sparkles className="w-4 h-4 text-slate-950" />
-                          <span>Upgrade to WellQC Pro to Unlock (₦75,000 / $49)</span>
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <AnomaliesListTab anomalies={qaResult.anomalies} />
-                  )}
-                </div>
-              )}
-
-              {activeTab === "headers" && (
-                <HeadersTab parsedLAS={parsedLAS} />
-              )}
-
-              {activeTab === "raw" && (
-                <div className="p-4">
-                  <pre className="text-xs font-mono text-slate-300 bg-wellqc-dark/80 p-4 rounded-xl border border-wellqc-border overflow-x-auto max-h-96 leading-relaxed">
-                    {parsedLAS.rawHeader || rawText.slice(0, 5000) || "No raw header recorded."}
-                  </pre>
-                </div>
-              )}
-            </section>
-
-
-
-
-
-          </main>
+        {parsedLAS?.warnings && parsedLAS.warnings.length > 0 && (
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2">
+            <div className="flex items-center space-x-2 text-amber-400 font-mono text-xs font-bold uppercase tracking-wider">
+              <AlertTriangle className="w-4 h-4" />
+              <span>Parser Warnings & Notices ({parsedLAS.warnings.length})</span>
+            </div>
+            <ul className="list-disc list-inside text-xs text-amber-200/90 space-y-1 font-mono">
+              {parsedLAS.warnings.map((w, idx) => (
+                <li key={idx}>{w}</li>
+              ))}
+            </ul>
+          </div>
         )}
 
         {/* Uploaded Well Files Catalog */}

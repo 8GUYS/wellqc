@@ -678,11 +678,11 @@ export default function WellAssetsManagementPage() {
                               <Layers className="w-3.5 h-3.5 text-slate-300" />
                             </Link>
 
-                            {/* Well Comparison Link */}
+                            {/* Log Comparison Link */}
                             <Link
                               href={`/comparison?wellA=${encodeURIComponent(well.id)}`}
                               className="p-1.5 rounded-lg bg-wellqc-card hover:bg-slate-800 text-slate-400 hover:text-white border border-wellqc-border transition-colors"
-                              title="Compare with another well in Stratigraphic Engine"
+                              title="Compare with another log in Log Comparison Engine"
                             >
                               <GitCompare className="w-3.5 h-3.5 text-slate-300" />
                             </Link>

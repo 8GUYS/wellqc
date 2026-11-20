@@ -629,7 +629,6 @@ def get_well_detail(
             selectinload(Well.owner),
             selectinload(Well.lasFiles).options(
                 defer(LASFile.rawContent),
-                defer(LASFile.rawHeader),
             ).selectinload(LASFile.uploadedBy),
             selectinload(Well.lasFiles).selectinload(LASFile.reports),
             selectinload(Well.lasFiles).selectinload(LASFile.curves),
@@ -761,6 +760,7 @@ def get_well_detail(
         "depthUnit": depth_unit,
         "curveSummaries": curve_summaries,
         "anomalies": anomalies_list,
+        "rawHeader": latest_las_file.rawHeader if latest_las_file and latest_las_file.rawHeader else "",
     }
 
 

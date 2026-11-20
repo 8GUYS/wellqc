@@ -7,6 +7,15 @@ import { UploadStatus } from "@/types/enums";
 
 export type { UploadStatus } from "@/types/enums";
 
+export interface SavedWellSummary {
+  id: string;
+  name: string;
+  qualityScore: number;
+  operator?: string;
+  qualityGrade?: string;
+  curveCount?: number;
+}
+
 export interface QueuedLASFile {
   id: string;
   name: string;
@@ -16,7 +25,7 @@ export interface QueuedLASFile {
   ai: AIAnalysisOutput;
   status: UploadStatus;
   error?: string;
-  savedWell?: { id: string; name: string; qualityScore: number };
+  savedWell?: SavedWellSummary;
 }
 
 export interface UploadWorkspaceState {
@@ -26,7 +35,7 @@ export interface UploadWorkspaceState {
   qaResult: QualityAnalysisResult | null;
   aiOutput: AIAnalysisOutput | null;
   savedSuccess: boolean;
-  savedWell: { id: string; name: string; qualityScore: number } | null;
+  savedWell: SavedWellSummary | null;
   uploadQueue: QueuedLASFile[];
   restoredFromStorage: boolean;
 }

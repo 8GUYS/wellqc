@@ -158,6 +158,7 @@ export interface WellDetailResponse {
     suggestedCorrection: string;
   }>;
   curveSummaries: CurveHealthSummary[];
+  rawHeader?: string;
 }
 
 // ─── Analytics ───────────────────────────────────────────────────────────────

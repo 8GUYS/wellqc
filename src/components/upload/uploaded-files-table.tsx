@@ -33,7 +33,7 @@ interface UploadedFilesTableProps {
 
 export function UploadedFilesTable({
   refreshTrigger = 0,
-  onSelectWell,
+  onSelectWell: _onSelectWell,
   activeWellId,
 }: UploadedFilesTableProps) {
   const [wells, setWells] = useState<WellListItem[]>([]);
@@ -52,8 +52,6 @@ export function UploadedFilesTable({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirmWell, setDeleteConfirmWell] = useState<WellListItem | null>(null);
 
-  // Inspection loading state
-  const [inspectingId, setInspectingId] = useState<string | null>(null);
 
   // User Profile & License Gatekeeper State
   const [userProfile, setUserProfile] = useState<{
@@ -184,27 +182,6 @@ export function UploadedFilesTable({
     });
   };
 
-  // Inspect Handler with row loading state
-  const handleInspectWell = async (wellId: string) => {
-    if (!onSelectWell) return;
-    setInspectingId(wellId);
-    try {
-      await onSelectWell(wellId);
-      const well = wells.find((w) => w.id === wellId);
-      setFeedback({
-        type: "success",
-        message: `Inspecting well "${well?.name || wellId}" in workspace above.`,
-      });
-      setTimeout(() => setFeedback(null), 4000);
-    } catch (err) {
-      setFeedback({
-        type: "error",
-        message: err instanceof Error ? err.message : "Failed to load well details for inspection.",
-      });
-    } finally {
-      setInspectingId(null);
-    }
-  };
 
   // Single Delete
   const handleDeleteWell = async (well: WellListItem) => {
@@ -501,7 +478,6 @@ export function UploadedFilesTable({
                 {filteredWells.map((well) => {
                   const isActive = activeWellId === well.id;
                   const isSelected = selectedIds.has(well.id);
-                  const isInspectingThis = inspectingId === well.id;
                   const grade = (well.qualityGrade || "UNVALIDATED").toUpperCase();
                   const score = typeof well.qualityScore === "number" ? Math.round(well.qualityScore) : 0;
                   const hasCurves = (well.curveCount || 0) > 0;
@@ -538,20 +514,13 @@ export function UploadedFilesTable({
                       <td className="p-3.5">
                         <div className="space-y-0.5">
                           <div className="flex items-center space-x-2">
-                            {onSelectWell ? (
-                              <button
-                                type="button"
-                                onClick={() => handleInspectWell(well.id)}
-                                className="font-bold text-white text-xs tracking-tight hover:text-cyan-400 transition-colors text-left flex items-center space-x-1"
-                                title="Click to inspect this well"
-                              >
-                                <span>{well.name}</span>
-                              </button>
-                            ) : (
-                              <span className="font-bold text-white text-xs tracking-tight">
-                                {well.name}
-                              </span>
-                            )}
+                            <Link
+                              href={`/wells/${well.id}`}
+                              className="font-bold text-white text-xs tracking-tight hover:text-cyan-400 transition-colors text-left flex items-center space-x-1"
+                              title="Open full well dossier & log viewer"
+                            >
+                              <span>{well.name}</span>
+                            </Link>
                             {isActive && (
                               <span className="px-1.5 py-0.2 rounded text-[9px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold uppercase">
                                 Active in Workspace
@@ -630,32 +599,15 @@ export function UploadedFilesTable({
                       {/* Sticky Actions Column: Guaranteed to always be visible */}
                       <td className="p-3.5 text-right whitespace-nowrap sticky right-0 bg-wellqc-panel/95 backdrop-blur-md z-10 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.5)]">
                         <div className="flex items-center justify-end space-x-1.5">
-                          {/* Inspect Button */}
-                          {onSelectWell && (
-                            <button
-                              type="button"
-                              onClick={() => handleInspectWell(well.id)}
-                              disabled={isInspectingThis}
-                              className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all flex items-center space-x-1 shadow-sm ${
-                                isInspectingThis
-                                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 cursor-wait"
-                                  : "bg-wellqc-card hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 border-wellqc-border hover:border-cyan-500/40"
-                              }`}
-                              title="Inspect curves & anomalies in workspace above"
-                            >
-                              {isInspectingThis ? (
-                                <>
-                                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                                  <span>Loading...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Eye className="w-3.5 h-3.5 text-cyan-400" />
-                                  <span>Inspect</span>
-                                </>
-                              )}
-                            </button>
-                          )}
+                          {/* Inspect Link */}
+                          <Link
+                            href={`/wells/${well.id}`}
+                            className="px-2.5 py-1.5 rounded-lg bg-wellqc-card hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 border border-wellqc-border hover:border-cyan-500/40 text-[11px] font-bold transition-colors flex items-center space-x-1 shadow-sm"
+                            title="Inspect curves, anomalies & log in well dossier"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>Inspect</span>
+                          </Link>
 
                           {/* QA Engine Button with Upfront Pro/Free Gate */}
                           {isFreeTier ? (

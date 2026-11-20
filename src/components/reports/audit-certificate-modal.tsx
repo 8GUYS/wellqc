@@ -643,7 +643,7 @@ export function AuditCertificateModal({
                 type="button"
                 onClick={handlePrint}
                 className="px-3.5 py-2 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 border border-purple-500/40 text-purple-200 font-mono font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
-                title="Upgrade to WellQC Pro to print or export PDF certificate"
+                title="Upgrade to WellQC Pro to print or export PDF report"
               >
                 <Lock className="w-4 h-4 text-purple-300" />
                 <span>Save PDF (PRO)</span>
@@ -988,7 +988,7 @@ export function AuditCertificateModal({
                 className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-mono font-bold text-xs shadow-md transition-all flex items-center gap-2"
               >
                 <Lock className="w-4 h-4 text-purple-200" />
-                <span>Export PDF Certificate (PRO)</span>
+                <span>Export PDF Report (PRO)</span>
               </button>
             ) : (
               <button
@@ -997,7 +997,7 @@ export function AuditCertificateModal({
                 className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-mono font-bold text-xs shadow-md transition-all flex items-center gap-2"
               >
                 <Printer className="w-4 h-4" />
-                <span>Print Official Certificate</span>
+                <span>Print Official Report</span>
               </button>
             )}
           </div>

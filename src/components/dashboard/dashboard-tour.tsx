@@ -218,8 +218,8 @@ const TOUR_STEPS: TourStep[] = [
       "Well Assets Registry: /wells",
       "Mnemonic Normalisation: /standardisation",
       "Quality Engine Remediation: /qa-engine",
-      "Multi-Well Comparison: /comparison",
-      "Compliance Certificates: /reports",
+      "Log Comparison: /comparison",
+      "Compliance Reports: /reports",
     ],
     preferredPlacement: "center",
   },
@@ -1031,7 +1031,7 @@ function QARepairSimulator() {
   );
 }
 
-/** 7. Multi-Well Comparison Simulator */
+/** 7. Multi-Log Comparison Simulator */
 function ComparisonSimulator() {
   const [lagShift, setLagShift] = useState(-8);
   const isAligned = lagShift === -8;
@@ -1040,7 +1040,7 @@ function ComparisonSimulator() {
   return (
     <div className="bg-slate-950/70 p-3 sm:p-3.5 rounded-2xl border border-cyan-500/30 space-y-2.5">
       <div className="flex items-center justify-between text-[10px] font-mono font-bold uppercase">
-        <span className="text-cyan-400">Cross-Well Correlation:</span>
+        <span className="text-cyan-400">Cross-Log Correlation:</span>
         <span className={isAligned ? "text-emerald-400" : "text-amber-400"}>
           Pearson r = {pearsonR} ({isAligned ? "Peak Match" : "Offset"})
         </span>
@@ -1159,7 +1159,7 @@ function PricingTierSimulator() {
         <div className="space-y-1 text-[11px] text-slate-300">
           <div>• Quality Checks: <span className="text-cyan-300 font-bold">{isPro ? "Unlimited" : "3 Free Checks"}</span></div>
           <div>• Anomaly Repair & Imputation: <span className="text-cyan-300 font-bold">{isPro ? "Full Spline / KNN ML" : "Read-Only"}</span></div>
-          <div>• Well Comparison & Stratigraphy: <span className="text-cyan-300 font-bold">{isPro ? "Uncapped Access" : "Locked (Pro)"}</span></div>
+          <div>• Log Comparison & Stratigraphy: <span className="text-cyan-300 font-bold">{isPro ? "Uncapped Access" : "Locked (Pro)"}</span></div>
           <div>• Cleaned LAS & PDF Exports: <span className="text-cyan-300 font-bold">{isPro ? "Uncapped Direct" : "Gated"}</span></div>
         </div>
       </div>
@@ -1174,7 +1174,7 @@ function LaunchpadSimulator({ onLaunch }: { onLaunch: () => void }) {
     { label: "Well Assets", href: "/wells", icon: Database, color: "text-blue-400" },
     { label: "Standardisation", href: "/standardisation", icon: Layers, color: "text-purple-400" },
     { label: "Quality Engine", href: "/qa-engine", icon: Wrench, color: "text-amber-400" },
-    { label: "Well Comparison", href: "/comparison", icon: GitCompare, color: "text-emerald-400" },
+    { label: "Log Comparison", href: "/comparison", icon: GitCompare, color: "text-emerald-400" },
     { label: "Compliance Reports", href: "/reports", icon: ShieldCheck, color: "text-cyan-300" },
   ];
 

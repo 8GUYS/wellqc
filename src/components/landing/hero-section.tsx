@@ -218,30 +218,30 @@ export function HeroSection() {
 
           {/* Subtitle */}
           <p className="text-base sm:text-xl text-slate-600 dark:text-slate-300 font-normal leading-relaxed max-w-3xl mx-auto px-2 sm:px-0">
-            WellQC automatically validates LAS 2.0 files, detects anomalous spikes &amp; flatlines, standardises raw mnemonics, and imputes missing curves with KNN ML models.
+            Autonomous subsurface data assurance for oil &amp; gas operators. Validate LAS 2.0/3.0 files, repair anomalous spikes, harmonise API RP 66 mnemonics, and certify regulatory compliance in seconds.
           </p>
 
-          {/* CTA Buttons — Apple Style Pill Pair */}
+          {/* CTA Buttons — Enterprise Technical Consultation Pair */}
           <div className="pt-3 sm:pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-3.5 w-full max-w-md mx-auto sm:max-w-none">
             <Link
-              href="/register"
-              className="btn-apple-primary w-full sm:w-auto text-sm sm:text-base px-7 py-3 sm:px-8 sm:py-3.5 shadow-lg shadow-blue-500/25"
+              href="#book-demo"
+              className="btn-apple-primary w-full sm:w-auto text-sm sm:text-base px-7 py-3 sm:px-8 sm:py-3.5 shadow-lg shadow-emerald-500/25"
             >
-              <span>Check Log Files for Free</span>
+              <span>Book a Technical Demo</span>
               <ArrowRight className="w-4 h-4 shrink-0" />
             </Link>
             <Link
-              href="#services"
+              href="#capabilities"
               className="btn-apple-secondary w-full sm:w-auto text-sm sm:text-base px-6 py-3 sm:px-7 sm:py-3.5"
             >
-              <span>Explore Platform Modules</span>
+              <span>Explore Capability Pillars</span>
             </Link>
           </div>
 
           {/* Freemium Trust Note */}
           <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2 pt-1 font-medium">
-            <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-cyan-400 shrink-0" />
-            <span>No credit card required for your free log file checks</span>
+            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>Enterprise SLA • On-Premise / Private Cloud Deployment • NUPRC &amp; API RP 66 Compliant</span>
           </p>
         </div>
 

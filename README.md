@@ -93,6 +93,7 @@ WellQC is a full-stack cloud platform that automatically validates, cleans, stan
 ### 🏢 Enterprise Platform Modules
 | Module | Description |
 |---|---|
+| **Enterprise Landing Page (`/`)** | B2B enterprise portal modeled after the LASWorx 4-pillar capability architecture (Inspect & Audit, Repair & Impute, Standardise & Store, Correlate & Certify), featuring interactive multi-track slideshows and an enterprise "Book a Demo" lead capture consultation scheduler |
 | **Command Dashboard** | 8 KPI telemetry cards, 7-day rolling quality trend, field performance breakdown, interactive onboarding tour guide, payment success banners |
 | **Well Assets Registry (`/wells`)** | Fleet-wide asset management with real-time search, quality grade filtering (EXCELLENT, GOOD, FAIR, POOR), single and bulk deletion with modal confirmation, and deep dossier links (`/wells/[id]`) with multi-curve visualization and cross-module shortcuts ("Standardise Curves", "Compare Well", "Fix in QA Engine") |
 | **Well Dossier (`/wells/[id]`)** | Single-well command dossier featuring interactive multi-track log inspection, AI petrophysical health summary, anomaly lists, and direct launch actions |

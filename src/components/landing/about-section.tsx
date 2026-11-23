@@ -1,18 +1,19 @@
-import Image from "next/image";
+// import Image from "next/image";
 import {
   AlertTriangle,
   Award,
   Building,
   CheckCircle2,
-  Cloud,
-  Code,
+  // Cloud,
+  // Code,
   FileSpreadsheet,
-  PieChart,
+  // PieChart,
   ShieldCheck,
-  User,
-  Users,
+  // User,
+  // Users,
 } from "lucide-react";
 
+/*
 const TEAM_MEMBERS = [
   {
     id: "SE-1",
@@ -103,6 +104,7 @@ const TEAM_MEMBERS = [
     icon: Cloud,
   },
 ];
+*/
 
 export function AboutSection() {
   return (
@@ -186,7 +188,8 @@ export function AboutSection() {
           </div>
         </div>
 
-        {/* 8-Member Team Grid */}
+        {/* 8-Member Team Grid (Commented out per enterprise revamp) */}
+        {/*
         <div className="mt-20 pt-16 border-t border-wellqc-border">
           <div className="text-center max-w-3xl mx-auto mb-12 space-y-3">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
@@ -210,7 +213,6 @@ export function AboutSection() {
                   className="bg-wellqc-card rounded-2xl border border-wellqc-border p-5 shadow-sm hover:border-emerald-500/50 hover:shadow-md transition-all flex flex-col justify-between group"
                 >
                   <div>
-                    {/* Top Role Badge & Icon */}
                     <div className="flex items-center justify-between mb-4">
                       <span className={`px-2.5 py-1 rounded-md border text-[11px] font-mono font-bold ${member.badgeColor}`}>
                         {member.id}
@@ -218,7 +220,6 @@ export function AboutSection() {
                       <IconComponent className="w-4 h-4 text-wellqc-muted group-hover:text-wellqc-text transition-colors" />
                     </div>
 
-                    {/* Avatar Image Container */}
                     <div className="flex items-center gap-3.5 mb-4">
                       <div className="relative w-14 h-14 rounded-xl bg-wellqc-panel border border-wellqc-border overflow-hidden flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
                         {member.image ? (
@@ -248,7 +249,6 @@ export function AboutSection() {
                       </div>
                     </div>
 
-                    {/* Domain Title & Responsibilities */}
                     <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mb-1">
                       {member.domain}
                     </p>
@@ -261,6 +261,7 @@ export function AboutSection() {
             })}
           </div>
         </div>
+        */}
       </div>
     </section>
   );

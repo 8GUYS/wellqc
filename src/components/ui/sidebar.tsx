@@ -15,7 +15,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  GitCompare,
   FileText,
   CreditCard,
 } from "lucide-react";
@@ -123,13 +122,6 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
           icon: ShieldCheck,
           isLive: !isFreeTier,
           badge: isFreeTier ? "PRO" : undefined,
-        },
-        {
-          label: "Log Comparison",
-          href: "/comparison",
-          icon: GitCompare,
-          isLive: !isFreeTier,
-          badge: isFreeTier ? "PRO" : "MULTI-LOG",
         },
         { label: "Subsurface Analytics", href: "/analytics", icon: BarChart3 },
       ],

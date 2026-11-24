@@ -21,8 +21,7 @@ export function LandingNavbar() {
   const navLinks = [
     { name: "Home", href: "#home" },
     { name: "About Us", href: "#about" },
-    { name: "Services & Features", href: "#services" },
-    { name: "Pricing", href: "#pricing" },
+    { name: "Capabilities", href: "#capabilities" },
     { name: "Contact Us", href: "#contact" },
   ];
 
@@ -64,10 +63,10 @@ export function LandingNavbar() {
               Sign In
             </Link>
             <Link
-              href="/register"
+              href="#book-demo"
               className="btn-apple-primary relative group inline-flex items-center gap-2 text-sm font-medium px-5 py-2 rounded-full transition-all duration-200 shadow-md"
             >
-              <span>Try for Free</span>
+              <span>Book a Demo</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
@@ -110,11 +109,11 @@ export function LandingNavbar() {
               Sign In
             </Link>
             <Link
-              href="/register"
+              href="#book-demo"
               onClick={() => setMobileMenuOpen(false)}
               className="w-full text-center text-sm font-semibold text-slate-950 bg-gradient-to-r from-emerald-400 to-cyan-400 py-2.5 rounded-xl shadow-md transition-all"
             >
-              Get Started For Free
+              Book a Technical Demo
             </Link>
           </div>
         </div>

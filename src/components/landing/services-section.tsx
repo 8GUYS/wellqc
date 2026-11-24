@@ -1,7 +1,6 @@
 import {
   Activity,
   BarChart3,
-  Database,
   FileCheck,
   FileSpreadsheet,
   Sliders,
@@ -96,20 +95,20 @@ export function ServicesSection() {
             </div>
           </div>
 
-          {/* Pillar 4: Correlate & Certify (LASWorx Model) */}
+          {/* Pillar 4: Governance & Certification */}
           <div className="bg-wellqc-card rounded-2xl border border-wellqc-border p-6 shadow-sm hover:shadow-md hover:border-emerald-500/50 transition-all group flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-5">
                 <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Database className="w-6 h-6" />
+                  <ShieldCheck className="w-6 h-6" />
                 </div>
                 <span className="text-[11px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-500/10 text-purple-500 border border-purple-500/20">
                   Pillar 4
                 </span>
               </div>
-              <h3 className="text-lg font-bold text-wellqc-text mb-2">4. Correlate &amp; Certify</h3>
+              <h3 className="text-lg font-bold text-wellqc-text mb-2">4. Governance &amp; Certification</h3>
               <p className="text-wellqc-muted text-sm leading-relaxed mb-4">
-                Multi-well stratigraphic basin correlation with depth shifting, Pearson similarity (r), and official NUPRC Form WQC-08-A digital certificates for regulatory filing under PIA 2021.
+                Immutable petrophysical audit trails with tamper-evident digital verification seals, generating official NUPRC Form WQC-08-A compliance certificates for statutory regulatory filing under PIA 2021.
               </p>
             </div>
             <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800/60 text-xs font-medium text-purple-600 dark:text-purple-400 flex items-center gap-1.5">

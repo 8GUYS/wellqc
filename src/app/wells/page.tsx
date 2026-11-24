@@ -23,7 +23,6 @@ import {
   Square,
   MinusSquare,
   UploadCloud,
-  GitCompare,
   Lock,
 } from "lucide-react";
 import { PaystackUpgradeModal } from "@/components/payments/paystack-upgrade-modal";
@@ -676,15 +675,6 @@ export default function WellAssetsManagementPage() {
                               title="Open in Standardisation Engine"
                             >
                               <Layers className="w-3.5 h-3.5 text-slate-300" />
-                            </Link>
-
-                            {/* Log Comparison Link */}
-                            <Link
-                              href={`/comparison?wellA=${encodeURIComponent(well.id)}`}
-                              className="p-1.5 rounded-lg bg-wellqc-card hover:bg-slate-800 text-slate-400 hover:text-white border border-wellqc-border transition-colors"
-                              title="Compare with another log in Log Comparison Engine"
-                            >
-                              <GitCompare className="w-3.5 h-3.5 text-slate-300" />
                             </Link>
 
                             {/* Delete Single Button (Admins Only) */}

@@ -84,7 +84,7 @@ WellQC is a full-stack cloud platform that automatically validates, cleans, stan
 - **Zero-Key Mock Sandbox Fallback**: Automatic mock checkout simulation during local testing and MVP demonstrations when live Paystack secret keys are not configured.
 - **Context-Preserving Checkout Return Flow**: Preserves `targetWellId` throughout the payment journey; the verification card dynamically fetches well metadata and personalizes the return CTA (e.g. `Proceed to Repair "Well-Name" →`), routing directly into the QA Engine with that borehole focused.
 - **User Transaction & Receipt History**: Real-time billing history table on `/pricing` displaying settlement dates, currency amounts, transaction references, and current plan status.
-- **Pro Feature Gating & Comprehensive Export Protection**: Upfront visual `PRO` lock badges and inline upgrade triggers across the Upload table (`/upload`), Well Assets (`/wells`), Dossier (`/wells/[id]`), QA Engine (`/qa-engine`), Well Comparison (`/comparison`), and Log Data Tables. Free tier users are strictly gated from all file exports (Cleaned LAS, Cleaned CSV, Correlation matrices) and NUPRC PDF compliance certificate downloads.
+- **Pro Feature Gating & Comprehensive Export Protection**: Upfront visual `PRO` lock badges and inline upgrade triggers across the Upload table (`/upload`), Well Assets (`/wells`), Dossier (`/wells/[id]`), QA Engine (`/qa-engine`), and Log Data Tables. Free tier users are strictly gated from all file exports (Cleaned LAS, Cleaned CSV) and NUPRC PDF compliance certificate downloads.
 - Payment Modal using React `createPortal` with `z-[99999]` correctly floating above all page layers.
 - Public Pricing & Plans portal at `/pricing`.
 - Paystack webhook listener with HMAC-SHA512 signature validation.
@@ -100,7 +100,6 @@ WellQC is a full-stack cloud platform that automatically validates, cleans, stan
 | **LAS Upload Workspace (`/upload`)** | Drag-and-drop uploader with real-time parsing, pre-check QA scoring, instant analysis tabs (Curve Health, Wireline Viewer, Anomalies, Headers), and automated persistence with instant "Saved ✓" badges |
 | **Closed-Loop QA Engine (`/qa-engine`)** | Anomaly remediation with single/multi-curve/auto repair algorithms, before/after curve comparisons, and 1-click **"Save Cleaned Log"** persisting calibrated curves directly into your central Well Assets as updated asset versions |
 | **Curve Standardisation Dictionary (`/standardisation`)** | Alias mapping dictionary & manual override controls with persistent custom aliases and cross-well routing |
-| **Stratigraphic Well Comparison (`/comparison`)** | Side-by-side log curve comparison across wells with URL-based Offset A/B pre-selection |
 | **Audit Certificates & Reports (`/reports`)** | Dual-document export suite: NUPRC Form WQC-08-A certificates, SHA-256 cryptographic verification seals, and multi-well batch ZIP bundles. Cleaned LAS 2.0 exports are strictly gated behind Pro tier licenses |
 | **Admin Operations Console (`/admin`)** | Enterprise user management, user detail inspector, password resets, 1-click backend email verification, system health statistics, activity logs, and custom mnemonic aliases |
 | **Enterprise Licensing & Billing (`/pricing`)** | Paystack-integrated billing hub with NGN/USD toggle, monthly/annual billing cycle selector, transaction history receipts, and context-preserving return redirects |
@@ -227,7 +226,6 @@ WellQC/
     │   ├── standardisation/       # Mnemonic dictionary & override UI
     │   ├── qa-engine/             # QA rule inspector & threshold tuning (freemium gate)
     │   ├── analytics/             # Basin & operator analytics
-    │   ├── comparison/            # Well-to-well comparison
     │   ├── reports/               # PDF/Excel/CSV/LAS export centre
     │   ├── activity/              # Immutable audit trail
     │   ├── admin/                 # RBAC, API tokens & webhooks

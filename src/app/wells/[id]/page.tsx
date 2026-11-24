@@ -17,7 +17,6 @@ import {
   Layers,
   ShieldCheck,
   Lock,
-  GitCompare,
   Table,
   AlertTriangle,
   FileText,
@@ -297,30 +296,6 @@ export default function WellDetailPage({ params }: { params: Promise<{ id: strin
                   <Layers className="w-3.5 h-3.5 text-purple-400" />
                   <span>Standardise Curves</span>
                 </Link>
-
-                {isFreeTier ? (
-                  <button
-                    type="button"
-                    onClick={() => setUpgradeModalOpen(true)}
-                    className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 hover:text-purple-200 border border-purple-500/40 font-semibold text-xs transition-all hover:scale-[1.02] active:scale-[0.98]"
-                    title="Upgrade to WellQC Pro for multi-log petrophysical correlation & comparison"
-                  >
-                    <Lock className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Compare Log</span>
-                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/30 text-purple-200 border border-purple-400/40">
-                      PRO
-                    </span>
-                  </button>
-                ) : (
-                  <Link
-                    href={`/comparison?wellA=${well.id}`}
-                    className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 font-semibold text-xs transition-all hover:scale-[1.02] active:scale-[0.98]"
-                    title="Cross-correlate with offset log in Stratigraphic Log Comparison Engine"
-                  >
-                    <GitCompare className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Compare Log</span>
-                  </Link>
-                )}
 
                 <Link
                   href="/reports"

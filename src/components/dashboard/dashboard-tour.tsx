@@ -17,7 +17,6 @@ import {
   ShieldCheck,
   Database,
   CreditCard,
-  GitCompare,
   Play,
   RotateCcw,
   Check,
@@ -150,28 +149,9 @@ const TOUR_STEPS: TourStep[] = [
     preferredPlacement: "center",
   },
   {
-    id: "well-comparison",
-    title: "6. Multi-Well Correlation & Lag Shift",
-    badge: "Module 6: Cross-Well",
-    icon: <GitCompare className="w-5 h-5 text-cyan-400" />,
-    description:
-      "Cross-correlate target and offset wells across shared formation intervals. Compute Pearson correlation coefficients ($r$), search for optimal structural lag depth shifts ($\Delta z$), and inspect differential overlaid log tracks.",
-    highlights: [
-      "Pairwise Pearson Cross-Correlation Matrix",
-      "Automated Structural Dip Lag Shifts (±50m Search Window)",
-      "Composite Differential Overlays & Dual-Track Inspection",
-    ],
-    actionLink: {
-      href: "/comparison",
-      label: "Open Comparison Workstation",
-    },
-    tips: "Use the lag depth slider below to align offset logs and maximize stratigraphic correlation.",
-    preferredPlacement: "center",
-  },
-  {
     id: "compliance-reports",
-    title: "7. NUPRC Compliance & Digital Certificates",
-    badge: "Module 7: Governance",
+    title: "6. NUPRC Compliance & Digital Certificates",
+    badge: "Module 6: Governance",
     icon: <ShieldCheck className="w-5 h-5 text-cyan-400" />,
     description:
       "Generate official Form WQC-08-A digital certificates conforming to Nigerian Upstream Petroleum Regulatory Commission (NUPRC) and Petroleum Industry Act (PIA 2021) guidelines. Every certificate incorporates cryptographic SHA-256 signatures for tamper-proof submission.",
@@ -189,8 +169,8 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     id: "billing-plans",
-    title: "8. Enterprise Licensing & Billing",
-    badge: "Module 8: Plans & Pricing",
+    title: "7. Enterprise Licensing & Billing",
+    badge: "Module 7: Plans & Pricing",
     icon: <CreditCard className="w-5 h-5 text-cyan-400" />,
     description:
       "Transparent licensing tailored for independent geoscientists, consultancies, and operators. Review your active subscription tier (Free, Pro, Enterprise), unlock uncapped ML anomaly repairs, and audit historical Paystack transactions.",
@@ -218,7 +198,6 @@ const TOUR_STEPS: TourStep[] = [
       "Well Assets Registry: /wells",
       "Mnemonic Normalisation: /standardisation",
       "Quality Engine Remediation: /qa-engine",
-      "Log Comparison: /comparison",
       "Compliance Reports: /reports",
     ],
     preferredPlacement: "center",
@@ -619,7 +598,7 @@ function PipelineStageSimulator() {
     { name: "1. Ingest", desc: "Drag & drop raw CWLS LAS files with zero row loss.", icon: UploadCloud },
     { name: "2. Standardise", desc: "Map vendor mnemonics (SLB, Baker) to API RP 66.", icon: Layers },
     { name: "3. QA Repair", desc: "Despike cycles & reconstruct nulls via KNN/Spline.", icon: Wrench },
-    { name: "4. Correlate", desc: "Align offset wells via Pearson r & dip lag shifts.", icon: GitCompare },
+    { name: "4. Analytics", desc: "Basin telemetry & field performance rankings.", icon: Activity },
     { name: "5. Certify", desc: "Export Form WQC-08-A certificates with SHA-256.", icon: ShieldCheck },
   ];
 
@@ -638,11 +617,10 @@ function PipelineStageSimulator() {
               key={st.name}
               type="button"
               onClick={() => setActiveStage(idx)}
-              className={`p-2 rounded-xl text-center flex flex-col items-center gap-1 transition-all ${
-                isSelected
-                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400 shadow-sm"
-                  : "bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800"
-              }`}
+              className={`p-2 rounded-xl text-center flex flex-col items-center gap-1 transition-all ${isSelected
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400 shadow-sm"
+                : "bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800"
+                }`}
             >
               <Icon className="w-3.5 h-3.5 shrink-0" />
               <span className="text-[9px] font-mono font-bold truncate w-full">{st.name.split(" ")[1]}</span>
@@ -763,27 +741,24 @@ function WellAssetsSimulator() {
         <button
           type="button"
           onClick={() => setTab("SPECS")}
-          className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all ${
-            tab === "SPECS" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "text-slate-400 hover:text-white"
-          }`}
+          className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all ${tab === "SPECS" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "text-slate-400 hover:text-white"
+            }`}
         >
           Specs
         </button>
         <button
           type="button"
           onClick={() => setTab("CURVES")}
-          className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all ${
-            tab === "CURVES" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "text-slate-400 hover:text-white"
-          }`}
+          className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all ${tab === "CURVES" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "text-slate-400 hover:text-white"
+            }`}
         >
           Curve Suite
         </button>
         <button
           type="button"
           onClick={() => setTab("GRADE")}
-          className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all ${
-            tab === "GRADE" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "text-slate-400 hover:text-white"
-          }`}
+          className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all ${tab === "GRADE" ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "text-slate-400 hover:text-white"
+            }`}
         >
           Audit Lineage
         </button>
@@ -1174,7 +1149,7 @@ function LaunchpadSimulator({ onLaunch }: { onLaunch: () => void }) {
     { label: "Well Assets", href: "/wells", icon: Database, color: "text-blue-400" },
     { label: "Standardisation", href: "/standardisation", icon: Layers, color: "text-purple-400" },
     { label: "Quality Engine", href: "/qa-engine", icon: Wrench, color: "text-amber-400" },
-    { label: "Log Comparison", href: "/comparison", icon: GitCompare, color: "text-emerald-400" },
+    { label: "Analytics Hub", href: "/analytics", icon: Activity, color: "text-emerald-400" },
     { label: "Compliance Reports", href: "/reports", icon: ShieldCheck, color: "text-cyan-300" },
   ];
 

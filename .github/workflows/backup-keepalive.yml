@@ -1,0 +1,23 @@
+name: Backup Keep-Alive
+
+# This workflow prevents GitHub from suppressing the nightly-db-backup.yml cron
+# by keeping the Actions scheduler active on this repository.
+# GitHub silently skips scheduled workflows on repos with no recent push activity.
+# Running this workflow on every push to main resets the inactivity timer.
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Also runs daily at 01:50 UTC — 10 minutes before the backup cron (02:00 UTC)
+    # This ensures the scheduler is "warm" before the backup fires
+    - cron: '50 1 * * *'
+
+jobs:
+  keepalive:
+    name: Keep Actions Scheduler Alive
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping
+        run: echo "Actions scheduler keep-alive ping — $(date -u)"

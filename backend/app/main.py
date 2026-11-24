@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from backend.app.core.config import settings
+from prometheus_fastapi_instrumentator import Instrumentator
 from backend.app.api import (
     activity,
     admin,
@@ -319,6 +320,27 @@ app.include_router(qa_engine.router)      # /api/qa-engine: QA Engine rules and 
 app.include_router(user.router)           # /api/user: User profile, settings, API tokens
 app.include_router(admin.router)          # /api/admin: Tenant administration & user management
 app.include_router(payments.router)       # /api/payments: Paystack checkout, webhook, plans catalog
+
+# ---------------------------------------------------------------------------
+# Prometheus Metrics Instrumentation (CE1-34)
+# Exposes /metrics in Prometheus text format.
+# Scrape URL for Grafana Cloud: https://<render-host>/metrics
+# Access is intentionally public (read-only counters/histograms, no PII).
+# To restrict to internal scraper only, add IP-allowlist middleware here.
+# ---------------------------------------------------------------------------
+Instrumentator(
+    should_group_status_codes=True,
+    should_ignore_untemplated=True,
+    should_respect_env_var=False,
+    excluded_handlers=[
+        "/health",
+        "/api/health",
+        "/metrics",
+        "/",
+        "/docs",
+        "/openapi.json",
+    ],
+).instrument(app).expose(app, include_in_schema=False, tags=["system"])
 
 @app.get("/health", include_in_schema=False)
 @app.get("/api/health", tags=["system"], summary="Service Health Probe")

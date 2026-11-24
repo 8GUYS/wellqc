@@ -2,7 +2,7 @@ import { LandingNavbar } from "@/components/landing-navbar";
 import { HeroSection } from "@/components/landing/hero-section";
 import { AboutSection } from "@/components/landing/about-section";
 import { ServicesSection } from "@/components/landing/services-section";
-import { PricingSection } from "@/components/landing/pricing-section";
+import { BookDemoSection } from "@/components/landing/book-demo-section";
 import { ContactSection } from "@/components/landing/contact-section";
 import { LandingFooter } from "@/components/landing/footer";
 
@@ -14,7 +14,7 @@ export default function LandingPage() {
         <HeroSection />
         <AboutSection />
         <ServicesSection />
-        <PricingSection />
+        <BookDemoSection />
         <ContactSection />
       </main>
       <LandingFooter />

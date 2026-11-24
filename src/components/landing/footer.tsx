@@ -11,7 +11,8 @@ export function LandingFooter() {
           <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
             <Link href="#home" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Home</Link>
             <Link href="#about" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">About Us</Link>
-            <Link href="#services" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Services</Link>
+            <Link href="#capabilities" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Capabilities</Link>
+            <Link href="#book-demo" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Book a Demo</Link>
             <Link href="#contact" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Contact</Link>
             <Link href="/login" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Sign In</Link>
           </div>

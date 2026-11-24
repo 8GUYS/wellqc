@@ -18,3 +18,4 @@ pytest>=8.3.0
 pytest-asyncio>=0.24.0
 boto3>=1.35.0
 sentry-sdk[fastapi]>=2.0.0
+prometheus-fastapi-instrumentator>=7.0.0

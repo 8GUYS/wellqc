@@ -33,6 +33,9 @@ from backend.app.schemas.well import (
     SaveFormationMarkersRequest,
 )
 from backend.app.services.comparison import compare_two_wells, WellComparisonResult
+import threading as _threading
+import asyncio as _asyncio
+from backend.app.services.outbound_webhook import fire_event as _fire_event
 from backend.app.services.standardiser import standardise_mnemonic
 
 logger = logging.getLogger("uvicorn.error")
@@ -302,6 +305,21 @@ def create_well(
     db.commit()
     db.refresh(well)
     invalidate_wells_cache()
+
+    # CE2-34: fire well.created outbound webhook (non-blocking).
+    # create_well runs in a sync threadpool (no event loop) so we spin a
+    # daemon thread with its own asyncio.run() rather than ensure_future().
+    _webhook_payload = {
+        "wellId": well.id,
+        "apiNo": well.apiNo,
+        "name": well.name,
+        "operatorName": well.operatorName,
+        "qualityGrade": well.qualityGrade,
+    }
+    _threading.Thread(
+        target=lambda: _asyncio.run(_fire_event("well.created", _webhook_payload, db)),
+        daemon=True,
+    ).start()
 
     return {"well": _to_well_list_item(well)}
 

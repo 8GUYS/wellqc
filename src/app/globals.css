@@ -76,14 +76,34 @@
   --wellqc-panel: #ffffff;
   --wellqc-card: #ffffff;
   --wellqc-border: rgba(60, 50, 40, 0.08);
-  --wellqc-accent: #0071e3;
-  --wellqc-cyan: #0071e3;
+  --wellqc-accent: #0062d2;
+  --wellqc-cyan: #0062d2;
   --wellqc-emerald: #16a34a;
   --wellqc-amber: #d97706;
   --wellqc-rose: #dc2626;
   --wellqc-violet: #7c3aed;
   --wellqc-text: #1c1917;
   --wellqc-muted: #78716c;
+  color-scheme: light;
+}
+
+/* Apple Pure White Mode (Apple.com Clean White #ffffff & Minimalist #f5f5f7) */
+[data-theme="apple-white"] {
+  --background: #ffffff;
+  --foreground: #1d1d1f;
+
+  --wellqc-dark: #ffffff;
+  --wellqc-panel: #ffffff;
+  --wellqc-card: #f5f5f7;
+  --wellqc-border: rgba(0, 0, 0, 0.08);
+  --wellqc-accent: #0062d2;
+  --wellqc-cyan: #0062d2;
+  --wellqc-emerald: #34c759;
+  --wellqc-amber: #ff9500;
+  --wellqc-rose: #ff3b30;
+  --wellqc-violet: #af52de;
+  --wellqc-text: #1d1d1f;
+  --wellqc-muted: #86868b;
   color-scheme: light;
 }
 
@@ -519,22 +539,73 @@ pre,
   color: #0071e3 !important;
 }
 
-/* Apple dynamic blue in light mode */
-[data-theme="light"] .text-sky-400,
+/* Vibrant High-Contrast Royal Blue (Replaces pale/washed-out teal and cyan in light mode) */
+[data-theme="light"] .text-cyan-100,
+[data-theme="light"] .text-cyan-200,
+[data-theme="light"] .text-cyan-300,
 [data-theme="light"] .text-cyan-400,
+[data-theme="light"] .text-cyan-500,
 [data-theme="light"] .text-cyan-600,
-[data-theme="light"] .text-cyan-700 {
-  color: #0071e3 !important;
+[data-theme="light"] .text-cyan-700,
+[data-theme="light"] .text-teal-200,
+[data-theme="light"] .text-teal-300,
+[data-theme="light"] .text-teal-400,
+[data-theme="light"] .text-teal-500,
+[data-theme="light"] .text-teal-600,
+[data-theme="light"] .text-teal-700,
+[data-theme="light"] .text-sky-200,
+[data-theme="light"] .text-sky-300,
+[data-theme="light"] .text-sky-400,
+[data-theme="light"] .text-sky-500,
+[data-theme="light"] .text-sky-600,
+[data-theme="light"] .text-sky-700 {
+  color: #0062d2 !important;
+}
+
+[data-theme="light"] .hover\:text-cyan-200:hover,
+[data-theme="light"] .hover\:text-cyan-300:hover,
+[data-theme="light"] .hover\:text-cyan-400:hover,
+[data-theme="light"] .hover\:text-teal-300:hover,
+[data-theme="light"] .hover\:text-teal-400:hover,
+[data-theme="light"] .hover\:text-sky-300:hover,
+[data-theme="light"] .hover\:text-sky-400:hover {
+  color: #0043a8 !important;
+}
+
+[data-theme="light"] .bg-cyan-500\/10,
+[data-theme="light"] .bg-cyan-500\/15,
+[data-theme="light"] .bg-cyan-500\/20,
+[data-theme="light"] .bg-teal-500\/10,
+[data-theme="light"] .bg-teal-500\/20 {
+  background-color: rgba(0, 98, 210, 0.08) !important;
+}
+
+[data-theme="light"] .border-cyan-500\/20,
+[data-theme="light"] .border-cyan-500\/30,
+[data-theme="light"] .border-cyan-500\/40,
+[data-theme="light"] .border-cyan-500\/50,
+[data-theme="light"] .border-teal-500\/30 {
+  border-color: rgba(0, 98, 210, 0.22) !important;
 }
 
 [data-theme="light"] .bg-cyan-600,
-[data-theme="light"] .bg-cyan-700 {
-  background-color: #0071e3 !important;
+[data-theme="light"] .bg-cyan-700,
+[data-theme="light"] .bg-teal-600,
+[data-theme="light"] .bg-teal-700 {
+  background-color: #0062d2 !important;
 }
 
 [data-theme="light"] .bg-cyan-600:hover,
-[data-theme="light"] .bg-cyan-700:hover {
-  background-color: #0077ed !important;
+[data-theme="light"] .bg-cyan-700:hover,
+[data-theme="light"] .bg-teal-600:hover,
+[data-theme="light"] .bg-teal-700:hover {
+  background-color: #004fb0 !important;
+}
+
+[data-theme="light"] .badge-good {
+  background: rgba(0, 98, 210, 0.08) !important;
+  color: #0062d2 !important;
+  border: 1px solid rgba(0, 98, 210, 0.25) !important;
 }
 
 /* Severity Cards High-Contrast Overrides in Light Mode */
@@ -633,6 +704,268 @@ pre,
 
 [data-theme="light"] .hero-switcher-btn-active span {
   color: #1c1917 !important;
+}
+
+/* Apple Pure White Mode (Apple.com Clean White #ffffff & Minimalist #f5f5f7 Overrides) */
+[data-theme="apple-white"] .glass-panel {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 4px 16px -2px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="apple-white"] .glass-panel-glow {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 8px 24px -3px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="apple-white"] .log-track-grid {
+  background-image: linear-gradient(to right, rgba(203, 213, 225, 0.7) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(203, 213, 225, 0.5) 1px, transparent 1px);
+}
+
+[data-theme="apple-white"] .bg-slate-950,
+[data-theme="apple-white"] .bg-slate-950\/95,
+[data-theme="apple-white"] .bg-slate-950\/90,
+[data-theme="apple-white"] .bg-slate-950\/80,
+[data-theme="apple-white"] .bg-slate-950\/70,
+[data-theme="apple-white"] .bg-slate-950\/60,
+[data-theme="apple-white"] .bg-slate-950\/40 {
+  background-color: #f5f5f7 !important;
+}
+
+[data-theme="apple-white"] .bg-slate-900,
+[data-theme="apple-white"] .bg-slate-900\/95,
+[data-theme="apple-white"] .bg-slate-900\/90,
+[data-theme="apple-white"] .bg-slate-900\/80,
+[data-theme="apple-white"] .bg-slate-900\/60,
+[data-theme="apple-white"] .bg-slate-900\/50,
+[data-theme="apple-white"] .bg-slate-900\/40 {
+  background-color: #ffffff !important;
+}
+
+[data-theme="apple-white"] .bg-slate-800,
+[data-theme="apple-white"] .bg-slate-800\/80,
+[data-theme="apple-white"] .bg-slate-800\/60,
+[data-theme="apple-white"] .bg-slate-800\/50,
+[data-theme="apple-white"] .bg-slate-800\/40 {
+  background-color: #e5e5ea !important;
+}
+
+[data-theme="apple-white"] .border-slate-800,
+[data-theme="apple-white"] .border-slate-800\/80,
+[data-theme="apple-white"] .border-slate-800\/60,
+[data-theme="apple-white"] .border-slate-700 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="apple-white"] h1,
+[data-theme="apple-white"] h2,
+[data-theme="apple-white"] h3,
+[data-theme="apple-white"] h4,
+[data-theme="apple-white"] .hero-heading,
+[data-theme="apple-white"] .wellqc-wordmark,
+[data-theme="apple-white"] .text-white {
+  color: #1d1d1f !important;
+}
+
+[data-theme="apple-white"] header {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="apple-white"] aside {
+  background-color: #ffffff !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 2px 0 12px 0 rgba(0, 0, 0, 0.03) !important;
+}
+
+[data-theme="apple-white"] .bg-wellqc-panel,
+[data-theme="apple-white"] .bg-wellqc-card,
+[data-theme="apple-white"] .enterprise-kpi-card {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 4px 14px -2px rgba(0, 0, 0, 0.06) !important;
+  border-radius: 1rem !important;
+}
+
+[data-theme="apple-white"] .enterprise-kpi-card:hover,
+[data-theme="apple-white"] .bg-wellqc-panel:hover,
+[data-theme="apple-white"] .bg-wellqc-card:hover {
+  border-color: rgba(0, 113, 227, 0.3) !important;
+  box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 113, 227, 0.15) !important;
+}
+
+[data-theme="apple-white"] .nav-link-item {
+  color: #1d1d1f !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="apple-white"] .nav-link-item:hover {
+  color: #0062d2 !important;
+}
+
+/* Vibrant High-Contrast Royal Blue (Replaces pale/washed-out teal and cyan in Apple White) */
+[data-theme="apple-white"] .text-cyan-100,
+[data-theme="apple-white"] .text-cyan-200,
+[data-theme="apple-white"] .text-cyan-300,
+[data-theme="apple-white"] .text-cyan-400,
+[data-theme="apple-white"] .text-cyan-500,
+[data-theme="apple-white"] .text-cyan-600,
+[data-theme="apple-white"] .text-cyan-700,
+[data-theme="apple-white"] .text-teal-200,
+[data-theme="apple-white"] .text-teal-300,
+[data-theme="apple-white"] .text-teal-400,
+[data-theme="apple-white"] .text-teal-500,
+[data-theme="apple-white"] .text-teal-600,
+[data-theme="apple-white"] .text-teal-700,
+[data-theme="apple-white"] .text-sky-200,
+[data-theme="apple-white"] .text-sky-300,
+[data-theme="apple-white"] .text-sky-400,
+[data-theme="apple-white"] .text-sky-500,
+[data-theme="apple-white"] .text-sky-600,
+[data-theme="apple-white"] .text-sky-700 {
+  color: #0062d2 !important;
+}
+
+[data-theme="apple-white"] .hover\:text-cyan-200:hover,
+[data-theme="apple-white"] .hover\:text-cyan-300:hover,
+[data-theme="apple-white"] .hover\:text-cyan-400:hover,
+[data-theme="apple-white"] .hover\:text-teal-300:hover,
+[data-theme="apple-white"] .hover\:text-teal-400:hover,
+[data-theme="apple-white"] .hover\:text-sky-300:hover,
+[data-theme="apple-white"] .hover\:text-sky-400:hover {
+  color: #0043a8 !important;
+}
+
+[data-theme="apple-white"] .bg-cyan-500\/10,
+[data-theme="apple-white"] .bg-cyan-500\/15,
+[data-theme="apple-white"] .bg-cyan-500\/20,
+[data-theme="apple-white"] .bg-teal-500\/10,
+[data-theme="apple-white"] .bg-teal-500\/20 {
+  background-color: rgba(0, 98, 210, 0.08) !important;
+}
+
+[data-theme="apple-white"] .border-cyan-500\/20,
+[data-theme="apple-white"] .border-cyan-500\/30,
+[data-theme="apple-white"] .border-cyan-500\/40,
+[data-theme="apple-white"] .border-cyan-500\/50,
+[data-theme="apple-white"] .border-teal-500\/30 {
+  border-color: rgba(0, 98, 210, 0.22) !important;
+}
+
+[data-theme="apple-white"] .bg-cyan-600,
+[data-theme="apple-white"] .bg-cyan-700,
+[data-theme="apple-white"] .bg-teal-600,
+[data-theme="apple-white"] .bg-teal-700 {
+  background-color: #0062d2 !important;
+}
+
+[data-theme="apple-white"] .bg-cyan-600:hover,
+[data-theme="apple-white"] .bg-cyan-700:hover,
+[data-theme="apple-white"] .bg-teal-600:hover,
+[data-theme="apple-white"] .bg-teal-700:hover {
+  background-color: #004fb0 !important;
+}
+
+[data-theme="apple-white"] .badge-good {
+  background: rgba(0, 98, 210, 0.08) !important;
+  color: #0062d2 !important;
+  border: 1px solid rgba(0, 98, 210, 0.25) !important;
+}
+
+[data-theme="apple-white"] .severity-card-critical {
+  background-color: #fff5f5 !important;
+  border-color: #fca5a5 !important;
+  box-shadow: 0 1px 2px 0 rgba(220, 38, 38, 0.06), 0 4px 14px -2px rgba(220, 38, 38, 0.12) !important;
+}
+
+[data-theme="apple-white"] .severity-card-critical .severity-title {
+  color: #991b1b !important;
+}
+
+[data-theme="apple-white"] .severity-card-critical .severity-value {
+  color: #dc2626 !important;
+}
+
+[data-theme="apple-white"] .severity-card-critical .severity-sub {
+  color: #b91c1c !important;
+}
+
+[data-theme="apple-white"] .severity-card-moderate {
+  background-color: #fffdf0 !important;
+  border-color: #fde047 !important;
+  box-shadow: 0 1px 2px 0 rgba(217, 119, 6, 0.06), 0 4px 14px -2px rgba(217, 119, 6, 0.12) !important;
+}
+
+[data-theme="apple-white"] .severity-card-moderate .severity-title {
+  color: #854d0e !important;
+}
+
+[data-theme="apple-white"] .severity-card-moderate .severity-value {
+  color: #ca8a04 !important;
+}
+
+[data-theme="apple-white"] .severity-card-moderate .severity-sub {
+  color: #a16207 !important;
+}
+
+[data-theme="apple-white"] .severity-card-gaps {
+  background-color: #f0f9ff !important;
+  border-color: #7dd3fc !important;
+  box-shadow: 0 1px 2px 0 rgba(2, 132, 199, 0.06), 0 4px 14px -2px rgba(2, 132, 199, 0.12) !important;
+}
+
+[data-theme="apple-white"] .severity-card-gaps .severity-title {
+  color: #075985 !important;
+}
+
+[data-theme="apple-white"] .severity-card-gaps .severity-value {
+  color: #0369a1 !important;
+}
+
+[data-theme="apple-white"] .severity-card-gaps .severity-sub {
+  color: #0284c7 !important;
+}
+
+[data-theme="apple-white"] .text-slate-100,
+[data-theme="apple-white"] .text-slate-200,
+[data-theme="apple-white"] .text-slate-300 {
+  color: #1d1d1f !important;
+}
+
+[data-theme="apple-white"] .text-slate-400 {
+  color: #6e6e73 !important;
+}
+
+[data-theme="apple-white"] .text-slate-500,
+[data-theme="apple-white"] .text-slate-600 {
+  color: #86868b !important;
+}
+
+[data-theme="apple-white"] .hero-switcher-btn {
+  background-color: #ffffff !important;
+  color: #1d1d1f !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="apple-white"] .hero-switcher-btn:hover {
+  background-color: #f5f5f7 !important;
+  color: #000000 !important;
+  border-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+[data-theme="apple-white"] .hero-switcher-btn-active {
+  background-color: #ffffff !important;
+  color: #1d1d1f !important;
+  border-color: rgba(0, 113, 227, 0.5) !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 113, 227, 0.15), 0 1px 3px 0 rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-theme="apple-white"] .hero-switcher-btn-active span {
+  color: #1d1d1f !important;
 }
 
 /* Hide scrollbar for Chrome, Safari, and Opera */

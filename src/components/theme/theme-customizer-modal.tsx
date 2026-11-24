@@ -103,6 +103,21 @@ const INSPIRATION_PRESETS: InspirationPreset[] = [
       isLight: true,
     },
   },
+  {
+    name: "Apple Pure White",
+    settings: {
+      name: "Apple Pure White",
+      isGradient: false,
+      bgStart: "#ffffff",
+      bgEnd: "#f5f5f7",
+      bgAngle: "180deg",
+      panel: "#ffffff",
+      card: "#f5f5f7",
+      border: "rgba(0, 0, 0, 0.08)",
+      accent: "#0071e3",
+      isLight: true,
+    },
+  },
 ];
 
 const ACCENT_PRESETS = [

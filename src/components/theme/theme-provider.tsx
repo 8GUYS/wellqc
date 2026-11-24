@@ -16,6 +16,7 @@ if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
 export type ThemeId =
   | "slate"
   | "light"
+  | "apple-white"
   | "obsidian"
   | "navy"
   | "charcoal"
@@ -84,14 +85,27 @@ export const THEMES: ThemeConfig[] = [
   {
     id: "light",
     name: "Apple Studio Light",
-    tagline: "Warm Creamy Canvas & Dynamic Blue",
+    tagline: "Warm Creamy Canvas & Vibrant Royal Blue",
     isLight: true,
     group: "standard",
     colors: {
       bg: "#f7f4ec",
       panel: "#ffffff",
       border: "rgba(60, 50, 40, 0.08)",
-      accent: "#0071e3",
+      accent: "#0062d2",
+    },
+  },
+  {
+    id: "apple-white",
+    name: "Apple Pure White",
+    tagline: "Clean Apple.com White Canvas & Vibrant Royal Blue",
+    isLight: true,
+    group: "standard",
+    colors: {
+      bg: "#ffffff",
+      panel: "#ffffff",
+      border: "rgba(0, 0, 0, 0.08)",
+      accent: "#0062d2",
     },
   },
   {
@@ -271,7 +285,7 @@ export function applyThemeToDOM(themeId: ThemeId, customConfig?: CustomThemeSett
     root.style.removeProperty("--wellqc-text");
     root.style.removeProperty("--wellqc-muted");
 
-    if (themeId === "light") {
+    if (themeId === "light" || themeId === "apple-white") {
       root.classList.remove("dark");
     } else {
       root.classList.add("dark");

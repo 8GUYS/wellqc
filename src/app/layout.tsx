@@ -41,7 +41,7 @@ const THEME_INIT_SCRIPT = `
   try {
     var saved = localStorage.getItem('wellqc_theme') || 'slate';
     document.documentElement.setAttribute('data-theme', saved);
-    if (saved === 'light') {
+    if (saved === 'light' || saved === 'apple-white') {
       document.documentElement.classList.remove('dark');
     } else {
       document.documentElement.classList.add('dark');

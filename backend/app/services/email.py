@@ -10,6 +10,7 @@ and audit alerts. Supports:
 Settings can be managed dynamically via the Admin Control Center or loaded from environment variables.
 """
 
+import html
 import json
 import logging
 import os
@@ -143,6 +144,7 @@ def get_effective_email_config(db: Optional[Any] = None, request: Optional[Any] 
         "emailjs_private_key": settings.EMAILJS_PRIVATE_KEY or "",
         "resend_api_key": settings.RESEND_API_KEY or "",
         "resend_from_email": settings.RESEND_FROM_EMAIL or "WellQC <onboarding@resend.dev>",
+        "lead_notification_email": settings.LEAD_NOTIFICATION_EMAIL or "",
     }
 
     try:
@@ -699,4 +701,339 @@ def send_password_reset_email(
         "resetUrl": reset_url,
         "token": token,
     }
+
+
+def resolve_lead_notification_email(
+    db: Optional[Any] = None,
+    config: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
+    """
+    Resolve the destination inbox for incoming enterprise demo requests and contact inquiries.
+    Priority:
+    1. Admin-configured `lead_notification_email` in SystemSetting["email_settings"]
+    2. `LEAD_NOTIFICATION_EMAIL` environment variable
+    3. Primary ADMIN user email from the `User` table
+    """
+    cfg = config or get_effective_email_config(db=db)
+    explicit = (cfg.get("lead_notification_email") or settings.LEAD_NOTIFICATION_EMAIL or "").strip()
+    if explicit and "@" in explicit:
+        return explicit
+
+    try:
+        from sqlalchemy import func
+        from backend.app.core.database import SessionLocal
+        from backend.app.models.models import User
+
+        local_db = db or SessionLocal()
+        try:
+            admin_row = (
+                local_db.query(User.email)
+                .filter(func.upper(User.role) == "ADMIN")
+                .order_by(User.createdAt.asc())
+                .first()
+            )
+            if admin_row and admin_row[0]:
+                return str(admin_row[0]).strip()
+        finally:
+            if not db:
+                local_db.close()
+    except Exception as exc:
+        logger.debug(f"Could not resolve admin email from database: {exc}")
+
+    return None
+
+
+def _dispatch_generic_email(
+    *,
+    to_email: str,
+    to_name: str,
+    subject: str,
+    title: str,
+    message_body: str,
+    button_text: str,
+    action_url: str,
+    footer_note: str,
+    html_content: str,
+    text_content: str,
+    config: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Dispatch a transactional notification via EmailJS, Resend, or local dev logger."""
+    provider = (config.get("provider") or "EMAILJS").upper()
+
+    if provider == "EMAILJS":
+        res = _send_via_emailjs(
+            to_email=to_email,
+            to_name=to_name,
+            subject=subject,
+            action_url=action_url,
+            title=title,
+            message_body=message_body,
+            button_text=button_text,
+            footer_note=footer_note,
+            html_content=html_content,
+            text_content=text_content,
+            expires_in_hours=24,
+            config=config,
+        )
+        if res and "error" not in res:
+            return {"status": "delivered", "transport": "emailjs", "recipient": to_email}
+
+    elif provider == "RESEND":
+        res = _send_via_resend(
+            to_email=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            config=config,
+        )
+        if res:
+            return {"status": "delivered", "transport": "resend", "recipient": to_email, "resendId": res.get("id")}
+
+    logger.info(f"Transactional notification logged for {to_email}: {subject}")
+    if settings.ENVIRONMENT != "production":
+        print(
+            f"\n[WellQC DEV EMAIL] To: {to_name} <{to_email}> | Subject: {subject}\n{text_content}\n",
+            flush=True,
+        )
+    return {"status": "logged", "transport": "local_dev_logger", "recipient": to_email}
+
+
+def send_demo_request_emails(
+    *,
+    full_name: str,
+    work_email: str,
+    company: str,
+    job_title: str = "",
+    fleet_size: str = "",
+    primary_objective: str = "",
+    timeframe: str = "",
+    notes: str = "",
+    admin_email: Optional[str] = None,
+    config: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Send:
+    1. Internal lead alert email to the WellQC admin / sales inbox (if resolved)
+    2. Confirmation receipt email to the prospective requester
+    """
+    cfg = config or get_effective_email_config()
+    base_url = (cfg.get("frontend_url") or get_effective_frontend_url()).rstrip("/")
+    target_admin = admin_email or resolve_lead_notification_email(config=cfg)
+
+    safe_name = html.escape(full_name)
+    safe_email = html.escape(work_email)
+    safe_company = html.escape(company)
+    safe_role = html.escape(job_title or "Not specified")
+    safe_fleet = html.escape(fleet_size or "Not specified")
+    safe_obj = html.escape(primary_objective or "Not specified")
+    safe_time = html.escape(timeframe or "Flexible")
+    safe_notes = html.escape(notes or "None provided")
+
+    results: Dict[str, Any] = {"adminNotification": None, "requesterConfirmation": None}
+
+    if target_admin:
+        admin_subject = f"[WellQC Demo Request] {company} — {full_name}"
+        admin_url = f"{base_url}/activity"
+        admin_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>{html.escape(admin_subject)}</title></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0b1120; color: #f8fafc; margin: 0; padding: 24px;">
+          <div style="max-width: 560px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px;">
+            <div style="color: #38bdf8; font-size: 20px; font-weight: 800; margin-bottom: 16px;">WellQC Enterprise Lead</div>
+            <div style="color: #ffffff; font-size: 18px; font-weight: 700; margin-bottom: 16px;">New Technical Demonstration Request</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #cbd5e1; margin-bottom: 20px;">
+              <tr><td style="padding: 6px 0; color: #94a3b8;">Contact:</td><td style="padding: 6px 0; font-weight: 600; color: #ffffff;">{safe_name}</td></tr>
+              <tr><td style="padding: 6px 0; color: #94a3b8;">Work Email:</td><td style="padding: 6px 0;"><a href="mailto:{safe_email}" style="color: #38bdf8;">{safe_email}</a></td></tr>
+              <tr><td style="padding: 6px 0; color: #94a3b8;">Operator / Company:</td><td style="padding: 6px 0; font-weight: 600; color: #ffffff;">{safe_company}</td></tr>
+              <tr><td style="padding: 6px 0; color: #94a3b8;">Role:</td><td style="padding: 6px 0;">{safe_role}</td></tr>
+              <tr><td style="padding: 6px 0; color: #94a3b8;">Portfolio Scale:</td><td style="padding: 6px 0;">{safe_fleet}</td></tr>
+              <tr><td style="padding: 6px 0; color: #94a3b8;">Primary Focus:</td><td style="padding: 6px 0;">{safe_obj}</td></tr>
+              <tr><td style="padding: 6px 0; color: #94a3b8;">Timeframe:</td><td style="padding: 6px 0;">{safe_time}</td></tr>
+            </table>
+            <div style="background-color: #020617; border: 1px solid #1e293b; border-radius: 10px; padding: 14px; font-size: 13px; color: #cbd5e1; margin-bottom: 24px;">
+              <strong style="color: #94a3b8; display: block; margin-bottom: 6px;">Notes / Inquiries:</strong>
+              {safe_notes}
+            </div>
+            <a href="{admin_url}" style="display: inline-block; background: #0284c7; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 13px; padding: 11px 22px; border-radius: 10px;">View in WellQC Audit Trail</a>
+          </div>
+        </body>
+        </html>
+        """
+        admin_text = (
+            f"New WellQC Technical Demo Request\n"
+            f"Contact: {full_name} <{work_email}>\n"
+            f"Company: {company}\n"
+            f"Role: {job_title or 'Not specified'}\n"
+            f"Portfolio Scale: {fleet_size or 'Not specified'}\n"
+            f"Primary Focus: {primary_objective or 'Not specified'}\n"
+            f"Timeframe: {timeframe or 'Flexible'}\n"
+            f"Notes: {notes or 'None provided'}\n"
+        )
+        results["adminNotification"] = _dispatch_generic_email(
+            to_email=target_admin,
+            to_name="WellQC Subsurface Team",
+            subject=admin_subject,
+            title="New Technical Demonstration Request",
+            message_body=admin_text,
+            button_text="View Audit Trail",
+            action_url=admin_url,
+            footer_note=f"Reply directly to {work_email} to confirm calendar scheduling.",
+            html_content=admin_html,
+            text_content=admin_text,
+            config=cfg,
+        )
+
+    confirm_subject = "Demo Request Confirmed — WellQC Subsurface Quality Assurance"
+    confirm_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"><title>{confirm_subject}</title></head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0b1120; color: #f8fafc; margin: 0; padding: 24px;">
+      <div style="max-width: 540px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px;">
+        <div style="color: #10b981; font-size: 20px; font-weight: 800; margin-bottom: 16px;">WellQC</div>
+        <div style="color: #ffffff; font-size: 18px; font-weight: 700; margin-bottom: 12px;">We received your technical demo request</div>
+        <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+          Hi {safe_name},<br><br>
+          Thank you for requesting a 25-minute technical walkthrough of <strong>WellQC</strong> for <strong>{safe_company}</strong>. A subsurface solutions engineer will reach out within 2 business hours to confirm your calendar slot.
+        </p>
+        <div style="background-color: #020617; border: 1px solid #1e293b; border-radius: 10px; padding: 14px; font-size: 13px; color: #cbd5e1; margin: 20px 0;">
+          <div><strong>Operator / Company:</strong> {safe_company}</div>
+          <div><strong>Portfolio Scale:</strong> {safe_fleet}</div>
+          <div><strong>Primary Focus:</strong> {safe_obj}</div>
+        </div>
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #1e293b; font-size: 12px; color: #64748b;">
+          WellQC Subsurface Analytics • API RP 66 &amp; NUPRC Form WQC-08-A Compliant
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+    confirm_text = (
+        f"Hi {full_name},\n\n"
+        f"Thank you for requesting a 25-minute technical demonstration of WellQC for {company}.\n"
+        f"Portfolio Scale: {fleet_size}\n"
+        f"Primary Focus: {primary_objective}\n\n"
+        f"A subsurface solutions engineer will reach out within 2 business hours to confirm your calendar invitation.\n"
+    )
+    results["requesterConfirmation"] = _dispatch_generic_email(
+        to_email=work_email,
+        to_name=full_name,
+        subject=confirm_subject,
+        title="Technical Demonstration Request Received",
+        message_body=confirm_text,
+        button_text="Visit WellQC",
+        action_url=base_url,
+        footer_note="WellQC Subsurface Analytics • NDA Protected",
+        html_content=confirm_html,
+        text_content=confirm_text,
+        config=cfg,
+    )
+    return results
+
+
+def send_contact_inquiry_emails(
+    *,
+    name: str,
+    email: str,
+    company: str = "",
+    message: str,
+    admin_email: Optional[str] = None,
+    config: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Send:
+    1. Internal support/sales alert email to the WellQC admin inbox (if resolved)
+    2. Acknowledgement receipt email to the sender
+    """
+    cfg = config or get_effective_email_config()
+    base_url = (cfg.get("frontend_url") or get_effective_frontend_url()).rstrip("/")
+    target_admin = admin_email or resolve_lead_notification_email(config=cfg)
+
+    safe_name = html.escape(name)
+    safe_email = html.escape(email)
+    safe_company = html.escape(company or "Not specified")
+    safe_message = html.escape(message)
+
+    results: Dict[str, Any] = {"adminNotification": None, "senderConfirmation": None}
+
+    if target_admin:
+        admin_subject = f"[WellQC Inquiry] {company or name} — {name}"
+        admin_url = f"{base_url}/activity"
+        admin_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>{html.escape(admin_subject)}</title></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0b1120; color: #f8fafc; margin: 0; padding: 24px;">
+          <div style="max-width: 560px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px;">
+            <div style="color: #38bdf8; font-size: 20px; font-weight: 800; margin-bottom: 16px;">WellQC Contact Inquiry</div>
+            <p style="font-size: 14px; color: #cbd5e1; margin-bottom: 16px;">
+              <strong>From:</strong> {safe_name} (<a href="mailto:{safe_email}" style="color: #38bdf8;">{safe_email}</a>)<br>
+              <strong>Company:</strong> {safe_company}
+            </p>
+            <div style="background-color: #020617; border: 1px solid #1e293b; border-radius: 10px; padding: 16px; font-size: 14px; color: #f8fafc; white-space: pre-wrap; margin-bottom: 24px;">{safe_message}</div>
+            <a href="{admin_url}" style="display: inline-block; background: #0284c7; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 13px; padding: 11px 22px; border-radius: 10px;">Open Audit Trail</a>
+          </div>
+        </body>
+        </html>
+        """
+        admin_text = (
+            f"New WellQC Contact Inquiry\n"
+            f"From: {name} <{email}>\n"
+            f"Company: {company or 'Not specified'}\n\n"
+            f"Message:\n{message}\n"
+        )
+        results["adminNotification"] = _dispatch_generic_email(
+            to_email=target_admin,
+            to_name="WellQC Technical Support",
+            subject=admin_subject,
+            title="New Contact Inquiry",
+            message_body=admin_text,
+            button_text="Open Audit Trail",
+            action_url=admin_url,
+            footer_note=f"Reply directly to {email} to respond.",
+            html_content=admin_html,
+            text_content=admin_text,
+            config=cfg,
+        )
+
+    ack_subject = "We Received Your Message — WellQC Technical Support"
+    ack_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"><title>{ack_subject}</title></head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0b1120; color: #f8fafc; margin: 0; padding: 24px;">
+      <div style="max-width: 540px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px;">
+        <div style="color: #10b981; font-size: 20px; font-weight: 800; margin-bottom: 16px;">WellQC</div>
+        <div style="color: #ffffff; font-size: 18px; font-weight: 700; margin-bottom: 12px;">Thank you for reaching out</div>
+        <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+          Hi {safe_name},<br><br>
+          We have received your inquiry and routed it to our petrophysical support engineering team. A team member will respond within 2 business hours.
+        </p>
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #1e293b; font-size: 12px; color: #64748b;">
+          WellQC Subsurface Analytics • Port Harcourt &amp; Lagos, Nigeria
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+    ack_text = (
+        f"Hi {name},\n\n"
+        f"We have received your message and routed it to our petrophysical support engineering team. "
+        f"One of our engineers will respond within 2 business hours.\n"
+    )
+    results["senderConfirmation"] = _dispatch_generic_email(
+        to_email=email,
+        to_name=name,
+        subject=ack_subject,
+        title="We Received Your Message",
+        message_body=ack_text,
+        button_text="Visit WellQC",
+        action_url=base_url,
+        footer_note="WellQC Technical Support",
+        html_content=ack_html,
+        text_content=ack_text,
+        config=cfg,
+    )
+    return results
 

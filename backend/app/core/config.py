@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     EMAILJS_PRIVATE_KEY: str = os.getenv("EMAILJS_PRIVATE_KEY", "")
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
     RESEND_FROM_EMAIL: str = os.getenv("RESEND_FROM_EMAIL", "WellQC <onboarding@resend.dev>")
+    LEAD_NOTIFICATION_EMAIL: str = os.getenv("LEAD_NOTIFICATION_EMAIL", "")
     
     # Cloudflare R2 Blob Storage
     # Leave these blank in local dev -- the app will fall back to storing rawContent in the DB.

@@ -23,6 +23,7 @@ from backend.app.api import (
     auth,
     dashboard,
     las,
+    leads,
     payments,
     qa_engine,
     standardisation,
@@ -323,6 +324,7 @@ app.include_router(qa_engine.router)      # /api/qa-engine: QA Engine rules and 
 app.include_router(user.router)           # /api/user: User profile, settings, API tokens
 app.include_router(admin.router)          # /api/admin: Tenant administration & user management
 app.include_router(payments.router)       # /api/payments: Paystack checkout, webhook, plans catalog
+app.include_router(leads.router)          # /api/leads: Public enterprise demo & contact lead capture
 
 # ---------------------------------------------------------------------------
 # Prometheus Metrics Instrumentation (CE1-34)

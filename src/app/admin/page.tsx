@@ -29,7 +29,117 @@ import {
   BadgeCheck,
   Lock,
   CreditCard,
+  Sparkles,
+  Building2,
+  Calendar,
+  MessageSquare,
+  ExternalLink,
 } from "lucide-react";
+
+export interface LeadItem {
+  id: string;
+  userName: string;
+  userRole: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  details: string;
+  createdAt: string;
+  ip?: string;
+  leadType: "DEMO" | "CONTACT";
+  fullName: string;
+  email: string;
+  company: string;
+  jobTitle?: string;
+  fleetSize?: string;
+  primaryObjective?: string;
+  timeframe?: string;
+  notes?: string;
+}
+
+function parseLeadRecord(log: {
+  id: string;
+  userName?: string;
+  userRole?: string;
+  action?: string;
+  targetType?: string;
+  targetId?: string;
+  details?: string;
+  createdAt?: string;
+  timestamp?: string;
+  ip?: string;
+}): LeadItem {
+  const actionStr = (log.action || "").toUpperCase();
+  const targetStr = (log.targetType || "").toUpperCase();
+  const isDemo = actionStr.includes("DEMO") || targetStr.includes("LEAD");
+  const details = log.details || "";
+
+  // 1. Extract email: <email@domain.com> or targetId if targetId is an email
+  const emailMatch = details.match(/<([^>]+@[^>]+)>/) || details.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  const email = emailMatch ? emailMatch[1].trim() : (log.targetId && log.targetId.includes("@") ? log.targetId.trim() : "Not provided");
+
+  // 2. Extract Company
+  let company = "";
+  if (isDemo) {
+    const compMatch = details.match(/Enterprise Demo Requested:\s*([^(\-]+?)(?:\s*\(|\s*-)/i);
+    if (compMatch) company = compMatch[1].trim();
+  } else {
+    const compMatch = details.match(/\(([^)]+)\):/);
+    if (compMatch) company = compMatch[1].trim();
+    if (!company && (log.userName || "").includes("(") && (log.userName || "").includes(")")) {
+      const uMatch = log.userName!.match(/\(([^)]+)\)/);
+      if (uMatch) company = uMatch[1].trim();
+    }
+  }
+
+  // 3. Extract Fleet Size & Timeframe
+  const fleetMatch = details.match(/\(([^,]+(?:wells|Wells)[^,]*)(?:,\s*([^)]+))?\)/i);
+  const fleetSize = fleetMatch ? fleetMatch[1].trim() : "";
+  const timeframe = fleetMatch && fleetMatch[2] ? fleetMatch[2].trim() : "";
+
+  // 4. Extract Job Title: [Job Title]
+  const titleMatch = details.match(/\[([^\]]+)\]/);
+  const jobTitle = titleMatch ? titleMatch[1].trim() : "";
+
+  // 5. Extract Objective
+  const objMatch = details.match(/Objective:\s*([^.]+)\./i);
+  const primaryObjective = objMatch ? objMatch[1].trim() : "";
+
+  // 6. Extract Notes / Message
+  const notesMatch = details.match(/Notes:\s*(.+)$/i);
+  let notes = notesMatch ? notesMatch[1].trim() : "";
+  if (!notes && !isDemo) {
+    const contactMsgMatch = details.match(/:\s*([\s\S]+)$/);
+    if (contactMsgMatch) notes = contactMsgMatch[1].trim();
+  }
+
+  // 7. Full name
+  let fullName = log.userName || "Enterprise Lead";
+  if (!isDemo && fullName.includes("(")) {
+    fullName = fullName.split("(")[0].trim();
+  }
+
+  return {
+    id: log.id,
+    userName: log.userName || fullName,
+    userRole: log.userRole || "LEAD",
+    action: log.action || (isDemo ? "DEMO_REQUEST" : "CONTACT_INQUIRY"),
+    targetType: log.targetType || "LEAD",
+    targetId: log.targetId || email,
+    details: details,
+    createdAt: log.createdAt || log.timestamp || "Recently",
+    ip: log.ip,
+    leadType: isDemo ? "DEMO" : "CONTACT",
+    fullName: fullName || "Enterprise Lead",
+    email: email,
+    company: company || "Enterprise Organization",
+    jobTitle: jobTitle,
+    fleetSize: fleetSize,
+    primaryObjective: primaryObjective,
+    timeframe: timeframe,
+    notes: notes || details,
+  };
+}
 
 interface UserRecord {
   id: string;
@@ -218,7 +328,7 @@ const PERMISSION_MATRIX: PermissionDef[] = [
 
 export default function AdminPanelPage() {
   const [users, setUsers] = useState<UserRecord[]>([]);
-  const [activeTab, setActiveTab] = useState<"USERS" | "MATRIX" | "AUDIT" | "EMAIL" | "TOKENS" | "WEBHOOKS">("USERS");
+  const [activeTab, setActiveTab] = useState<"USERS" | "MATRIX" | "AUDIT" | "LEADS" | "EMAIL" | "TOKENS" | "WEBHOOKS">("USERS");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -269,6 +379,15 @@ export default function AdminPanelPage() {
   const [auditFilter, setAuditFilter] = useState<string>("ALL");
   const [auditSearchQuery, setAuditSearchQuery] = useState("");
   const deferredAuditSearchQuery = useDeferredValue(auditSearchQuery);
+
+  // Enterprise Demo & Inquiries State
+  const [rawLeads, setRawLeads] = useState<Record<string, unknown>[]>([]);
+  const [isLoadingLeads, setIsLoadingLeads] = useState(false);
+  const [leadsFilter, setLeadsFilter] = useState<"ALL" | "DEMO" | "CONTACT">("ALL");
+  const [leadsSearchQuery, setLeadsSearchQuery] = useState("");
+  const deferredLeadsSearchQuery = useDeferredValue(leadsSearchQuery);
+  const [copiedLeadId, setCopiedLeadId] = useState<string | null>(null);
+  const [copiedLeadField, setCopiedLeadField] = useState<string | null>(null);
 
   // Email & Notifications Settings State
   const [emailConfig, setEmailConfig] = useState<{
@@ -349,6 +468,19 @@ export default function AdminPanelPage() {
       const result = await safeReadJson<{ activities?: ActivityListItem[] }>(res);
       if (result.ok && result.data?.activities) {
         setActivities(result.data.activities);
+        const leadActivities = result.data.activities.filter((act) => {
+          const actUpper = (act.action || "").toUpperCase();
+          const targetUpper = (act.target || "").toUpperCase();
+          const roleUpper = (act.userRole || "").toUpperCase();
+          return (
+            actUpper.includes("DEMO") ||
+            actUpper.includes("CONTACT") ||
+            targetUpper.includes("LEAD") ||
+            targetUpper.includes("SUPPORT_INQUIRY") ||
+            roleUpper === "LEAD"
+          );
+        });
+        setRawLeads((prev) => (prev.length > 0 ? prev : leadActivities));
       }
     } catch (err) {
       console.error("Failed to load audit stream:", err);
@@ -356,6 +488,91 @@ export default function AdminPanelPage() {
       setIsLoadingAudit(false);
     }
   }, []);
+
+  const loadLeads = useCallback(async () => {
+    setIsLoadingLeads(true);
+    try {
+      const res = await fetch("/api/leads", { cache: "no-store" });
+      const result = await safeReadJson<{ leads?: Record<string, unknown>[] }>(res);
+      if (result.ok && Array.isArray(result.data?.leads) && result.data.leads.length > 0) {
+        setRawLeads(result.data.leads);
+      } else {
+        const fallback = activities.filter((act) => {
+          const actUpper = (act.action || "").toUpperCase();
+          const targetUpper = (act.target || "").toUpperCase();
+          const roleUpper = (act.userRole || "").toUpperCase();
+          return (
+            actUpper.includes("DEMO") ||
+            actUpper.includes("CONTACT") ||
+            targetUpper.includes("LEAD") ||
+            targetUpper.includes("SUPPORT_INQUIRY") ||
+            roleUpper === "LEAD"
+          );
+        });
+        setRawLeads(fallback);
+      }
+    } catch {
+      const fallback = activities.filter((act) => {
+        const actUpper = (act.action || "").toUpperCase();
+        const targetUpper = (act.target || "").toUpperCase();
+        const roleUpper = (act.userRole || "").toUpperCase();
+        return (
+          actUpper.includes("DEMO") ||
+          actUpper.includes("CONTACT") ||
+          targetUpper.includes("LEAD") ||
+          targetUpper.includes("SUPPORT_INQUIRY") ||
+          roleUpper === "LEAD"
+        );
+      });
+      setRawLeads(fallback);
+    } finally {
+      setIsLoadingLeads(false);
+    }
+  }, [activities]);
+
+  async function handleCopyLeadEmail(id: string, email: string) {
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopiedLeadId(id);
+      setCopiedLeadField("email");
+      setTimeout(() => {
+        setCopiedLeadId(null);
+        setCopiedLeadField(null);
+      }, 2000);
+      showToast(`Copied email (${email}) to clipboard!`);
+    } catch {
+      showToast("Failed to copy email.", false);
+    }
+  }
+
+  async function handleCopyLeadBrief(lead: LeadItem) {
+    const briefLines = [
+      `[WellQC Inbound Lead: ${lead.leadType === "DEMO" ? "Technical Demo Request" : "Contact Inquiry"}]`,
+      `Name: ${lead.fullName}`,
+      `Work Email: ${lead.email}`,
+      `Company: ${lead.company}`,
+      lead.jobTitle ? `Job Title: ${lead.jobTitle}` : null,
+      lead.fleetSize ? `Fleet Size: ${lead.fleetSize}` : null,
+      lead.timeframe ? `Target Timeframe: ${lead.timeframe}` : null,
+      lead.primaryObjective ? `Primary Objective: ${lead.primaryObjective}` : null,
+      lead.notes ? `Notes / Message: ${lead.notes}` : null,
+      lead.createdAt ? `Submitted At: ${lead.createdAt}` : null,
+      lead.ip ? `Client IP: ${lead.ip}` : null,
+    ].filter(Boolean);
+
+    try {
+      await navigator.clipboard.writeText(briefLines.join("\n"));
+      setCopiedLeadId(lead.id);
+      setCopiedLeadField("brief");
+      setTimeout(() => {
+        setCopiedLeadId(null);
+        setCopiedLeadField(null);
+      }, 2000);
+      showToast("Copied formatted lead brief to clipboard!");
+    } catch {
+      showToast("Failed to copy brief.", false);
+    }
+  }
 
   async function loadTokens() {
     setIsLoadingTokens(true);
@@ -576,11 +793,13 @@ export default function AdminPanelPage() {
 
   useEffect(() => {
     let cancelled = false;
-    async function loadUsers() {
+    async function initDashboard() {
       try {
-        const [usersRes, meRes] = await Promise.all([
+        const [usersRes, meRes, actRes, leadsRes] = await Promise.all([
           fetch("/api/admin/users", { cache: "no-store" }),
           fetch("/api/auth/me", { cache: "no-store" }),
+          fetch("/api/activity", { cache: "no-store" }),
+          fetch("/api/leads", { cache: "no-store" }),
         ]);
 
         const usersResult = await safeReadJson<{ users?: UserRecord[] }>(usersRes);
@@ -593,13 +812,27 @@ export default function AdminPanelPage() {
             setCurrentUserId(meResult.data.user.id);
           }
         }
+
+        if (actRes.ok) {
+          const actResult = await safeReadJson<{ activities?: ActivityListItem[] }>(actRes);
+          if (!cancelled && actResult.data?.activities) {
+            setActivities(actResult.data.activities);
+          }
+        }
+
+        if (leadsRes.ok) {
+          const leadsResult = await safeReadJson<{ leads?: Record<string, unknown>[] }>(leadsRes);
+          if (!cancelled && Array.isArray(leadsResult.data?.leads)) {
+            setRawLeads(leadsResult.data.leads);
+          }
+        }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Unable to load users.");
+        if (!cancelled) setError(err instanceof Error ? err.message : "Unable to load dashboard data.");
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     }
-    loadUsers();
+    initDashboard();
     return () => { cancelled = true; };
   }, []);
 
@@ -619,6 +852,17 @@ export default function AdminPanelPage() {
     return activities.filter((act) => {
       if (auditFilter !== "ALL") {
         const actionUpper = act.action.toUpperCase();
+        if (auditFilter === "LEADS") {
+          const targetUpper = (act.target || "").toUpperCase();
+          const roleUpper = (act.userRole || "").toUpperCase();
+          return (
+            actionUpper.includes("DEMO") ||
+            actionUpper.includes("CONTACT") ||
+            targetUpper.includes("LEAD") ||
+            targetUpper.includes("SUPPORT_INQUIRY") ||
+            roleUpper === "LEAD"
+          );
+        }
         if (auditFilter === "WELL" && !actionUpper.includes("WELL")) return false;
         if (auditFilter === "QA" && !actionUpper.includes("QA") && !actionUpper.includes("ANOMALY")) return false;
         if (auditFilter === "INGEST" && !actionUpper.includes("INGEST") && !actionUpper.includes("LAS")) return false;
@@ -636,6 +880,43 @@ export default function AdminPanelPage() {
       );
     });
   }, [activities, auditFilter, deferredAuditSearchQuery]);
+
+  const parsedLeads = useMemo<LeadItem[]>(() => {
+    const sourceList = rawLeads.length > 0 ? rawLeads : activities.filter((act) => {
+      const actUpper = (act.action || "").toUpperCase();
+      const targetUpper = (act.target || "").toUpperCase();
+      const roleUpper = (act.userRole || "").toUpperCase();
+      return (
+        actUpper.includes("DEMO") ||
+        actUpper.includes("CONTACT") ||
+        targetUpper.includes("LEAD") ||
+        targetUpper.includes("SUPPORT_INQUIRY") ||
+        roleUpper === "LEAD"
+      );
+    });
+    return sourceList.map(parseLeadRecord);
+  }, [rawLeads, activities]);
+
+  const filteredLeads = useMemo<LeadItem[]>(() => {
+    return parsedLeads.filter((lead) => {
+      if (leadsFilter === "DEMO" && lead.leadType !== "DEMO") return false;
+      if (leadsFilter === "CONTACT" && lead.leadType !== "CONTACT") return false;
+
+      if (!deferredLeadsSearchQuery) return true;
+      const q = deferredLeadsSearchQuery.toLowerCase();
+      return (
+        lead.fullName.toLowerCase().includes(q) ||
+        lead.email.toLowerCase().includes(q) ||
+        lead.company.toLowerCase().includes(q) ||
+        (lead.jobTitle && lead.jobTitle.toLowerCase().includes(q)) ||
+        (lead.primaryObjective && lead.primaryObjective.toLowerCase().includes(q)) ||
+        (lead.fleetSize && lead.fleetSize.toLowerCase().includes(q)) ||
+        (lead.timeframe && lead.timeframe.toLowerCase().includes(q)) ||
+        lead.notes?.toLowerCase().includes(q) ||
+        lead.details.toLowerCase().includes(q)
+      );
+    });
+  }, [parsedLeads, leadsFilter, deferredLeadsSearchQuery]);
 
   const deletableUsers = filteredUsers.filter((u) => u.id !== currentUserId);
   const isAllSelected = deletableUsers.length > 0 && deletableUsers.every((u) => selectedUserIds.includes(u.id));
@@ -878,6 +1159,15 @@ export default function AdminPanelPage() {
             onClick={() => setActiveTab("MATRIX")}
             icon={<Shield className="w-3.5 h-3.5" />}
             label="Permission Matrix"
+          />
+          <WorkstationTabButton
+            active={activeTab === "LEADS"}
+            onClick={() => {
+              setActiveTab("LEADS");
+              loadLeads();
+            }}
+            icon={<Sparkles className="w-3.5 h-3.5 text-amber-400" />}
+            label={`Demo & Inquiries (${parsedLeads.length})`}
           />
           <WorkstationTabButton
             active={activeTab === "AUDIT"}
@@ -1444,7 +1734,7 @@ export default function AdminPanelPage() {
             <div className="bg-wellqc-panel border border-wellqc-border p-3 rounded flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-slate-500 mr-1 text-[11px]">Filter Action:</span>
-                {["ALL", "WELL", "QA", "INGEST", "USER", "SECURITY"].map((category) => (
+                {["ALL", "LEADS", "WELL", "QA", "INGEST", "USER", "SECURITY"].map((category) => (
                   <button
                     key={category}
                     onClick={() => setAuditFilter(category)}
@@ -1535,6 +1825,283 @@ export default function AdminPanelPage() {
             </div>
           </div>
         )}
+
+        {/* ── TAB: ENTERPRISE DEMOS & INBOUND INQUIRIES ────────────────────────── */}
+        {activeTab === "LEADS" && (() => {
+          const totalCount = parsedLeads.length;
+          const demoCount = parsedLeads.filter((l) => l.leadType === "DEMO").length;
+          const contactCount = parsedLeads.filter((l) => l.leadType === "CONTACT").length;
+          const uniqueCompanyCount = new Set(
+            parsedLeads.map((l) => l.company.trim().toLowerCase()).filter((c) => c && c !== "enterprise organization")
+          ).size;
+
+          return (
+            <div className="space-y-4 font-mono">
+              {/* KPI Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded">
+                  <div className="text-slate-400 text-[11px] flex items-center justify-between mb-1">
+                    <span>Total Inbound Leads</span>
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div className="text-xl font-bold text-white">{totalCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Landing page captures</div>
+                </div>
+
+                <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded">
+                  <div className="text-slate-400 text-[11px] flex items-center justify-between mb-1">
+                    <span>Demo Bookings</span>
+                    <Calendar className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <div className="text-xl font-bold text-cyan-400">{demoCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Enterprise consultations</div>
+                </div>
+
+                <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded">
+                  <div className="text-slate-400 text-[11px] flex items-center justify-between mb-1">
+                    <span>Contact Inquiries</span>
+                    <MessageSquare className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div className="text-xl font-bold text-emerald-400">{contactCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-1">General &amp; support requests</div>
+                </div>
+
+                <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded">
+                  <div className="text-slate-400 text-[11px] flex items-center justify-between mb-1">
+                    <span>Companies</span>
+                    <Building2 className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <div className="text-xl font-bold text-purple-300">{uniqueCompanyCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Unique operator domains</div>
+                </div>
+              </div>
+
+              {/* Toolbar & Filters */}
+              <div className="bg-wellqc-panel border border-wellqc-border p-3 rounded flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-slate-500 mr-1 text-[11px]">Type Filter:</span>
+                  {(
+                    [
+                      { id: "ALL", label: `ALL (${totalCount})` },
+                      { id: "DEMO", label: `DEMOS (${demoCount})` },
+                      { id: "CONTACT", label: `INQUIRIES (${contactCount})` },
+                    ] as const
+                  ).map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => setLeadsFilter(f.id)}
+                      className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-colors ${
+                        leadsFilter === f.id
+                          ? "bg-amber-950/80 text-amber-300 border-amber-500/60"
+                          : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search leads, email, company..."
+                      value={leadsSearchQuery}
+                      onChange={(e) => setLeadsSearchQuery(e.target.value)}
+                      className="pl-8 pr-3 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 outline-none w-56"
+                    />
+                  </div>
+                  <button
+                    onClick={loadLeads}
+                    disabled={isLoadingLeads}
+                    className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs flex items-center space-x-1"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isLoadingLeads ? "animate-spin text-amber-400" : ""}`} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Leads List / Feed */}
+              <div className="space-y-3">
+                {isLoadingLeads ? (
+                  <div className="bg-wellqc-panel border border-wellqc-border p-12 text-center text-slate-500 text-xs rounded">
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-amber-400" />
+                    Loading enterprise leads &amp; inquiries...
+                  </div>
+                ) : filteredLeads.length === 0 ? (
+                  <div className="bg-wellqc-panel border border-wellqc-border p-10 text-center text-slate-400 text-xs rounded space-y-2">
+                    <Sparkles className="w-8 h-8 mx-auto text-amber-400/60 mb-1" />
+                    <div className="font-bold text-white text-sm">No Demo Requests or Inquiries Found</div>
+                    <p className="text-slate-500 max-w-md mx-auto text-[11px]">
+                      When visitors request an enterprise demo or submit the contact form on your landing page, their submissions will instantly appear here with email dispatch tracking.
+                    </p>
+                  </div>
+                ) : (
+                  filteredLeads.map((lead) => {
+                    const isDemo = lead.leadType === "DEMO";
+                    const isCopiedEmail = copiedLeadId === lead.id && copiedLeadField === "email";
+                    const isCopiedBrief = copiedLeadId === lead.id && copiedLeadField === "brief";
+
+                    return (
+                      <div
+                        key={lead.id}
+                        className="bg-wellqc-panel border border-wellqc-border hover:border-slate-700/80 p-4 rounded-lg transition-all space-y-3"
+                      >
+                        {/* Top Row: Badges, Title, Company, Timestamp */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-wellqc-border/60 pb-2.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${
+                                isDemo
+                                  ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                                  : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                              }`}
+                            >
+                              {isDemo ? "Demo Request" : "Contact Inquiry"}
+                            </span>
+
+                            <span className="font-bold text-white text-sm">{lead.fullName}</span>
+
+                            {lead.jobTitle && (
+                              <span className="text-slate-400 text-xs">({lead.jobTitle})</span>
+                            )}
+
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-cyan-300 text-xs font-medium">
+                              <Building2 className="w-3 h-3 text-cyan-400" />
+                              <span>{lead.company}</span>
+                            </span>
+
+                            {lead.fleetSize && (
+                              <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 text-[11px]">
+                                Fleet: {lead.fleetSize}
+                              </span>
+                            )}
+
+                            {lead.timeframe && (
+                              <span className="px-2 py-0.5 rounded bg-purple-950/40 border border-purple-800/40 text-purple-300 text-[10px]">
+                                Target: {lead.timeframe}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-right text-[11px] text-slate-500 shrink-0">
+                            <div>{lead.createdAt}</div>
+                            {lead.ip && <div className="text-[10px] text-slate-600">IP: {lead.ip}</div>}
+                          </div>
+                        </div>
+
+                        {/* Middle Row: Work Email, Primary Objective & Notes */}
+                        <div className="space-y-2 text-xs">
+                          <div className="flex flex-wrap items-center gap-3 text-slate-300">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-500">Email:</span>
+                              <a
+                                href={`mailto:${lead.email}`}
+                                className="text-cyan-400 hover:text-cyan-300 underline font-semibold flex items-center gap-1"
+                              >
+                                <span>{lead.email}</span>
+                                <ExternalLink className="w-3 h-3 opacity-70" />
+                              </a>
+                            </div>
+
+                            {lead.primaryObjective && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-slate-500">Objective:</span>
+                                <span className="text-amber-300 font-medium">
+                                  {lead.primaryObjective}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {lead.notes && (
+                            <div className="bg-slate-950/80 border border-slate-800/80 rounded p-3 text-slate-300 text-xs leading-relaxed">
+                              <span className="text-slate-500 font-semibold block mb-1 text-[10px] uppercase tracking-wider">
+                                {isDemo ? "Special Requirements / Notes" : "Message Body"}
+                              </span>
+                              <p className="whitespace-pre-wrap">{lead.notes}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Bottom Action Footer */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-wellqc-border/40 text-xs">
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`mailto:${lead.email}?subject=${encodeURIComponent(
+                                isDemo
+                                  ? `WellQC Enterprise Technical Demo - ${lead.company}`
+                                  : `WellQC Technical Support: ${lead.company}`
+                              )}&body=${encodeURIComponent(
+                                `Hi ${lead.fullName},\n\nThank you for requesting ${
+                                  isDemo ? "a technical consultation for WellQC" : "information regarding WellQC"
+                                }.\n\nBest regards,\nWellQC Enterprise Support Team`
+                              )}`}
+                              className="px-3 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs inline-flex items-center gap-1.5 shadow-sm transition-colors"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              <span>Reply via Email</span>
+                            </a>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCopyLeadEmail(lead.id, lead.email)}
+                              className="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs inline-flex items-center gap-1.5 transition-colors"
+                            >
+                              {isCopiedEmail ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span className="text-emerald-400">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3 text-slate-400" />
+                                  <span>Copy Email</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCopyLeadBrief(lead)}
+                              className="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs inline-flex items-center gap-1.5 transition-colors"
+                            >
+                              {isCopiedBrief ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span className="text-emerald-400">Brief Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3 text-slate-400" />
+                                  <span>Copy Lead Brief</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuditFilter("LEADS");
+                              setActiveTab("AUDIT");
+                            }}
+                            className="text-[11px] text-slate-400 hover:text-cyan-400 flex items-center gap-1 transition-colors"
+                          >
+                            <History className="w-3 h-3" />
+                            <span>View in Audit Stream &rarr;</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── TAB 4: EMAIL SETTINGS ────────────────────────────────────────── */}
         {activeTab === "EMAIL" && (

@@ -165,8 +165,16 @@ export function ServicesSection() {
         {/* Section Bottom Banner */}
         <div className="enterprise-cta-banner mt-16 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border border-slate-800 p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
           <div className="space-y-2 text-center md:text-left">
-            <h4 className="enterprise-cta-heading text-xl sm:text-2xl font-bold text-white">Need custom petrophysical rules or private cloud deployment?</h4>
-            <p className="enterprise-cta-subtext text-slate-300 text-sm max-w-2xl">
+            <h4
+              className="enterprise-cta-heading text-xl sm:text-2xl font-bold text-white"
+              style={{ color: "#ffffff" }}
+            >
+              Need custom petrophysical rules or private cloud deployment?
+            </h4>
+            <p
+              className="enterprise-cta-subtext text-slate-300 text-sm max-w-2xl"
+              style={{ color: "#cbd5e1" }}
+            >
               We offer dedicated on-premise instances, custom SPE parameter palettes, and direct integration with your enterprise subsurface database.
             </p>
           </div>

@@ -12,6 +12,8 @@ import {
 
 export function ContactSection() {
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -19,13 +21,37 @@ export function ContactSection() {
     message: "",
   });
 
-  const handleContactSubmit = (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormSubmitted(true);
-    setTimeout(() => {
-      setFormSubmitted(false);
-      setFormData({ name: "", email: "", company: "", message: "" });
-    }, 4000);
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const response = await fetch("/api/leads/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => null);
+        throw new Error(
+          errBody?.detail || errBody?.error || "Unable to send your message right now. Please try again."
+        );
+      }
+
+      setFormSubmitted(true);
+      setTimeout(() => {
+        setFormSubmitted(false);
+        setFormData({ name: "", email: "", company: "", message: "" });
+      }, 5000);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Unable to send your message right now. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -83,6 +109,12 @@ export function ContactSection() {
             ) : (
               <form onSubmit={handleContactSubmit} className="space-y-4">
                 <h3 className="text-xl font-bold text-wellqc-text mb-2">Send Us a Message</h3>
+
+                {submitError && (
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-500 dark:text-rose-300 font-mono">
+                    {submitError}
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-semibold text-wellqc-text mb-1.5">
@@ -154,9 +186,10 @@ export function ContactSection() {
 
                 <button
                   type="submit"
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-bold text-slate-950 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 shadow-md transition-all"
+                  disabled={isSubmitting}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-bold text-slate-950 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 shadow-md transition-all cursor-pointer disabled:opacity-60"
                 >
-                  <span>Send Message</span>
+                  <span>{isSubmitting ? "Sending Message..." : "Send Message"}</span>
                   <Send className="w-4 h-4" />
                 </button>
               </form>

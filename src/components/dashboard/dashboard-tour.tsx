@@ -45,7 +45,7 @@ const TOUR_STEPS: TourStep[] = [
     badge: "Getting Started",
     icon: <Sparkles className="w-5 h-5 text-cyan-400" />,
     description:
-      "WellQC Studio is an enterprise petrophysical quality assurance and compliance platform. Standardise vendor mnemonics, detect sensor anomalies, apply non-destructive repairs, correlate offset wells, and generate NUPRC-compliant digital certificates.",
+      "WellQC Studio is an enterprise petrophysical quality assurance and compliance platform. Standardise vendor mnemonics, detect sensor anomalies, apply non-destructive repairs, and generate NUPRC-compliant digital certificates.",
     highlights: [
       "API RP 66 Mnemonic Standardisation",
       "Physics-based Anomaly & Sensor Fault Detection",
@@ -80,12 +80,12 @@ const TOUR_STEPS: TourStep[] = [
     badge: "Module 2: Asset Governance",
     icon: <Database className="w-5 h-5 text-cyan-400" />,
     description:
-      "Centralised repository for your entire portfolio of subsurface well logs. Inspect individual well dossiers with deep curve telemetry, filter by field, operator, or quality score, and compare multi-well stratigraphy across your basin.",
+      "Centralised repository for your entire portfolio of subsurface well logs. Inspect individual well dossiers with deep curve telemetry, filter by field, operator, or quality score, and monitor basin-wide asset health.",
     highlights: [
       "Central Multi-Tenant PostgreSQL Asset Repository",
       "Instant Quality Grading (Excellent, Good, Poor, Critical)",
       "Comprehensive Well Dossiers with AI Summaries & Specs",
-      "Direct Shortcuts to Standardisation, QA Engine & Comparison",
+      "Direct Shortcuts to Standardisation & QA Engine",
     ],
     actionLink: {
       href: "/wells",
@@ -578,8 +578,6 @@ function InteractiveTourSimulator({
       return <StandardisationSimulator />;
     case "qa-engine":
       return <QARepairSimulator />;
-    case "well-comparison":
-      return <ComparisonSimulator />;
     case "compliance-reports":
       return <ComplianceReportSimulator />;
     case "billing-plans":
@@ -1006,56 +1004,7 @@ function QARepairSimulator() {
   );
 }
 
-/** 7. Multi-Log Comparison Simulator */
-function ComparisonSimulator() {
-  const [lagShift, setLagShift] = useState(-8);
-  const isAligned = lagShift === -8;
-  const pearsonR = isAligned ? 0.942 : Math.max(0.4, Number((0.94 - Math.abs(lagShift - -8) * 0.05).toFixed(3)));
-
-  return (
-    <div className="bg-slate-950/70 p-3 sm:p-3.5 rounded-2xl border border-cyan-500/30 space-y-2.5">
-      <div className="flex items-center justify-between text-[10px] font-mono font-bold uppercase">
-        <span className="text-cyan-400">Cross-Log Correlation:</span>
-        <span className={isAligned ? "text-emerald-400" : "text-amber-400"}>
-          Pearson r = {pearsonR} ({isAligned ? "Peak Match" : "Offset"})
-        </span>
-      </div>
-
-      <div className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono space-y-1">
-        <div className="flex items-center justify-between">
-          <span className="text-cyan-300 font-bold">Well A: TARGET_WELL_01</span>
-          <span className="text-amber-300 font-bold">Well B: OFFSET_WELL_02</span>
-        </div>
-        <div className="text-[10px] text-slate-400">
-          Optimal Depth Lag: <span className="text-cyan-400 font-bold">{lagShift} FT</span>
-        </div>
-      </div>
-
-      <div className="space-y-1 font-mono">
-        <div className="flex items-center justify-between text-[10px] text-slate-400">
-          <span>Structural Lag Shift (Δz):</span>
-          <span className="text-cyan-300 font-bold">{lagShift} FT</span>
-        </div>
-        <input
-          type="range"
-          min={-18}
-          max={10}
-          step={1}
-          value={lagShift}
-          onChange={(e) => setLagShift(Number(e.target.value))}
-          className="w-full accent-cyan-400 cursor-pointer"
-        />
-        <div className="flex justify-between text-[9px] text-slate-500">
-          <span>-18 FT (Dip Down)</span>
-          <span className="text-emerald-400 font-bold">-8 FT (Peak)</span>
-          <span>+10 FT (Dip Up)</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** 8. Compliance Report Simulator */
+/** 7. Compliance Report Simulator */
 function ComplianceReportSimulator() {
   const [verified, setVerified] = useState(false);
 
@@ -1134,7 +1083,6 @@ function PricingTierSimulator() {
         <div className="space-y-1 text-[11px] text-slate-300">
           <div>• Quality Checks: <span className="text-cyan-300 font-bold">{isPro ? "Unlimited" : "3 Free Checks"}</span></div>
           <div>• Anomaly Repair & Imputation: <span className="text-cyan-300 font-bold">{isPro ? "Full Spline / KNN ML" : "Read-Only"}</span></div>
-          <div>• Log Comparison & Stratigraphy: <span className="text-cyan-300 font-bold">{isPro ? "Uncapped Access" : "Locked (Pro)"}</span></div>
           <div>• Cleaned LAS & PDF Exports: <span className="text-cyan-300 font-bold">{isPro ? "Uncapped Direct" : "Gated"}</span></div>
         </div>
       </div>

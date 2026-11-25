@@ -12,7 +12,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from backend.app.core.config import settings
-from prometheus_fastapi_instrumentator import Instrumentator
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+except ImportError:  # pragma: no cover - optional telemetry package
+    Instrumentator = None  # type: ignore[assignment,misc]
 from backend.app.api import (
     activity,
     admin,
@@ -328,19 +331,20 @@ app.include_router(payments.router)       # /api/payments: Paystack checkout, we
 # Access is intentionally public (read-only counters/histograms, no PII).
 # To restrict to internal scraper only, add IP-allowlist middleware here.
 # ---------------------------------------------------------------------------
-Instrumentator(
-    should_group_status_codes=True,
-    should_ignore_untemplated=True,
-    should_respect_env_var=False,
-    excluded_handlers=[
-        "/health",
-        "/api/health",
-        "/metrics",
-        "/",
-        "/docs",
-        "/openapi.json",
-    ],
-).instrument(app).expose(app, include_in_schema=False, tags=["system"])
+if Instrumentator is not None:
+    Instrumentator(
+        should_group_status_codes=True,
+        should_ignore_untemplated=True,
+        should_respect_env_var=False,
+        excluded_handlers=[
+            "/health",
+            "/api/health",
+            "/metrics",
+            "/",
+            "/docs",
+            "/openapi.json",
+        ],
+    ).instrument(app).expose(app, include_in_schema=False, tags=["system"])
 
 @app.get("/health", include_in_schema=False)
 @app.get("/api/health", tags=["system"], summary="Service Health Probe")

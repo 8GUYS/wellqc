@@ -968,6 +968,22 @@ pre,
   color: #1d1d1f !important;
 }
 
+/* Preserve crisp light typography inside the dark Enterprise CTA Banner in light themes */
+[data-theme="light"] .enterprise-cta-banner,
+[data-theme="apple-white"] .enterprise-cta-banner {
+  border-color: #1e293b !important;
+}
+
+[data-theme="light"] .enterprise-cta-banner .enterprise-cta-heading,
+[data-theme="apple-white"] .enterprise-cta-banner .enterprise-cta-heading {
+  color: #f8fafc !important;
+}
+
+[data-theme="light"] .enterprise-cta-banner .enterprise-cta-subtext,
+[data-theme="apple-white"] .enterprise-cta-banner .enterprise-cta-subtext {
+  color: #cbd5e1 !important;
+}
+
 /* Hide scrollbar for Chrome, Safari, and Opera */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

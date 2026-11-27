@@ -15,6 +15,7 @@ import {
   Layers,
   Clock,
 } from "lucide-react";
+import { ScrollReveal, StaggerContainer, StaggerItem } from "./scroll-reveal";
 
 export function BookDemoSection() {
   const [submitted, setSubmitted] = useState(false);
@@ -67,7 +68,7 @@ export function BookDemoSection() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
+        <ScrollReveal direction="up" delay={0.1} distance={30} className="text-center max-w-3xl mx-auto mb-16 space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-semibold font-mono tracking-wide uppercase shadow-inner">
             <Calendar className="w-3.5 h-3.5" />
             <span>Enterprise Subsurface Demonstration</span>
@@ -80,11 +81,11 @@ export function BookDemoSection() {
           <p className="text-slate-300 text-base sm:text-lg leading-relaxed">
             Schedule a 25-minute technical walkthrough with our subsurface solutions engineers. Bring 1 or 2 of your challenging or legacy LAS files, and we will audit, repair, and standardise them live.
           </p>
-        </div>
+        </ScrollReveal>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           {/* Left Column: What to Expect & Value Pillars */}
-          <div className="lg:col-span-5 space-y-8">
+          <ScrollReveal direction="left" delay={0.15} distance={36} className="lg:col-span-5 space-y-8">
             <div className="space-y-3">
               <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-cyan-400" />
@@ -96,8 +97,8 @@ export function BookDemoSection() {
             </div>
 
             {/* Feature Highlights Grid */}
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-wellqc-card border border-wellqc-border hover:border-cyan-500/40 transition-all flex items-start gap-3.5 shadow-sm">
+            <StaggerContainer staggerChildren={0.12} className="space-y-4">
+              <StaggerItem direction="up" distance={20} className="p-4 rounded-2xl bg-wellqc-card border border-wellqc-border hover:border-cyan-500/40 transition-all flex items-start gap-3.5 shadow-sm">
                 <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
                   <FileCheck className="w-5 h-5" />
                 </div>
@@ -107,9 +108,9 @@ export function BookDemoSection() {
                     Watch our engine automatically classify sensor flatlines, acoustic cycle skips, spikes, and missing depth gaps on your test file.
                   </p>
                 </div>
-              </div>
+              </StaggerItem>
 
-              <div className="p-4 rounded-2xl bg-wellqc-card border border-wellqc-border hover:border-emerald-500/40 transition-all flex items-start gap-3.5 shadow-sm">
+              <StaggerItem direction="up" distance={20} className="p-4 rounded-2xl bg-wellqc-card border border-wellqc-border hover:border-emerald-500/40 transition-all flex items-start gap-3.5 shadow-sm">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
                   <Layers className="w-5 h-5" />
                 </div>
@@ -119,9 +120,9 @@ export function BookDemoSection() {
                     See how contractor mnemonics (SLB, Baker, Halliburton) are harmonised to standard curve families with tenant alias memory.
                   </p>
                 </div>
-              </div>
+              </StaggerItem>
 
-              <div className="p-4 rounded-2xl bg-wellqc-card border border-wellqc-border hover:border-amber-500/40 transition-all flex items-start gap-3.5 shadow-sm">
+              <StaggerItem direction="up" distance={20} className="p-4 rounded-2xl bg-wellqc-card border border-wellqc-border hover:border-amber-500/40 transition-all flex items-start gap-3.5 shadow-sm">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
@@ -131,9 +132,9 @@ export function BookDemoSection() {
                     Review tamper-evident audit reports with SHA-256 cryptographic seals designed for Nigerian upstream regulatory filing.
                   </p>
                 </div>
-              </div>
+              </StaggerItem>
 
-              <div className="p-4 rounded-2xl bg-wellqc-card border border-wellqc-border hover:border-purple-500/40 transition-all flex items-start gap-3.5 shadow-sm">
+              <StaggerItem direction="up" distance={20} className="p-4 rounded-2xl bg-wellqc-card border border-wellqc-border hover:border-purple-500/40 transition-all flex items-start gap-3.5 shadow-sm">
                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0">
                   <Database className="w-5 h-5" />
                 </div>
@@ -143,8 +144,8 @@ export function BookDemoSection() {
                     Discuss air-gapped on-premise deployments, multi-seat licenses, and master service agreements (MSAs) for large asset fleets.
                   </p>
                 </div>
-              </div>
-            </div>
+              </StaggerItem>
+            </StaggerContainer>
 
             {/* Quick Pilot Guarantee Note */}
             <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400 flex items-center gap-3">
@@ -153,10 +154,10 @@ export function BookDemoSection() {
                 Standard 30-day enterprise evaluation pilots available for licensed E&amp;P operators upon request.
               </span>
             </div>
-          </div>
+          </ScrollReveal>
 
           {/* Right Column: Demo Booking Interactive Form */}
-          <div className="lg:col-span-7">
+          <ScrollReveal direction="right" delay={0.2} distance={36} className="lg:col-span-7">
             <div className="bg-wellqc-card rounded-3xl border border-wellqc-border p-6 sm:p-10 shadow-2xl relative overflow-hidden backdrop-blur-xl">
               {submitted ? (
                 <div className="py-12 px-4 text-center space-y-6">
@@ -359,7 +360,7 @@ export function BookDemoSection() {
                 </form>
               )}
             </div>
-          </div>
+          </ScrollReveal>
         </div>
       </div>
     </section>

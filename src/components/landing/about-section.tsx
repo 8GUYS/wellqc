@@ -4,14 +4,10 @@ import {
   Award,
   Building,
   CheckCircle2,
-  // Cloud,
-  // Code,
   FileSpreadsheet,
-  // PieChart,
   ShieldCheck,
-  // User,
-  // Users,
 } from "lucide-react";
+import { ScrollReveal, StaggerContainer, StaggerItem } from "./scroll-reveal";
 
 /*
 const TEAM_MEMBERS = [
@@ -112,14 +108,14 @@ export function AboutSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Content */}
-          <div className="space-y-6">
+          <ScrollReveal direction="left" delay={0.1} distance={36} className="space-y-6">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-700 dark:text-cyan-400 text-xs font-semibold">
               <Building className="w-3.5 h-3.5" />
               <span>About WellQCPlus</span>
             </div>
 
             <h2 className="text-3xl sm:text-4xl font-extrabold text-wellqc-text tracking-tight leading-tight">
-              Designed for Petrophysicists, Geoscientists & Reservoir Teams
+              Designed for Petrophysicists, Geoscientists &amp; Reservoir Teams
             </h2>
 
             <p className="text-wellqc-text/90 leading-relaxed text-base">
@@ -130,24 +126,24 @@ export function AboutSection() {
               WellQCPlus was created to eliminate tedious manual cleaning of raw LAS files. Our AI-driven engine enforces physical boundary limits, cleans noisy sensor signals, standardises inconsistent mnemonics across different oilfield operators, and provides machine-learning powered missing value imputation.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <div className="p-4 rounded-xl bg-wellqc-card border border-wellqc-border shadow-sm space-y-1">
+            <StaggerContainer staggerChildren={0.15} className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <StaggerItem direction="up" distance={20} className="p-4 rounded-xl bg-wellqc-card border border-wellqc-border shadow-sm space-y-1">
                 <h4 className="font-semibold text-emerald-600 dark:text-emerald-400 text-sm flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" /> Physical Boundary Audits
                 </h4>
                 <p className="text-xs text-wellqc-muted">Strict bounds checking on GR, RHOB, NPHI, DT, RT, CALI, and SP curves.</p>
-              </div>
-              <div className="p-4 rounded-xl bg-wellqc-card border border-wellqc-border shadow-sm space-y-1">
+              </StaggerItem>
+              <StaggerItem direction="up" distance={20} className="p-4 rounded-xl bg-wellqc-card border border-wellqc-border shadow-sm space-y-1">
                 <h4 className="font-semibold text-cyan-600 dark:text-cyan-400 text-sm flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" /> Machine Learning Imputation
                 </h4>
-                <p className="text-xs text-wellqc-muted">KNN & Spline algorithms to fill missing telemetry dropouts accurately.</p>
-              </div>
-            </div>
-          </div>
+                <p className="text-xs text-wellqc-muted">KNN &amp; Spline algorithms to fill missing telemetry dropouts accurately.</p>
+              </StaggerItem>
+            </StaggerContainer>
+          </ScrollReveal>
 
           {/* Right Cards Stack */}
-          <div className="relative">
+          <ScrollReveal direction="right" delay={0.2} distance={36} className="relative">
             <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 dark:from-emerald-500 dark:to-cyan-500 rounded-2xl blur-xl opacity-20" />
             <div className="relative bg-wellqc-card rounded-2xl border border-wellqc-border p-8 space-y-6 shadow-md">
               <h3 className="text-xl font-bold text-wellqc-text flex items-center gap-2">
@@ -155,8 +151,8 @@ export function AboutSection() {
                 Why Leading Energy Teams Trust WellQCPlus
               </h3>
 
-              <ul className="space-y-4 text-sm text-wellqc-text/90">
-                <li className="flex items-start gap-3">
+              <StaggerContainer staggerChildren={0.12} className="space-y-4 text-sm text-wellqc-text/90">
+                <StaggerItem direction="up" distance={16} className="flex items-start gap-3">
                   <span className="p-1 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5">
                     <ShieldCheck className="w-4 h-4" />
                   </span>
@@ -164,8 +160,8 @@ export function AboutSection() {
                     <strong className="text-wellqc-text block font-semibold">Standardised Mnemonic Taxonomy</strong>
                     Automatically maps vendor-specific aliases (e.g. `DEN`, `RHOZ`, `BDEN`) to standard `RHOB`.
                   </div>
-                </li>
-                <li className="flex items-start gap-3">
+                </StaggerItem>
+                <StaggerItem direction="up" distance={16} className="flex items-start gap-3">
                   <span className="p-1 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5">
                     <AlertTriangle className="w-4 h-4" />
                   </span>
@@ -173,8 +169,8 @@ export function AboutSection() {
                     <strong className="text-wellqc-text block font-semibold">Instant Anomaly Detection</strong>
                     Identifies borehole washouts, extreme Z-score spikes (&gt;4&sigma;), and telemetry dropouts.
                   </div>
-                </li>
-                <li className="flex items-start gap-3">
+                </StaggerItem>
+                <StaggerItem direction="up" distance={16} className="flex items-start gap-3">
                   <span className="p-1 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5">
                     <FileSpreadsheet className="w-4 h-4" />
                   </span>
@@ -182,10 +178,10 @@ export function AboutSection() {
                     <strong className="text-wellqc-text block font-semibold">Official PDF Audit Certificates</strong>
                     Generate executive PDF compliance certificates and cleaned LAS exports for downstream software.
                   </div>
-                </li>
-              </ul>
+                </StaggerItem>
+              </StaggerContainer>
             </div>
-          </div>
+          </ScrollReveal>
         </div>
 
         {/* 8-Member Team Grid (Commented out per enterprise revamp) */}

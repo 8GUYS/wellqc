@@ -186,6 +186,22 @@ A story is accepted as done when:
     And "TEMPERATURE" maps to Temperature "TEMP" under category "TEMPERATURE"
   ```
 
+#### US-STD-04: Non-Destructive Mixed-Case Custom Mnemonic Aliases & Case-Insensitive Indexing
+- **As a** Subsurface Petrophysicist (PER-1) or Data Engineer (PER-2),
+- **I want** the custom alias management interface and backend standardisation API to preserve my exact casing (e.g., `gr_corr`, `Cali_raw`, `DEN_clean`) without forcing automatic uppercase transformation, while resolving matches case-insensitively,
+- **So that** specialized contractor logging conventions, vendor mnemonics, and script casings are accurately reflected in the dictionary without breaking lookups or creating duplicate entries.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 8 · SE1 / DA1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Adding and displaying mixed-case custom aliases
+    Given an authenticated user on the `/standardisation` management workstation
+    When they register a custom alias "gr_raw" for standard mnemonic "GR"
+    Then the alias is stored in PostgreSQL and rendered as "gr_raw" preserving lowercase
+    And the input fields no longer force CSS or JavaScript uppercase transformation
+    And uploading a LAS file with curve "GR_RAW" or "Gr_Raw" successfully maps to standard mnemonic "GR" via case-insensitive indexing
+  ```
+
 ---
 
 ### 🧠 Epic 3: AI Quality Scoring, Anomaly Detection & Risk Assessment
@@ -272,6 +288,38 @@ A story is accepted as done when:
     Then I am navigated to `/qa-engine?wellId=<id>`
     And the Quality Engine automatically selects the DATABASE_WELL source
     And loads all curve points and anomaly flags for "TUJA 1" ready for review and repair
+  ```
+
+#### US-QCE-06: Synchronized Curve Health Status & Anomaly-Penalized Scoring
+- **As a** Lead Petrophysicist (PER-1) or Exploration Manager (PER-3),
+- **I want** the curve inventory table and backend well summary API to calculate health scores dynamically by penalizing detected curve anomalies (critical: -25, warning: -10, others: -3) and null clusters, and strictly derive the health status grade from the score,
+- **So that** a curve with a score of 100/100 is never mislabeled as "POOR", and the health status grade (`EXCELLENT` $\ge 90$, `GOOD` $\ge 75$, `POOR` $\ge 50$, `CRITICAL` $< 50$) is 100% mathematically synchronized with detected defects.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 8 · SE1 / DA1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Resolving curve health status and score synchronization
+    Given a well curve with 0 nulls and 0 detected anomalies
+    When the curve summary is computed by the backend API and rendered in the frontend table
+    Then the health score evaluates to 100/100
+    And the health status grade evaluates strictly to "EXCELLENT (100/100)"
+    And when 2 warning anomalies exist on the curve, the score evaluates to 80/100 and the grade displays "GOOD (80/100)"
+  ```
+
+#### US-QCE-07: Real-Time Well Asset Selection Gating for Quality Engine Telemetry
+- **As a** Petrophysicist (PER-1),
+- **I want** the Quality Engine workstation header to conceal fallback dummy quality scores (`75/100 GOOD Before cleaning`) when no well asset has been selected or loaded,
+- **So that** speculative placeholder scores are not mistaken for real petrophysical telemetry during client presentations and exploratory sessions.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 8 · UX1 / SE1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Quality Engine initial empty state
+    Given a user navigating to `/qa-engine` without selecting a well
+    When the workstation renders with "Select a well..."
+    Then the quality score badge is concealed
+    And the header displays "Select a well to view quality score" with descriptive instructions
+    And the score and depth telemetry only activate once a valid active upload or database well is loaded
   ```
 
 ---
@@ -377,6 +425,26 @@ A story is accepted as done when:
     Then the multi-track SVG wireline viewer renders without paywall lock overlays
     And no PRO gating badge is displayed on the Wireline Log Viewer tab header
     And anomaly remediation diagnostics and clean log exports remain gated behind PRO tier
+  ```
+
+#### US-VIW-05: Horizontal Track Viewport Overflow & Cross-Session Inspected Well State Persistence
+- **As a** Petrophysicist (PER-1) or Subsurface Geoscientist (PER-5),
+- **I want** the wireline log viewer container to support horizontal scrolling when all curves are selected without squishing or truncating tracks, and persist the currently inspected well asset across page navigations,
+- **So that** I can review full suites of 10+ log tracks across basin intervals and navigate away to the standardisation or QA tabs without losing my open well context.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 8 · UX1 / SE1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Horizontal scrolling with high track counts
+    Given a well log with 8+ active curve tracks selected
+    When rendered in the wireline viewer
+    Then each track maintains minimum width and the container provides a smooth horizontal scrollbar
+    And the depth index track remains visible and synchronized
+
+  Scenario: Well inspection state persistence
+    Given a user inspecting well "OML-114-X" on the workstation
+    When the user navigates to the standardisation tab or QA engine and returns
+    Then the previously opened well context is automatically restored from session state
   ```
 
 ---
@@ -538,6 +606,22 @@ A story is accepted as done when:
     Then the Billing History table displays all past Paystack references, dates, currency amounts, and settlement statuses
   ```
 
+#### US-PAY-06: Pro Purchases Compliance Ledger, Software License Reconciliation & SOC 2/NUPRC Verification
+- **As an** Enterprise Systems Administrator (PER-4) or Corporate Compliance Officer (PER-3),
+- **I want** a centralized compliance ledger and license reconciliation registry in the Admin Panel (`/admin`) tracking all verified Pro and Enterprise transactions, active user seats, and cryptographic SHA-256 ledger integrity hashes,
+- **So that** software asset allocations comply 1-to-1 with purchased licenses under SOC 2 CC6.8, IFRS-15, and NUPRC regulatory audit standards with instant CSV export capability.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 8 · SE1 / SE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Viewing Pro purchase compliance metrics in the Admin Console
+    Given an authenticated user with role "ADMIN" on `/admin`
+    When they open the "Pro Purchases" tab or review the Executive Compliance Strip
+    Then they view the total verified Pro purchases count, active Pro seats assigned, license allocation ratio, and settled revenue in NGN and USD
+    And the ledger displays a cryptographic SHA-256 seal and verified audit status for each transaction
+    And clicking "Export CSV" generates an auditable spreadsheet of all purchase records
+  ```
+
 ---
 
 ### 🔐 Epic 9: Multi-Tenant Asset Management & RBAC Security
@@ -691,6 +775,42 @@ A story is accepted as done when:
     When I click the Eye icon inside the password field
     Then the input type changes from "password" to "text" and the icon changes to EyeOff
     And when clicked again, the input type reverts back to "password"
+  ```
+
+#### US-SEC-07: Gated Enterprise Onboarding & Dedicated Workspace Authentication
+- **As an** Enterprise Systems Administrator (PER-4) or Compliance Director,
+- **I want** the public landing page to serve as an advert/demo showcase without unvetted self-registration links, and provide dedicated invite-only registration links dispatched to clients after payment/contract settlement,
+- **So that** only authorized petroleum companies and paid corporate seats can create tenant accounts on the subsurface cloud workstation.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 8 · SE1 / CE2
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Public marketing landing page isolation
+    Given an anonymous visitor browsing the WellQC landing page
+    When the page renders
+    Then the header and footer display product capabilities, technical architecture, and "Book a Technical Demo"
+    And public self-serve registration links are concealed to protect cloud compute and database tenancy
+
+  Scenario: Authorized enterprise client onboarding
+    Given an enterprise prospect has completed demo review and subscription settlement
+    When the administrator issues a dedicated registration invitation token
+    Then the user accesses the dedicated registration portal with verified organization pre-filled
+    And successfully creates their account, signs the NDA, and accesses the workstation
+  ```
+
+#### US-ADM-04: Inbound Demo & Enterprise Inquiries Pipeline Governance
+- **As a** Commercial Lead or Systems Administrator (PER-3, PER-4),
+- **I want** an integrated "Demo & Inquiries" tab in the Workstation Admin Console (`/admin`) tracking all incoming demo requests, company names, work emails, job titles, fleet sizes, and objectives,
+- **So that** inbound commercial pipelines are managed with 1-click email and brief copying without relying on external CRM dependencies.
+- **Priority:** Must Have
+- **Sprint / Owner:** Sprint 8 · SE1 / UX1
+- **Acceptance Criteria:**
+  ```gherkin
+  Scenario: Managing demo inquiries in the admin console
+    Given an authenticated administrator on `/admin`
+    When they select the "Demo & Inquiries" tab
+    Then all prospect submissions from `/api/leads` and audit telemetry are parsed and displayed
+    And the admin can filter by Demo vs. Contact Inquiry, search by company or name, and copy formatted lead briefs in one click
   ```
 
 ---

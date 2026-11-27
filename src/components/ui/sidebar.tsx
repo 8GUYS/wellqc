@@ -167,7 +167,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
           href="/upload"
           onClick={onCloseMobileNav}
           className="flex items-center space-x-3 group overflow-hidden"
-          title="WellQC Enterprise Subsurface Workstation"
+          title="WellQCPlus Enterprise Subsurface Workstation"
         >
           <div className="w-9 h-9 rounded-xl border border-slate-700/80 bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center group-hover:border-cyan-500/80 group-hover:shadow-[0_0_15px_rgba(6,182,212,0.25)] transition-all shrink-0 shadow-md">
             <WellQCIcon size={22} />
@@ -177,7 +177,7 @@ export function Sidebar({ currentRole, mobileOpen = false, onCloseMobileNav }: S
             <div className="flex flex-col">
               <div className="flex items-baseline space-x-1.5">
                 <span className="text-base font-black tracking-tight text-white font-mono">
-                  Well<span className="text-cyan-400">QC</span>
+                  Well<span className="text-cyan-400">QC</span><span className="text-emerald-400 font-extrabold">+</span>
                 </span>
                 <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 font-bold uppercase tracking-wider">
                   STUDIO

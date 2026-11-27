@@ -968,18 +968,32 @@ pre,
   color: #1d1d1f !important;
 }
 
-/* Preserve crisp light typography inside the dark Enterprise CTA Banner in light themes */
+/* Preserve crisp light typography inside the dark Enterprise CTA Banner in all light & dark themes */
+.enterprise-cta-banner,
 [data-theme="light"] .enterprise-cta-banner,
 [data-theme="apple-white"] .enterprise-cta-banner {
   border-color: #1e293b !important;
+  background: linear-gradient(to right, #0f172a, #131b2e, #0f172a) !important;
 }
 
+.enterprise-cta-banner h4,
+.enterprise-cta-banner .enterprise-cta-heading,
+[data-theme] .enterprise-cta-banner h4,
+[data-theme] .enterprise-cta-banner .enterprise-cta-heading,
+[data-theme="light"] .enterprise-cta-banner h4,
 [data-theme="light"] .enterprise-cta-banner .enterprise-cta-heading,
+[data-theme="apple-white"] .enterprise-cta-banner h4,
 [data-theme="apple-white"] .enterprise-cta-banner .enterprise-cta-heading {
-  color: #f8fafc !important;
+  color: #ffffff !important;
 }
 
+.enterprise-cta-banner p,
+.enterprise-cta-banner .enterprise-cta-subtext,
+[data-theme] .enterprise-cta-banner p,
+[data-theme] .enterprise-cta-banner .enterprise-cta-subtext,
+[data-theme="light"] .enterprise-cta-banner p,
 [data-theme="light"] .enterprise-cta-banner .enterprise-cta-subtext,
+[data-theme="apple-white"] .enterprise-cta-banner p,
 [data-theme="apple-white"] .enterprise-cta-banner .enterprise-cta-subtext {
   color: #cbd5e1 !important;
 }

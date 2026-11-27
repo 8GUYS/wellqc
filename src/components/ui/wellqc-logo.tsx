@@ -78,6 +78,12 @@ export function WellQCIcon({ className = "", size = 28 }: WellQCIconProps) {
            C 50 35, 50 20, 50 8 Z"
         fill="url(#wellqcRightGradIcon)"
       />
+
+      {/* WellQCPlus Plus Symbol on Emerald Wing */}
+      <g stroke="#ffffff" strokeWidth="3" strokeLinecap="round" opacity="0.95">
+        <line x1="68" y1="56" x2="68" y2="70" />
+        <line x1="61" y1="63" x2="75" y2="63" />
+      </g>
     </svg>
   );
 }
@@ -89,8 +95,8 @@ interface WellQCLogoProps {
 }
 
 /**
- * WellQC Horizontal Brand Lockup
- * Combines the droplet mark with high-contrast typography ("WellQC") and tagline.
+ * WellQCPlus Horizontal Brand Lockup
+ * Combines the droplet mark with high-contrast typography ("WellQC+") and tagline.
  */
 export function WellQCLogo({
   className = "",
@@ -98,7 +104,7 @@ export function WellQCLogo({
   showTagline = false,
 }: WellQCLogoProps) {
   return (
-    <div className={`flex items-center space-x-2.5 ${className}`}>
+    <div className={`flex items-center space-x-2.5 ${className}`} title="WellQCPlus" aria-label="WellQCPlus">
       <WellQCIcon size={iconSize} />
       <div className="flex flex-col">
         <div className="flex items-baseline space-x-0.5 leading-none">
@@ -107,6 +113,9 @@ export function WellQCLogo({
           </span>
           <span className="font-extrabold tracking-tight text-base sm:text-lg text-sky-600 dark:text-sky-400">
             QC
+          </span>
+          <span className="font-black tracking-tight text-base sm:text-lg text-emerald-500 dark:text-emerald-400 ml-0.5">
+            +
           </span>
         </div>
         {showTagline && (

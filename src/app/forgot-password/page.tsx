@@ -62,7 +62,7 @@ export default function ForgotPasswordPage() {
               <Database className="w-5 h-5 text-cyan-300" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-white tracking-tight">WellQC</h1>
+              <h1 className="text-xl font-black text-white tracking-tight">WellQC<span className="text-emerald-400 font-extrabold">+</span></h1>
               <p className="text-xs text-wellqc-muted font-mono">Subsurface Security &amp; Auth</p>
             </div>
           </div>

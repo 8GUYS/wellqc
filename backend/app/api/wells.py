@@ -59,6 +59,22 @@ def _extract_curve_summaries(
     if not curves:
         return []
 
+    # Map anomalies by curve mnemonic to accurately calculate per-curve health score
+    curve_anom_counts: Dict[str, Dict[str, int]] = {}
+    if latest_report and hasattr(latest_report, "anomalies") and latest_report.anomalies:
+        for anom in latest_report.anomalies:
+            mnem = (getattr(anom, "curveMnemonic", None) or "").strip().upper()
+            if mnem:
+                if mnem not in curve_anom_counts:
+                    curve_anom_counts[mnem] = {"CRITICAL": 0, "WARNING": 0, "OTHER": 0}
+                sev = (getattr(anom, "severity", None) or "").strip().upper()
+                if sev == "CRITICAL":
+                    curve_anom_counts[mnem]["CRITICAL"] += 1
+                elif sev in ("WARNING", "MODERATE"):
+                    curve_anom_counts[mnem]["WARNING"] += 1
+                else:
+                    curve_anom_counts[mnem]["OTHER"] += 1
+
     summaries = []
     for curve in curves:
         health_score = 100
@@ -69,9 +85,27 @@ def _extract_curve_summaries(
             health_score -= 20
         elif null_pct > 5:
             health_score -= 10
+
+        # Accurately penalize for detected quality anomalies on this curve
+        mnem_key = (curve.originalMnemonic or "").strip().upper()
+        std_key = (curve.standardMnemonic or "").strip().upper()
+        anom_info = curve_anom_counts.get(mnem_key) or curve_anom_counts.get(std_key) or {"CRITICAL": 0, "WARNING": 0, "OTHER": 0}
+
+        health_score -= anom_info["CRITICAL"] * 25
+        health_score -= anom_info["WARNING"] * 10
+        health_score -= anom_info["OTHER"] * 3
         health_score = max(0, min(100, health_score))
 
-        status_str = "EXCELLENT" if curve.status == "VALID" else ("GOOD" if curve.status == "STANDARDISED" else "POOR")
+        # Consistent status grade derived directly from the computed health score
+        if health_score >= 90:
+            status_str = "EXCELLENT"
+        elif health_score >= 75:
+            status_str = "GOOD"
+        elif health_score >= 50:
+            status_str = "POOR"
+        else:
+            status_str = "CRITICAL"
+
         summaries.append({
             "mnemonic": curve.originalMnemonic,
             "standardMnemonic": curve.standardMnemonic or "UNKNOWN",

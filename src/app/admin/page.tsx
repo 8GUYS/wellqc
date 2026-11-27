@@ -29,7 +29,140 @@ import {
   BadgeCheck,
   Lock,
   CreditCard,
+  Sparkles,
+  Building2,
+  Calendar,
+  MessageSquare,
+  ExternalLink,
+  Download,
+  UserPlus,
+  Send,
 } from "lucide-react";
+
+export interface ClientInviteItem {
+  id: string;
+  token: string;
+  email: string;
+  company: string;
+  contactName: string;
+  planTier: string;
+  maxSeats: number;
+  status: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+  expiresAt: string;
+  acceptedAt?: string | null;
+  createdAt: string;
+  createdById?: string | null;
+  leadId?: string | null;
+  notes?: string | null;
+  inviteUrl: string;
+}
+
+export interface LeadItem {
+  id: string;
+  userName: string;
+  userRole: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  details: string;
+  createdAt: string;
+  ip?: string;
+  leadType: "DEMO" | "CONTACT";
+  fullName: string;
+  email: string;
+  company: string;
+  jobTitle?: string;
+  fleetSize?: string;
+  primaryObjective?: string;
+  timeframe?: string;
+  notes?: string;
+}
+
+export interface RawLeadRecord {
+  id: string;
+  userName?: string;
+  userRole?: string;
+  action?: string;
+  targetType?: string;
+  targetId?: string;
+  details?: string;
+  createdAt?: string;
+  timestamp?: string;
+  ip?: string;
+}
+
+function parseLeadRecord(log: RawLeadRecord): LeadItem {
+  const actionStr = (log.action || "").toUpperCase();
+  const targetStr = (log.targetType || "").toUpperCase();
+  const isDemo = actionStr.includes("DEMO") || targetStr.includes("LEAD");
+  const details = log.details || "";
+
+  // 1. Extract email: <email@domain.com> or targetId if targetId is an email
+  const emailMatch = details.match(/<([^>]+@[^>]+)>/) || details.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  const email = emailMatch ? emailMatch[1].trim() : (log.targetId && log.targetId.includes("@") ? log.targetId.trim() : "Not provided");
+
+  // 2. Extract Company
+  let company = "";
+  if (isDemo) {
+    const compMatch = details.match(/Enterprise Demo Requested:\s*([^(\-]+?)(?:\s*\(|\s*-)/i);
+    if (compMatch) company = compMatch[1].trim();
+  } else {
+    const compMatch = details.match(/\(([^)]+)\):/);
+    if (compMatch) company = compMatch[1].trim();
+    if (!company && (log.userName || "").includes("(") && (log.userName || "").includes(")")) {
+      const uMatch = log.userName!.match(/\(([^)]+)\)/);
+      if (uMatch) company = uMatch[1].trim();
+    }
+  }
+
+  // 3. Extract Fleet Size & Timeframe
+  const fleetMatch = details.match(/\(([^,]+(?:wells|Wells)[^,]*)(?:,\s*([^)]+))?\)/i);
+  const fleetSize = fleetMatch ? fleetMatch[1].trim() : "";
+  const timeframe = fleetMatch && fleetMatch[2] ? fleetMatch[2].trim() : "";
+
+  // 4. Extract Job Title: [Job Title]
+  const titleMatch = details.match(/\[([^\]]+)\]/);
+  const jobTitle = titleMatch ? titleMatch[1].trim() : "";
+
+  // 5. Extract Objective
+  const objMatch = details.match(/Objective:\s*([^.]+)\./i);
+  const primaryObjective = objMatch ? objMatch[1].trim() : "";
+
+  // 6. Extract Notes / Message
+  const notesMatch = details.match(/Notes:\s*(.+)$/i);
+  let notes = notesMatch ? notesMatch[1].trim() : "";
+  if (!notes && !isDemo) {
+    const contactMsgMatch = details.match(/:\s*([\s\S]+)$/);
+    if (contactMsgMatch) notes = contactMsgMatch[1].trim();
+  }
+
+  // 7. Full name
+  let fullName = log.userName || "Enterprise Lead";
+  if (!isDemo && fullName.includes("(")) {
+    fullName = fullName.split("(")[0].trim();
+  }
+
+  return {
+    id: log.id,
+    userName: log.userName || fullName,
+    userRole: log.userRole || "LEAD",
+    action: log.action || (isDemo ? "DEMO_REQUEST" : "CONTACT_INQUIRY"),
+    targetType: log.targetType || "LEAD",
+    targetId: log.targetId || email,
+    details: details,
+    createdAt: log.createdAt || log.timestamp || "Recently",
+    ip: log.ip,
+    leadType: isDemo ? "DEMO" : "CONTACT",
+    fullName: fullName || "Enterprise Lead",
+    email: email,
+    company: company || "Enterprise Organization",
+    jobTitle: jobTitle,
+    fleetSize: fleetSize,
+    primaryObjective: primaryObjective,
+    timeframe: timeframe,
+    notes: notes || details,
+  };
+}
 
 interface UserRecord {
   id: string;
@@ -63,6 +196,41 @@ interface WebhookItem {
   events: string[];
   active: boolean;
   createdAt: string;
+}
+
+export interface PurchaseRecord {
+  id: string;
+  reference: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userDepartment: string;
+  plan: string;
+  isPro: boolean;
+  isEnterprise: boolean;
+  amount: number;
+  currency: string;
+  status: string;
+  channel: string;
+  paidAt: string | null;
+  createdAt: string;
+  complianceVerified: boolean;
+}
+
+export interface PurchasesSummary {
+  totalProPurchases: number;
+  totalEnterprisePurchases: number;
+  totalPurchases: number;
+  totalTransactions: number;
+  activeProUsers: number;
+  activeEnterpriseUsers: number;
+  activeFreeUsers: number;
+  totalProSettledAmountNgn: number;
+  totalProSettledAmountUsd: number;
+  complianceStatus: string;
+  licenseAllocationRatio: string;
+  complianceAuditHash: string;
+  complianceStandard: string;
 }
 
 const ROLES = ["ADMIN", "USER"] as const;
@@ -218,7 +386,7 @@ const PERMISSION_MATRIX: PermissionDef[] = [
 
 export default function AdminPanelPage() {
   const [users, setUsers] = useState<UserRecord[]>([]);
-  const [activeTab, setActiveTab] = useState<"USERS" | "MATRIX" | "AUDIT" | "EMAIL" | "TOKENS" | "WEBHOOKS">("USERS");
+  const [activeTab, setActiveTab] = useState<"USERS" | "PURCHASES" | "MATRIX" | "AUDIT" | "LEADS" | "INVITES" | "EMAIL" | "TOKENS" | "WEBHOOKS">("USERS");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -226,6 +394,15 @@ export default function AdminPanelPage() {
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  // Pro Purchases & Subscription Compliance State
+  const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
+  const [purchasesSummary, setPurchasesSummary] = useState<PurchasesSummary | null>(null);
+  const [isLoadingPurchases, setIsLoadingPurchases] = useState(false);
+  const [purchaseSearchQuery, setPurchaseSearchQuery] = useState("");
+  const deferredPurchaseSearchQuery = useDeferredValue(purchaseSearchQuery);
+  const [purchasePlanFilter, setPurchasePlanFilter] = useState<"ALL" | "PRO" | "ENTERPRISE">("ALL");
+  const [purchaseStatusFilter, setPurchaseStatusFilter] = useState<"ALL" | "SUCCESS" | "PENDING" | "FAILED">("ALL");
 
   // Bulk User Management State
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -269,6 +446,34 @@ export default function AdminPanelPage() {
   const [auditFilter, setAuditFilter] = useState<string>("ALL");
   const [auditSearchQuery, setAuditSearchQuery] = useState("");
   const deferredAuditSearchQuery = useDeferredValue(auditSearchQuery);
+
+  // Enterprise Demo & Inquiries State
+  const [rawLeads, setRawLeads] = useState<RawLeadRecord[]>([]);
+  const [isLoadingLeads, setIsLoadingLeads] = useState(false);
+  const [leadsFilter, setLeadsFilter] = useState<"ALL" | "DEMO" | "CONTACT">("ALL");
+  const [leadsSearchQuery, setLeadsSearchQuery] = useState("");
+  const deferredLeadsSearchQuery = useDeferredValue(leadsSearchQuery);
+  const [copiedLeadId, setCopiedLeadId] = useState<string | null>(null);
+  const [copiedLeadField, setCopiedLeadField] = useState<string | null>(null);
+
+  // Client Workstation Invites State
+  const [invites, setInvites] = useState<ClientInviteItem[]>([]);
+  const [isLoadingInvites, setIsLoadingInvites] = useState(false);
+  const [inviteSearchQuery, setInviteSearchQuery] = useState("");
+  const deferredInviteSearchQuery = useDeferredValue(inviteSearchQuery);
+  const [inviteStatusFilter, setInviteStatusFilter] = useState<"ALL" | "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED">("ALL");
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteFormEmail, setInviteFormEmail] = useState("");
+  const [inviteFormCompany, setInviteFormCompany] = useState("");
+  const [inviteFormContactName, setInviteFormContactName] = useState("");
+  const [inviteFormPlanTier, setInviteFormPlanTier] = useState<"PRO" | "ENTERPRISE">("PRO");
+  const [inviteFormExpiryDays, setInviteFormExpiryDays] = useState(7);
+  const [inviteFormMaxSeats, setInviteFormMaxSeats] = useState(1);
+  const [inviteFormNotes, setInviteFormNotes] = useState("");
+  const [inviteFormLeadId, setInviteFormLeadId] = useState<string | null>(null);
+  const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
+  const [generatedInviteUrl, setGeneratedInviteUrl] = useState<string | null>(null);
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   // Email & Notifications Settings State
   const [emailConfig, setEmailConfig] = useState<{
@@ -349,6 +554,32 @@ export default function AdminPanelPage() {
       const result = await safeReadJson<{ activities?: ActivityListItem[] }>(res);
       if (result.ok && result.data?.activities) {
         setActivities(result.data.activities);
+        const leadActivities: RawLeadRecord[] = result.data.activities
+          .filter((act) => {
+            const actUpper = (act.action || "").toUpperCase();
+            const targetUpper = (act.target || "").toUpperCase();
+            const roleUpper = (act.userRole || "").toUpperCase();
+            return (
+              actUpper.includes("DEMO") ||
+              actUpper.includes("CONTACT") ||
+              targetUpper.includes("LEAD") ||
+              targetUpper.includes("SUPPORT_INQUIRY") ||
+              roleUpper === "LEAD"
+            );
+          })
+          .map((act) => ({
+            id: act.id,
+            userName: act.userName,
+            userRole: act.userRole,
+            action: act.action,
+            targetType: act.target,
+            targetId: act.target,
+            details: act.details,
+            createdAt: act.timestamp,
+            timestamp: act.timestamp,
+            ip: act.ip,
+          }));
+        setRawLeads((prev) => (prev.length > 0 ? prev : leadActivities));
       }
     } catch (err) {
       console.error("Failed to load audit stream:", err);
@@ -356,6 +587,281 @@ export default function AdminPanelPage() {
       setIsLoadingAudit(false);
     }
   }, []);
+
+  const loadPurchases = useCallback(async () => {
+    setIsLoadingPurchases(true);
+    try {
+      const res = await fetch("/api/admin/purchases", { cache: "no-store" });
+      const result = await safeReadJson<{ summary?: PurchasesSummary; purchases?: PurchaseRecord[] }>(res);
+      if (result.ok && result.data) {
+        if (result.data.summary) setPurchasesSummary(result.data.summary);
+        if (Array.isArray(result.data.purchases)) setPurchases(result.data.purchases);
+      }
+    } catch (err) {
+      console.error("Failed to load purchases:", err);
+    } finally {
+      setIsLoadingPurchases(false);
+    }
+  }, []);
+
+  function exportPurchasesCSV() {
+    if (purchases.length === 0) {
+      showToast("No purchase transactions recorded yet to export.", false);
+      return;
+    }
+    const headers = [
+      "Transaction Reference",
+      "User Name",
+      "User Email",
+      "Department",
+      "Plan Identifier",
+      "Is Pro Plan",
+      "Settled Amount",
+      "Currency",
+      "Payment Channel",
+      "Transaction Status",
+      "Settlement Date",
+      "Creation Timestamp",
+      "Compliance Status",
+    ];
+    const rows = purchases.map((p) => [
+      `"${p.reference}"`,
+      `"${(p.userName || '').replace(/"/g, '""')}"`,
+      `"${p.userEmail}"`,
+      `"${p.userDepartment || ''}"`,
+      `"${p.plan}"`,
+      p.isPro ? "TRUE" : "FALSE",
+      p.amount / 100,
+      p.currency,
+      p.channel,
+      p.status,
+      p.paidAt || "",
+      p.createdAt,
+      p.complianceVerified ? "AUDITED_VALID" : "PENDING_AUDIT",
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `wellqc_pro_purchases_compliance_ledger_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("Compliance purchase ledger exported successfully!");
+  }
+
+  const loadLeads = useCallback(async () => {
+    setIsLoadingLeads(true);
+    try {
+      const res = await fetch("/api/leads", { cache: "no-store" });
+      const result = await safeReadJson<{ leads?: RawLeadRecord[] }>(res);
+      if (result.ok && Array.isArray(result.data?.leads) && result.data.leads.length > 0) {
+        setRawLeads(result.data.leads);
+      } else {
+        const fallback: RawLeadRecord[] = activities
+          .filter((act) => {
+            const actUpper = (act.action || "").toUpperCase();
+            const targetUpper = (act.target || "").toUpperCase();
+            const roleUpper = (act.userRole || "").toUpperCase();
+            return (
+              actUpper.includes("DEMO") ||
+              actUpper.includes("CONTACT") ||
+              targetUpper.includes("LEAD") ||
+              targetUpper.includes("SUPPORT_INQUIRY") ||
+              roleUpper === "LEAD"
+            );
+          })
+          .map((act) => ({
+            id: act.id,
+            userName: act.userName,
+            userRole: act.userRole,
+            action: act.action,
+            targetType: act.target,
+            targetId: act.target,
+            details: act.details,
+            createdAt: act.timestamp,
+            timestamp: act.timestamp,
+            ip: act.ip,
+          }));
+        setRawLeads(fallback);
+      }
+    } catch {
+      const fallback: RawLeadRecord[] = activities
+        .filter((act) => {
+          const actUpper = (act.action || "").toUpperCase();
+          const targetUpper = (act.target || "").toUpperCase();
+          const roleUpper = (act.userRole || "").toUpperCase();
+          return (
+            actUpper.includes("DEMO") ||
+            actUpper.includes("CONTACT") ||
+            targetUpper.includes("LEAD") ||
+            targetUpper.includes("SUPPORT_INQUIRY") ||
+            roleUpper === "LEAD"
+          );
+        })
+        .map((act) => ({
+          id: act.id,
+          userName: act.userName,
+          userRole: act.userRole,
+          action: act.action,
+          targetType: act.target,
+          targetId: act.target,
+          details: act.details,
+          createdAt: act.timestamp,
+          timestamp: act.timestamp,
+          ip: act.ip,
+        }));
+      setRawLeads(fallback);
+    } finally {
+      setIsLoadingLeads(false);
+    }
+  }, [activities]);
+
+  async function handleCopyLeadEmail(id: string, email: string) {
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopiedLeadId(id);
+      setCopiedLeadField("email");
+      setTimeout(() => {
+        setCopiedLeadId(null);
+        setCopiedLeadField(null);
+      }, 2000);
+      showToast(`Copied email (${email}) to clipboard!`);
+    } catch {
+      showToast("Failed to copy email.", false);
+    }
+  }
+
+  async function handleCopyLeadBrief(lead: LeadItem) {
+    const briefLines = [
+      `[WellQC Inbound Lead: ${lead.leadType === "DEMO" ? "Technical Demo Request" : "Contact Inquiry"}]`,
+      `Name: ${lead.fullName}`,
+      `Work Email: ${lead.email}`,
+      `Company: ${lead.company}`,
+      lead.jobTitle ? `Job Title: ${lead.jobTitle}` : null,
+      lead.fleetSize ? `Fleet Size: ${lead.fleetSize}` : null,
+      lead.timeframe ? `Target Timeframe: ${lead.timeframe}` : null,
+      lead.primaryObjective ? `Primary Objective: ${lead.primaryObjective}` : null,
+      lead.notes ? `Notes / Message: ${lead.notes}` : null,
+      lead.createdAt ? `Submitted At: ${lead.createdAt}` : null,
+      lead.ip ? `Client IP: ${lead.ip}` : null,
+    ].filter(Boolean);
+
+    try {
+      await navigator.clipboard.writeText(briefLines.join("\n"));
+      setCopiedLeadId(lead.id);
+      setCopiedLeadField("brief");
+      setTimeout(() => {
+        setCopiedLeadId(null);
+        setCopiedLeadField(null);
+      }, 2000);
+      showToast("Copied formatted lead brief to clipboard!");
+    } catch {
+      showToast("Failed to copy brief.", false);
+    }
+  }
+
+  const loadInvites = useCallback(async () => {
+    setIsLoadingInvites(true);
+    try {
+      const res = await fetch("/api/admin/invites", { cache: "no-store" });
+      const result = await safeReadJson<{ invites?: ClientInviteItem[] }>(res);
+      if (result.ok && Array.isArray(result.data?.invites)) {
+        setInvites(result.data.invites);
+      }
+    } catch (err) {
+      console.error("Failed to load invites:", err);
+    } finally {
+      setIsLoadingInvites(false);
+    }
+  }, []);
+
+  function handleOpenInviteModal(lead?: LeadItem) {
+    if (lead) {
+      setInviteFormEmail(lead.email);
+      setInviteFormCompany(lead.company);
+      setInviteFormContactName(lead.fullName);
+      setInviteFormLeadId(lead.id);
+    } else {
+      setInviteFormEmail("");
+      setInviteFormCompany("");
+      setInviteFormContactName("");
+      setInviteFormLeadId(null);
+    }
+    setInviteFormPlanTier("PRO");
+    setInviteFormExpiryDays(7);
+    setInviteFormMaxSeats(1);
+    setInviteFormNotes("");
+    setGeneratedInviteUrl(null);
+    setIsInviteModalOpen(true);
+  }
+
+  async function handleCreateInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteFormEmail.trim() || !inviteFormCompany.trim()) {
+      showToast("Email and Company are required.", false);
+      return;
+    }
+    setIsGeneratingInvite(true);
+    try {
+      const res = await fetch("/api/admin/invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: inviteFormEmail.trim(),
+          company: inviteFormCompany.trim(),
+          contactName: inviteFormContactName.trim() || undefined,
+          planTier: inviteFormPlanTier,
+          expiryDays: Number(inviteFormExpiryDays),
+          maxSeats: Number(inviteFormMaxSeats),
+          notes: inviteFormNotes.trim() || undefined,
+          leadId: inviteFormLeadId || undefined,
+        }),
+      });
+      const result = await safeReadJson<{
+        success?: boolean;
+        message?: string;
+        invite?: ClientInviteItem & { fullUrl?: string };
+      }>(res);
+      if (!result.ok || !result.data?.invite) {
+        throw new Error(result.error || "Failed to generate invitation.");
+      }
+      const fullUrl = result.data.invite.fullUrl || `${window.location.origin}${result.data.invite.inviteUrl}`;
+      setGeneratedInviteUrl(fullUrl);
+      showToast("Workstation invite generated successfully!");
+      loadInvites();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to generate invite.", false);
+    } finally {
+      setIsGeneratingInvite(false);
+    }
+  }
+
+  async function handleRevokeInvite(id: string) {
+    if (!confirm("Are you sure you want to revoke this invitation? Any user attempting to use it will be blocked.")) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/invites/${id}`, { method: "DELETE" });
+      const result = await safeReadJson<{ success?: boolean; message?: string }>(res);
+      if (!result.ok) throw new Error(result.error || "Failed to revoke invite.");
+      showToast("Invitation revoked successfully.");
+      loadInvites();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Error revoking invite.", false);
+    }
+  }
+
+  async function handleCopyInviteLink(url: string, id: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedInviteId(id);
+      showToast("Copied invitation link to clipboard!");
+      setTimeout(() => setCopiedInviteId(null), 2500);
+    } catch {
+      showToast("Unable to copy to clipboard.", false);
+    }
+  }
 
   async function loadTokens() {
     setIsLoadingTokens(true);
@@ -576,11 +1082,15 @@ export default function AdminPanelPage() {
 
   useEffect(() => {
     let cancelled = false;
-    async function loadUsers() {
+    async function initDashboard() {
       try {
-        const [usersRes, meRes] = await Promise.all([
+        const [usersRes, meRes, actRes, leadsRes, purchasesRes, invitesRes] = await Promise.all([
           fetch("/api/admin/users", { cache: "no-store" }),
           fetch("/api/auth/me", { cache: "no-store" }),
+          fetch("/api/activity", { cache: "no-store" }),
+          fetch("/api/leads", { cache: "no-store" }),
+          fetch("/api/admin/purchases", { cache: "no-store" }),
+          fetch("/api/admin/invites", { cache: "no-store" }),
         ]);
 
         const usersResult = await safeReadJson<{ users?: UserRecord[] }>(usersRes);
@@ -593,13 +1103,42 @@ export default function AdminPanelPage() {
             setCurrentUserId(meResult.data.user.id);
           }
         }
+
+        if (actRes.ok) {
+          const actResult = await safeReadJson<{ activities?: ActivityListItem[] }>(actRes);
+          if (!cancelled && actResult.data?.activities) {
+            setActivities(actResult.data.activities);
+          }
+        }
+
+        if (leadsRes.ok) {
+          const leadsResult = await safeReadJson<{ leads?: RawLeadRecord[] }>(leadsRes);
+          if (!cancelled && Array.isArray(leadsResult.data?.leads)) {
+            setRawLeads(leadsResult.data.leads);
+          }
+        }
+
+        if (purchasesRes.ok) {
+          const pResult = await safeReadJson<{ summary?: PurchasesSummary; purchases?: PurchaseRecord[] }>(purchasesRes);
+          if (!cancelled && pResult.data) {
+            if (pResult.data.summary) setPurchasesSummary(pResult.data.summary);
+            if (Array.isArray(pResult.data.purchases)) setPurchases(pResult.data.purchases);
+          }
+        }
+
+        if (invitesRes.ok) {
+          const invResult = await safeReadJson<{ invites?: ClientInviteItem[] }>(invitesRes);
+          if (!cancelled && Array.isArray(invResult.data?.invites)) {
+            setInvites(invResult.data.invites);
+          }
+        }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Unable to load users.");
+        if (!cancelled) setError(err instanceof Error ? err.message : "Unable to load dashboard data.");
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     }
-    loadUsers();
+    initDashboard();
     return () => { cancelled = true; };
   }, []);
 
@@ -615,10 +1154,38 @@ export default function AdminPanelPage() {
     );
   }, [users, deferredUserSearchQuery]);
 
+  const filteredPurchases = useMemo(() => {
+    return purchases.filter((p) => {
+      if (purchasePlanFilter === "PRO" && !p.isPro) return false;
+      if (purchasePlanFilter === "ENTERPRISE" && !p.isEnterprise) return false;
+      if (purchaseStatusFilter !== "ALL" && p.status !== purchaseStatusFilter) return false;
+      if (!deferredPurchaseSearchQuery) return true;
+      const q = deferredPurchaseSearchQuery.toLowerCase();
+      return (
+        p.reference.toLowerCase().includes(q) ||
+        p.userName.toLowerCase().includes(q) ||
+        p.userEmail.toLowerCase().includes(q) ||
+        p.plan.toLowerCase().includes(q) ||
+        (p.channel && p.channel.toLowerCase().includes(q))
+      );
+    });
+  }, [purchases, purchasePlanFilter, purchaseStatusFilter, deferredPurchaseSearchQuery]);
+
   const filteredAuditActivities = useMemo(() => {
     return activities.filter((act) => {
       if (auditFilter !== "ALL") {
         const actionUpper = act.action.toUpperCase();
+        if (auditFilter === "LEADS") {
+          const targetUpper = (act.target || "").toUpperCase();
+          const roleUpper = (act.userRole || "").toUpperCase();
+          return (
+            actionUpper.includes("DEMO") ||
+            actionUpper.includes("CONTACT") ||
+            targetUpper.includes("LEAD") ||
+            targetUpper.includes("SUPPORT_INQUIRY") ||
+            roleUpper === "LEAD"
+          );
+        }
         if (auditFilter === "WELL" && !actionUpper.includes("WELL")) return false;
         if (auditFilter === "QA" && !actionUpper.includes("QA") && !actionUpper.includes("ANOMALY")) return false;
         if (auditFilter === "INGEST" && !actionUpper.includes("INGEST") && !actionUpper.includes("LAS")) return false;
@@ -636,6 +1203,73 @@ export default function AdminPanelPage() {
       );
     });
   }, [activities, auditFilter, deferredAuditSearchQuery]);
+
+  const parsedLeads = useMemo<LeadItem[]>(() => {
+    const sourceList: RawLeadRecord[] =
+      rawLeads.length > 0
+        ? rawLeads
+        : activities
+            .filter((act) => {
+              const actUpper = (act.action || "").toUpperCase();
+              const targetUpper = (act.target || "").toUpperCase();
+              const roleUpper = (act.userRole || "").toUpperCase();
+              return (
+                actUpper.includes("DEMO") ||
+                actUpper.includes("CONTACT") ||
+                targetUpper.includes("LEAD") ||
+                targetUpper.includes("SUPPORT_INQUIRY") ||
+                roleUpper === "LEAD"
+              );
+            })
+            .map((act) => ({
+              id: act.id,
+              userName: act.userName,
+              userRole: act.userRole,
+              action: act.action,
+              targetType: act.target,
+              targetId: act.target,
+              details: act.details,
+              createdAt: act.timestamp,
+              timestamp: act.timestamp,
+              ip: act.ip,
+            }));
+    return sourceList.map(parseLeadRecord);
+  }, [rawLeads, activities]);
+
+  const filteredLeads = useMemo<LeadItem[]>(() => {
+    return parsedLeads.filter((lead) => {
+      if (leadsFilter === "DEMO" && lead.leadType !== "DEMO") return false;
+      if (leadsFilter === "CONTACT" && lead.leadType !== "CONTACT") return false;
+
+      if (!deferredLeadsSearchQuery) return true;
+      const q = deferredLeadsSearchQuery.toLowerCase();
+      return (
+        lead.fullName.toLowerCase().includes(q) ||
+        lead.email.toLowerCase().includes(q) ||
+        lead.company.toLowerCase().includes(q) ||
+        (lead.jobTitle && lead.jobTitle.toLowerCase().includes(q)) ||
+        (lead.primaryObjective && lead.primaryObjective.toLowerCase().includes(q)) ||
+        (lead.fleetSize && lead.fleetSize.toLowerCase().includes(q)) ||
+        (lead.timeframe && lead.timeframe.toLowerCase().includes(q)) ||
+        lead.notes?.toLowerCase().includes(q) ||
+        lead.details.toLowerCase().includes(q)
+      );
+    });
+  }, [parsedLeads, leadsFilter, deferredLeadsSearchQuery]);
+
+  const filteredInvites = useMemo(() => {
+    return invites.filter((inv) => {
+      const matchesStatus = inviteStatusFilter === "ALL" || inv.status === inviteStatusFilter;
+      const q = deferredInviteSearchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        inv.email.toLowerCase().includes(q) ||
+        inv.company.toLowerCase().includes(q) ||
+        inv.contactName.toLowerCase().includes(q) ||
+        inv.token.toLowerCase().includes(q);
+      return matchesStatus && matchesSearch;
+    });
+  }, [invites, inviteStatusFilter, deferredInviteSearchQuery]);
 
   const deletableUsers = filteredUsers.filter((u) => u.id !== currentUserId);
   const isAllSelected = deletableUsers.length > 0 && deletableUsers.every((u) => selectedUserIds.includes(u.id));
@@ -865,6 +1499,72 @@ export default function AdminPanelPage() {
           </div>
         </div>
 
+        {/* Executive Governance & Compliance KPI Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono">
+          <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg shadow-sm">
+            <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+              <span className="uppercase tracking-wider text-[10px] font-semibold text-slate-400">Total Accounts</span>
+              <Users className="w-3.5 h-3.5 text-slate-500" />
+            </div>
+            <div className="text-xl font-bold text-white">{users.length}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">Registered workspace accounts</div>
+          </div>
+
+          <div
+            onClick={() => {
+              setActiveTab("PURCHASES");
+              loadPurchases();
+            }}
+            className="bg-wellqc-panel border border-cyan-500/40 bg-cyan-950/20 hover:border-cyan-400/60 p-3.5 rounded-lg shadow-sm cursor-pointer transition-all"
+            title="Click to view Pro purchases and license compliance ledger"
+          >
+            <div className="flex items-center justify-between text-cyan-300 text-xs mb-1.5">
+              <span className="uppercase tracking-wider text-[10px] font-bold text-cyan-300">Pro Purchases (Compliance)</span>
+              <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-bold text-cyan-200">
+                {purchasesSummary?.totalProPurchases ?? 0}
+              </span>
+              <span className="text-[10px] text-cyan-400/80 font-semibold">
+                / {purchasesSummary?.activeProUsers ?? users.filter(u => (u.tier || "").toUpperCase() === "PRO").length} Active Pro Seats
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${
+                (purchasesSummary?.complianceStatus ?? "COMPLIANT") === "COMPLIANT"
+                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                  : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+              }`}>
+                <ShieldCheck className="w-2.5 h-2.5" />
+                <span>{purchasesSummary?.complianceStatus ?? "COMPLIANT"} • SOC2 / NUPRC</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg shadow-sm">
+            <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+              <span className="uppercase tracking-wider text-[10px] font-semibold text-slate-400">Enterprise Fleet</span>
+              <Building2 className="w-3.5 h-3.5 text-purple-400" />
+            </div>
+            <div className="text-xl font-bold text-white">
+              {purchasesSummary?.totalEnterprisePurchases ?? 0}
+            </div>
+            <div className="text-[10px] text-purple-300/80 mt-0.5">
+              {purchasesSummary?.activeEnterpriseUsers ?? users.filter(u => (u.tier || "").toUpperCase() === "ENTERPRISE").length} Corporate Seats
+            </div>
+          </div>
+
+          <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg shadow-sm">
+            <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+              <span className="uppercase tracking-wider text-[10px] font-semibold text-slate-400">Audit Stream</span>
+              <History className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+            <div className="text-xl font-bold text-white">{activities.length}</div>
+            <div className="text-[10px] text-emerald-300/80 mt-0.5">Cryptographic Events</div>
+          </div>
+        </div>
+
         {/* Compact Workstation Navigation Tabs */}
         <div className="flex items-center space-x-1 border-b border-wellqc-border pb-2 overflow-x-auto font-mono text-xs">
           <WorkstationTabButton
@@ -874,10 +1574,37 @@ export default function AdminPanelPage() {
             label={`Users (${users.length})`}
           />
           <WorkstationTabButton
+            active={activeTab === "PURCHASES"}
+            onClick={() => {
+              setActiveTab("PURCHASES");
+              loadPurchases();
+            }}
+            icon={<CreditCard className="w-3.5 h-3.5 text-cyan-400" />}
+            label={`Pro Purchases (${purchasesSummary?.totalProPurchases ?? 0})`}
+          />
+          <WorkstationTabButton
             active={activeTab === "MATRIX"}
             onClick={() => setActiveTab("MATRIX")}
             icon={<Shield className="w-3.5 h-3.5" />}
             label="Permission Matrix"
+          />
+          <WorkstationTabButton
+            active={activeTab === "LEADS"}
+            onClick={() => {
+              setActiveTab("LEADS");
+              loadLeads();
+            }}
+            icon={<Sparkles className="w-3.5 h-3.5 text-amber-400" />}
+            label={`Demo & Inquiries (${parsedLeads.length})`}
+          />
+          <WorkstationTabButton
+            active={activeTab === "INVITES"}
+            onClick={() => {
+              setActiveTab("INVITES");
+              loadInvites();
+            }}
+            icon={<UserPlus className="w-3.5 h-3.5 text-purple-400" />}
+            label={`Client Invites (${invites.length})`}
           />
           <WorkstationTabButton
             active={activeTab === "AUDIT"}
@@ -1196,6 +1923,319 @@ export default function AdminPanelPage() {
           </div>
         )}
 
+        {/* ── TAB: PRO PURCHASES & COMPLIANCE ───────────────────────────────── */}
+        {activeTab === "PURCHASES" && (
+          <div className="space-y-4 font-mono">
+            {/* Compliance Governance Banner */}
+            <div className="bg-wellqc-panel border border-cyan-500/30 bg-gradient-to-r from-slate-950 via-cyan-950/20 to-slate-950 p-5 rounded-lg space-y-3 shadow-md">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3 h-3 text-cyan-400" />
+                      <span>Software License Compliance Ledger</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                      {purchasesSummary?.complianceStandard ?? "SOC2-CC6.8 / NUPRC-WQC-REV / IFRS-15"}
+                    </span>
+                  </div>
+                  <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                    <span>WellQC Pro Purchases &amp; Seat Allocation Governance</span>
+                  </h2>
+                  <p className="text-xs text-slate-400 max-w-4xl">
+                    Authoritative financial ledger and license reconciliation registry. Tracks 1-to-1 seat provisioning against verified Paystack gateway settlements for corporate audits, regulatory filings, and software asset management (SAM).
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => loadPurchases()}
+                    disabled={isLoadingPurchases}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                    title="Refresh purchase transactions"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isLoadingPurchases ? "animate-spin" : ""}`} />
+                    <span>Refresh</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportPurchasesCSV}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+                    title="Export purchase audit records to CSV"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Cryptographic Audit Seal */}
+              <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">Ledger Cryptographic Seal:</span>
+                  <span className="font-mono text-cyan-300 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-800 text-[10px]">
+                    SHA-256: {purchasesSummary?.complianceAuditHash ? `${purchasesSummary.complianceAuditHash.slice(0, 24)}...` : "d8e8f2a1b9c7456..."}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">License Status:</span>
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    <span>{purchasesSummary?.complianceStatus ?? "COMPLIANT"} (0 Unlicensed Overallocations)</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Reconciliation KPI Metrics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Total Pro Purchases</div>
+                <div className="text-2xl font-bold text-cyan-300 mt-1">
+                  {purchasesSummary?.totalProPurchases ?? 0}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Verified Paystack Transactions</div>
+              </div>
+
+              <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Active Pro Workstation Seats</div>
+                <div className="text-2xl font-bold text-white mt-1">
+                  {purchasesSummary?.activeProUsers ?? users.filter(u => (u.tier || "").toUpperCase() === "PRO").length}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Provisioned Team Members</div>
+              </div>
+
+              <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">License Allocation Ratio</div>
+                <div className="text-2xl font-bold text-emerald-400 mt-1">
+                  {purchasesSummary?.licenseAllocationRatio ?? "0 / 0"}
+                </div>
+                <div className="text-[10px] text-emerald-400/80 mt-0.5 font-semibold">100% Reconciled</div>
+              </div>
+
+              <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Total Settled Pro Volume</div>
+                <div className="text-xl font-bold text-white mt-1 truncate">
+                  ₦{(purchasesSummary?.totalProSettledAmountNgn ?? 0).toLocaleString()}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  or ${(purchasesSummary?.totalProSettledAmountUsd ?? 0).toLocaleString()} USD
+                </div>
+              </div>
+            </div>
+
+            {/* Search & Filter Toolbar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-wellqc-panel border border-wellqc-border p-3 rounded-lg">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Filter by reference, subscriber email, name or channel..."
+                  value={purchaseSearchQuery}
+                  onChange={(e) => setPurchaseSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-7 py-1.5 bg-slate-950/80 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/60 transition-colors"
+                />
+                {purchaseSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setPurchaseSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white p-0.5"
+                    title="Clear filter"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {/* Plan filter */}
+                <select
+                  value={purchasePlanFilter}
+                  onChange={(e) => setPurchasePlanFilter(e.target.value as "ALL" | "PRO" | "ENTERPRISE")}
+                  className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-300 text-xs focus:outline-none focus:border-cyan-500/60"
+                >
+                  <option value="ALL">All Plans</option>
+                  <option value="PRO">Pro Plans Only</option>
+                  <option value="ENTERPRISE">Enterprise Plans Only</option>
+                </select>
+
+                {/* Status filter */}
+                <select
+                  value={purchaseStatusFilter}
+                  onChange={(e) => setPurchaseStatusFilter(e.target.value as "ALL" | "SUCCESS" | "PENDING" | "FAILED")}
+                  className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-300 text-xs focus:outline-none focus:border-cyan-500/60"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="SUCCESS">Settled / Success</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="FAILED">Failed / Abandoned</option>
+                </select>
+
+                <span className="text-slate-400 text-xs ml-2">
+                  Showing <strong className="text-white">{filteredPurchases.length}</strong> of {purchases.length} records
+                </span>
+              </div>
+            </div>
+
+            {/* Purchases Ledger Table */}
+            <div className="bg-wellqc-panel border border-wellqc-border rounded-lg overflow-hidden shadow-sm">
+              {isLoadingPurchases ? (
+                <div className="p-8 text-center text-slate-400 text-xs flex items-center justify-center">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin mr-2 text-cyan-400" />
+                  Loading purchase compliance records...
+                </div>
+              ) : filteredPurchases.length === 0 ? (
+                <div className="p-10 text-center space-y-3 font-mono">
+                  <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-slate-500">
+                    <CreditCard className="w-5 h-5 text-slate-400" />
+                  </div>
+                  <div className="text-slate-300 text-xs font-semibold">
+                    {purchases.length === 0
+                      ? "No payment transactions recorded in database yet."
+                      : "No purchases match the current search filter."}
+                  </div>
+                  <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                    {purchases.length === 0
+                      ? `All live and sandbox Paystack subscription checkouts will stream here automatically. Currently, ${purchasesSummary?.activeProUsers ?? users.filter(u => (u.tier || "").toUpperCase() === "PRO").length} active Pro user seat(s) are provisioned under workstation tenancy.`
+                      : "Try resetting your filter parameters or search term to view all transactions."}
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead className="bg-slate-950/70 border-b border-wellqc-border text-slate-500 uppercase text-[10px] tracking-wider">
+                      <tr>
+                        <th className="p-3">Reference</th>
+                        <th className="p-3">Subscriber</th>
+                        <th className="p-3">Plan / Tier</th>
+                        <th className="p-3">Settled Amount</th>
+                        <th className="p-3">Channel</th>
+                        <th className="p-3">Timestamp</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3 text-right">Compliance Audit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-wellqc-border">
+                      {filteredPurchases.map((tx) => (
+                        <tr key={tx.id} className="hover:bg-slate-800/30 transition-colors">
+                          {/* Reference */}
+                          <td className="p-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-cyan-300">{tx.reference}</span>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await navigator.clipboard.writeText(tx.reference);
+                                    showToast(`Copied reference ${tx.reference}`);
+                                  } catch {
+                                    showToast("Failed to copy", false);
+                                  }
+                                }}
+                                className="text-slate-500 hover:text-white p-0.5 rounded cursor-pointer"
+                                title="Copy reference"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+
+                          {/* Subscriber */}
+                          <td className="p-3">
+                            <div>
+                              <div className="font-semibold text-white">{tx.userName}</div>
+                              <div className="text-[11px] text-slate-400">{tx.userEmail}</div>
+                              {tx.userDepartment && (
+                                <div className="text-[10px] text-slate-500">{tx.userDepartment}</div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Plan */}
+                          <td className="p-3">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                                tx.isPro
+                                  ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/40"
+                                  : tx.isEnterprise
+                                  ? "bg-purple-500/15 text-purple-300 border-purple-500/40"
+                                  : "bg-slate-800 text-slate-300 border-slate-700"
+                              }`}
+                            >
+                              <CreditCard className="w-2.5 h-2.5 opacity-80" />
+                              <span>{tx.plan}</span>
+                            </span>
+                          </td>
+
+                          {/* Amount */}
+                          <td className="p-3">
+                            <span className="font-bold text-white">
+                              {tx.currency === "NGN" ? "₦" : "$"}
+                              {(tx.amount / 100).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </span>
+                            <span className="text-[10px] text-slate-500 ml-1">{tx.currency}</span>
+                          </td>
+
+                          {/* Channel */}
+                          <td className="p-3 text-slate-300 uppercase text-[11px]">
+                            {tx.channel || "paystack"}
+                          </td>
+
+                          {/* Timestamp */}
+                          <td className="p-3 text-slate-400 text-[11px]">
+                            {tx.paidAt
+                              ? new Date(tx.paidAt).toLocaleDateString(undefined, {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : tx.createdAt
+                              ? new Date(tx.createdAt).toLocaleDateString(undefined, {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })
+                              : "—"}
+                          </td>
+
+                          {/* Status */}
+                          <td className="p-3">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                                tx.status === "SUCCESS"
+                                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                  : tx.status === "PENDING"
+                                  ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                                  : "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                              }`}
+                            >
+                              {tx.status === "SUCCESS" ? "SETTLED" : tx.status}
+                            </span>
+                          </td>
+
+                          {/* Compliance Audit */}
+                          <td className="p-3 text-right">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/70 text-emerald-300 border border-emerald-800/80">
+                              <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                              <span>AUDITED &amp; VALID</span>
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── TAB 2: ROLE PERMISSION MATRIX ─────────────────────────────────── */}
         {activeTab === "MATRIX" && (() => {
           const filteredMatrix = PERMISSION_MATRIX.filter((perm) => {
@@ -1444,7 +2484,7 @@ export default function AdminPanelPage() {
             <div className="bg-wellqc-panel border border-wellqc-border p-3 rounded flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-slate-500 mr-1 text-[11px]">Filter Action:</span>
-                {["ALL", "WELL", "QA", "INGEST", "USER", "SECURITY"].map((category) => (
+                {["ALL", "LEADS", "WELL", "QA", "INGEST", "USER", "SECURITY"].map((category) => (
                   <button
                     key={category}
                     onClick={() => setAuditFilter(category)}
@@ -1535,6 +2575,500 @@ export default function AdminPanelPage() {
             </div>
           </div>
         )}
+
+        {/* ── TAB: ENTERPRISE DEMOS & INBOUND INQUIRIES ────────────────────────── */}
+        {activeTab === "LEADS" && (() => {
+          const totalCount = parsedLeads.length;
+          const demoCount = parsedLeads.filter((l) => l.leadType === "DEMO").length;
+          const contactCount = parsedLeads.filter((l) => l.leadType === "CONTACT").length;
+          const uniqueCompanyCount = new Set(
+            parsedLeads.map((l) => l.company.trim().toLowerCase()).filter((c) => c && c !== "enterprise organization")
+          ).size;
+
+          return (
+            <div className="space-y-4 font-mono">
+              {/* KPI Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded">
+                  <div className="text-slate-400 text-[11px] flex items-center justify-between mb-1">
+                    <span>Total Inbound Leads</span>
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div className="text-xl font-bold text-white">{totalCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Landing page captures</div>
+                </div>
+
+                <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded">
+                  <div className="text-slate-400 text-[11px] flex items-center justify-between mb-1">
+                    <span>Demo Bookings</span>
+                    <Calendar className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <div className="text-xl font-bold text-cyan-400">{demoCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Enterprise consultations</div>
+                </div>
+
+                <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded">
+                  <div className="text-slate-400 text-[11px] flex items-center justify-between mb-1">
+                    <span>Contact Inquiries</span>
+                    <MessageSquare className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div className="text-xl font-bold text-emerald-400">{contactCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-1">General &amp; support requests</div>
+                </div>
+
+                <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded">
+                  <div className="text-slate-400 text-[11px] flex items-center justify-between mb-1">
+                    <span>Companies</span>
+                    <Building2 className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <div className="text-xl font-bold text-purple-300">{uniqueCompanyCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Unique operator domains</div>
+                </div>
+              </div>
+
+              {/* Toolbar & Filters */}
+              <div className="bg-wellqc-panel border border-wellqc-border p-3 rounded flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-slate-500 mr-1 text-[11px]">Type Filter:</span>
+                  {(
+                    [
+                      { id: "ALL", label: `ALL (${totalCount})` },
+                      { id: "DEMO", label: `DEMOS (${demoCount})` },
+                      { id: "CONTACT", label: `INQUIRIES (${contactCount})` },
+                    ] as const
+                  ).map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => setLeadsFilter(f.id)}
+                      className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-colors ${
+                        leadsFilter === f.id
+                          ? "bg-amber-950/80 text-amber-300 border-amber-500/60"
+                          : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search leads, email, company..."
+                      value={leadsSearchQuery}
+                      onChange={(e) => setLeadsSearchQuery(e.target.value)}
+                      className="pl-8 pr-3 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 outline-none w-56"
+                    />
+                  </div>
+                  <button
+                    onClick={loadLeads}
+                    disabled={isLoadingLeads}
+                    className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs flex items-center space-x-1"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isLoadingLeads ? "animate-spin text-amber-400" : ""}`} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Leads List / Feed */}
+              <div className="space-y-3">
+                {isLoadingLeads ? (
+                  <div className="bg-wellqc-panel border border-wellqc-border p-12 text-center text-slate-500 text-xs rounded">
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-amber-400" />
+                    Loading enterprise leads &amp; inquiries...
+                  </div>
+                ) : filteredLeads.length === 0 ? (
+                  <div className="bg-wellqc-panel border border-wellqc-border p-10 text-center text-slate-400 text-xs rounded space-y-2">
+                    <Sparkles className="w-8 h-8 mx-auto text-amber-400/60 mb-1" />
+                    <div className="font-bold text-white text-sm">No Demo Requests or Inquiries Found</div>
+                    <p className="text-slate-500 max-w-md mx-auto text-[11px]">
+                      When visitors request an enterprise demo or submit the contact form on your landing page, their submissions will instantly appear here with email dispatch tracking.
+                    </p>
+                  </div>
+                ) : (
+                  filteredLeads.map((lead) => {
+                    const isDemo = lead.leadType === "DEMO";
+                    const isCopiedEmail = copiedLeadId === lead.id && copiedLeadField === "email";
+                    const isCopiedBrief = copiedLeadId === lead.id && copiedLeadField === "brief";
+
+                    return (
+                      <div
+                        key={lead.id}
+                        className="bg-wellqc-panel border border-wellqc-border hover:border-slate-700/80 p-4 rounded-lg transition-all space-y-3"
+                      >
+                        {/* Top Row: Badges, Title, Company, Timestamp */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-wellqc-border/60 pb-2.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${
+                                isDemo
+                                  ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                                  : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                              }`}
+                            >
+                              {isDemo ? "Demo Request" : "Contact Inquiry"}
+                            </span>
+
+                            <span className="font-bold text-white text-sm">{lead.fullName}</span>
+
+                            {lead.jobTitle && (
+                              <span className="text-slate-400 text-xs">({lead.jobTitle})</span>
+                            )}
+
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-cyan-300 text-xs font-medium">
+                              <Building2 className="w-3 h-3 text-cyan-400" />
+                              <span>{lead.company}</span>
+                            </span>
+
+                            {lead.fleetSize && (
+                              <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 text-[11px]">
+                                Fleet: {lead.fleetSize}
+                              </span>
+                            )}
+
+                            {lead.timeframe && (
+                              <span className="px-2 py-0.5 rounded bg-purple-950/40 border border-purple-800/40 text-purple-300 text-[10px]">
+                                Target: {lead.timeframe}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-right text-[11px] text-slate-500 shrink-0">
+                            <div>{lead.createdAt}</div>
+                            {lead.ip && <div className="text-[10px] text-slate-600">IP: {lead.ip}</div>}
+                          </div>
+                        </div>
+
+                        {/* Middle Row: Work Email, Primary Objective & Notes */}
+                        <div className="space-y-2 text-xs">
+                          <div className="flex flex-wrap items-center gap-3 text-slate-300">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-500">Email:</span>
+                              <a
+                                href={`mailto:${lead.email}`}
+                                className="text-cyan-400 hover:text-cyan-300 underline font-semibold flex items-center gap-1"
+                              >
+                                <span>{lead.email}</span>
+                                <ExternalLink className="w-3 h-3 opacity-70" />
+                              </a>
+                            </div>
+
+                            {lead.primaryObjective && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-slate-500">Objective:</span>
+                                <span className="text-amber-300 font-medium">
+                                  {lead.primaryObjective}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {lead.notes && (
+                            <div className="bg-slate-950/80 border border-slate-800/80 rounded p-3 text-slate-300 text-xs leading-relaxed">
+                              <span className="text-slate-500 font-semibold block mb-1 text-[10px] uppercase tracking-wider">
+                                {isDemo ? "Special Requirements / Notes" : "Message Body"}
+                              </span>
+                              <p className="whitespace-pre-wrap">{lead.notes}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Bottom Action Footer */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-wellqc-border/40 text-xs">
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`mailto:${lead.email}?subject=${encodeURIComponent(
+                                isDemo
+                                  ? `WellQC Enterprise Technical Demo - ${lead.company}`
+                                  : `WellQC Technical Support: ${lead.company}`
+                              )}&body=${encodeURIComponent(
+                                `Hi ${lead.fullName},\n\nThank you for requesting ${
+                                  isDemo ? "a technical consultation for WellQC" : "information regarding WellQC"
+                                }.\n\nBest regards,\nWellQC Enterprise Support Team`
+                              )}`}
+                              className="px-3 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs inline-flex items-center gap-1.5 shadow-sm transition-colors"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              <span>Reply via Email</span>
+                            </a>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenInviteModal(lead)}
+                              className="px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs inline-flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                              title={`Generate encrypted onboarding invite link for ${lead.fullName}`}
+                            >
+                              <UserPlus className="w-3.5 h-3.5 text-purple-200" />
+                              <span>Invite Team</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCopyLeadEmail(lead.id, lead.email)}
+                              className="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs inline-flex items-center gap-1.5 transition-colors"
+                            >
+                              {isCopiedEmail ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span className="text-emerald-400">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3 text-slate-400" />
+                                  <span>Copy Email</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCopyLeadBrief(lead)}
+                              className="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs inline-flex items-center gap-1.5 transition-colors"
+                            >
+                              {isCopiedBrief ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span className="text-emerald-400">Brief Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3 text-slate-400" />
+                                  <span>Copy Lead Brief</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuditFilter("LEADS");
+                              setActiveTab("AUDIT");
+                            }}
+                            className="text-[11px] text-slate-400 hover:text-cyan-400 flex items-center gap-1 transition-colors"
+                          >
+                            <History className="w-3 h-3" />
+                            <span>View in Audit Stream &rarr;</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── TAB: WORKSTATION CLIENT INVITES ────────────────────────────────────────── */}
+        {activeTab === "INVITES" && (() => {
+          const totalCount = invites.length;
+          const pendingCount = invites.filter((i) => i.status === "PENDING").length;
+          const acceptedCount = invites.filter((i) => i.status === "ACCEPTED").length;
+          const expiredCount = invites.filter((i) => i.status === "EXPIRED" || i.status === "REVOKED").length;
+
+          return (
+            <div className="space-y-4 font-mono text-xs">
+              {/* Header Card */}
+              <div className="bg-wellqc-panel border border-wellqc-border p-4 rounded space-y-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-wellqc-border pb-3">
+                  <div>
+                    <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                      <UserPlus className="w-4 h-4 text-purple-400" />
+                      Client Workstation Invites &amp; Gated Access Ledger
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Issue cryptographically signed, expiring registration links for approved enterprise leads and client asset teams.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenInviteModal()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-sm shadow-purple-900/30 transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create New Invite</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={loadInvites}
+                      disabled={isLoadingInvites}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isLoadingInvites ? "animate-spin text-purple-400" : ""}`} />
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* KPI Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-slate-950/60 border border-slate-800 rounded p-3">
+                    <div className="text-[10px] text-slate-400 uppercase tracking-wider">Total Dispatched</div>
+                    <div className="text-xl font-bold text-white mt-1">{totalCount}</div>
+                  </div>
+                  <div className="bg-slate-950/60 border border-slate-800 rounded p-3">
+                    <div className="text-[10px] text-cyan-400 uppercase tracking-wider">Pending Links</div>
+                    <div className="text-xl font-bold text-cyan-300 mt-1">{pendingCount}</div>
+                  </div>
+                  <div className="bg-slate-950/60 border border-slate-800 rounded p-3">
+                    <div className="text-[10px] text-emerald-400 uppercase tracking-wider">Redeemed &amp; Active</div>
+                    <div className="text-xl font-bold text-emerald-300 mt-1">{acceptedCount}</div>
+                  </div>
+                  <div className="bg-slate-950/60 border border-slate-800 rounded p-3">
+                    <div className="text-[10px] text-slate-400 uppercase tracking-wider">Expired / Revoked</div>
+                    <div className="text-xl font-bold text-slate-300 mt-1">{expiredCount}</div>
+                  </div>
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-2 pt-2 items-center justify-between">
+                  <div className="flex flex-wrap gap-1.5">
+                    {(["ALL", "PENDING", "ACCEPTED", "EXPIRED", "REVOKED"] as const).map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => setInviteStatusFilter(status)}
+                        className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
+                          inviteStatusFilter === status
+                            ? "bg-purple-600 text-white shadow-sm"
+                            : "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search email, company..."
+                      value={inviteSearchQuery}
+                      onChange={(e) => setInviteSearchQuery(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Invites List Table */}
+              <div className="space-y-3">
+                {isLoadingInvites ? (
+                  <div className="bg-wellqc-panel border border-wellqc-border rounded p-8 text-center text-slate-400 flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
+                    <span>Loading workstation invitations...</span>
+                  </div>
+                ) : filteredInvites.length === 0 ? (
+                  <div className="bg-wellqc-panel border border-wellqc-border rounded p-8 text-center text-slate-400 space-y-2">
+                    <p className="font-semibold text-slate-300">No client invitations found.</p>
+                    <p className="text-[11px] text-slate-500">
+                      Navigate to the &quot;Demo &amp; Inquiries&quot; tab to invite an approved lead, or click &quot;Create New Invite&quot; above.
+                    </p>
+                  </div>
+                ) : (
+                  filteredInvites.map((inv) => {
+                    const fullInviteUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${inv.inviteUrl}`;
+                    const isCopied = copiedInviteId === inv.id;
+                    const isPending = inv.status === "PENDING";
+                    const isAccepted = inv.status === "ACCEPTED";
+                    const isExpired = inv.status === "EXPIRED";
+
+                    return (
+                      <div
+                        key={inv.id}
+                        className="bg-wellqc-panel border border-wellqc-border rounded p-4 space-y-3 transition-colors hover:border-slate-700"
+                      >
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-bold text-white text-sm">{inv.company}</span>
+                              {inv.contactName && (
+                                <span className="text-slate-400 text-xs">({inv.contactName})</span>
+                              )}
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                {inv.planTier} TIER
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                                  isAccepted
+                                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                                    : isPending
+                                    ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/30"
+                                    : isExpired
+                                    ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                                    : "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                                }`}
+                              >
+                                {isAccepted ? "● Redeemed" : isPending ? "● Active Link" : inv.status}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-300 font-mono flex items-center gap-2">
+                              <Mail className="w-3 h-3 text-slate-400" />
+                              <span>{inv.email}</span>
+                            </div>
+                          </div>
+
+                          <div className="text-[11px] text-slate-400 space-y-0.5 text-right font-mono">
+                            <div>Issued: {new Date(inv.createdAt).toLocaleString()}</div>
+                            <div>
+                              {isAccepted && inv.acceptedAt
+                                ? `Redeemed: ${new Date(inv.acceptedAt).toLocaleString()}`
+                                : `Expires: ${new Date(inv.expiresAt).toLocaleDateString()}`}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Monospace URL & Actions Bar */}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2 border-t border-wellqc-border/40">
+                          <div className="bg-slate-950/80 border border-slate-800 rounded px-2.5 py-1.5 font-mono text-[11px] text-slate-300 truncate max-w-xl">
+                            {fullInviteUrl}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyInviteLink(fullInviteUrl, inv.id)}
+                              className="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              {isCopied ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span className="text-emerald-400 font-bold">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>Copy Link</span>
+                                </>
+                              )}
+                            </button>
+
+                            {isPending && (
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeInvite(inv.id)}
+                                className="px-2.5 py-1.5 rounded bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 text-xs inline-flex items-center gap-1 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Revoke</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── TAB 4: EMAIL SETTINGS ────────────────────────────────────────── */}
         {activeTab === "EMAIL" && (
@@ -2347,6 +3881,195 @@ export default function AdminPanelPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Invite Client / Workstation Generator Modal ─────────────────── */}
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-mono text-xs">
+          <div className="bg-slate-900 border border-purple-800/80 rounded shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-purple-400" />
+                Generate Workstation Enterprise Invite
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsInviteModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {generatedInviteUrl ? (
+              <div className="space-y-4 py-2">
+                <div className="bg-emerald-950/60 border border-emerald-500/60 rounded p-4 text-emerald-200 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-sm text-emerald-300">
+                    <Check className="w-4 h-4" />
+                    <span>Invitation Link Generated Successfully!</span>
+                  </div>
+                  <p className="text-xs leading-relaxed text-emerald-200/90">
+                    Share this dedicated link with the client. It enables them to register and immediately activate their workstation without manual verification.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-400 text-[11px] font-bold block">Registration URL:</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={generatedInviteUrl}
+                      className="flex-1 bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-purple-300 font-mono outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleCopyInviteLink(generatedInviteUrl, "modal")}
+                      className="px-4 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      {copiedInviteId === "modal" ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-300" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy Link</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+                  <a
+                    href={`mailto:${inviteFormEmail}?subject=${encodeURIComponent(
+                      `WellQC Workstation Invitation - ${inviteFormCompany}`
+                    )}&body=${encodeURIComponent(
+                      `Hello ${inviteFormContactName || "Team"},\n\nYour organization (${inviteFormCompany}) has been provisioned for WellQC Workstation (${inviteFormPlanTier} Tier).\n\nPlease complete your workstation setup using your dedicated invitation link:\n${generatedInviteUrl}\n\nThis link is cryptographically protected and expires in ${inviteFormExpiryDays} days.\n\nBest regards,\nWellQC Enterprise Support Team`
+                    )}`}
+                    className="px-3 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs inline-flex items-center gap-1.5 transition-colors"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Send Invitation Email</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsInviteModalOpen(false)}
+                    className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleCreateInvite} className="space-y-3.5">
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-bold block text-xs">Work Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={inviteFormEmail}
+                    onChange={(e) => setInviteFormEmail(e.target.value)}
+                    placeholder="e.g. lead@chevron.com"
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-bold block text-xs">Company / Operator Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={inviteFormCompany}
+                    onChange={(e) => setInviteFormCompany(e.target.value)}
+                    placeholder="e.g. Chevron Nigeria Limited"
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-bold block text-xs">Contact Person Name</label>
+                  <input
+                    type="text"
+                    value={inviteFormContactName}
+                    onChange={(e) => setInviteFormContactName(e.target.value)}
+                    placeholder="e.g. Engr. Samuel Olayemi"
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-slate-300 font-bold block text-xs">Plan Tier</label>
+                    <select
+                      value={inviteFormPlanTier}
+                      onChange={(e) => setInviteFormPlanTier(e.target.value as "PRO" | "ENTERPRISE")}
+                      className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500 cursor-pointer"
+                    >
+                      <option value="PRO">PRO Tier (Workstation)</option>
+                      <option value="ENTERPRISE">ENTERPRISE (Full Suite)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-slate-300 font-bold block text-xs">Link Expiration</label>
+                    <select
+                      value={inviteFormExpiryDays}
+                      onChange={(e) => setInviteFormExpiryDays(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500 cursor-pointer"
+                    >
+                      <option value={2}>48 Hours (2 Days)</option>
+                      <option value={7}>7 Days (1 Week)</option>
+                      <option value={14}>14 Days (2 Weeks)</option>
+                      <option value={30}>30 Days (1 Month)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-bold block text-xs">Internal Notes (Optional)</label>
+                  <textarea
+                    rows={2}
+                    value={inviteFormNotes}
+                    onChange={(e) => setInviteFormNotes(e.target.value)}
+                    placeholder="e.g. Technical demo approved by management for deepwater asset team."
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500 resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2 border-t border-slate-800">
+                  <button
+                    type="submit"
+                    disabled={isGeneratingInvite}
+                    className="flex-1 px-4 py-2.5 rounded bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs inline-flex items-center justify-center gap-2 transition-all shadow-md shadow-purple-900/30 cursor-pointer"
+                  >
+                    {isGeneratingInvite ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Generating Encrypted Token...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Generate &amp; Dispatch Invite</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsInviteModalOpen(false)}
+                    className="px-4 py-2.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

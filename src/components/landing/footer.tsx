@@ -14,12 +14,11 @@ export function LandingFooter() {
             <Link href="#capabilities" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Capabilities</Link>
             <Link href="#book-demo" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Book a Demo</Link>
             <Link href="#contact" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Contact</Link>
-            <Link href="/login" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Sign In</Link>
           </div>
         </div>
 
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500">
-          <p>&copy; {new Date().getFullYear()} WellQC Subsurface Analytics Inc. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} WellQCPlus Subsurface Analytics Inc. All rights reserved.</p>
           <p className="flex items-center gap-4">
             <span>Privacy Policy</span>
             <span>&bull;</span>

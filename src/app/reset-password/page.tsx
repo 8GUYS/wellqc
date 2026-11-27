@@ -143,7 +143,7 @@ function ResetPasswordContent() {
             <Database className="w-5 h-5 text-cyan-300" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-white tracking-tight">WellQC</h1>
+            <h1 className="text-xl font-black text-white tracking-tight">WellQC<span className="text-emerald-400 font-extrabold">+</span></h1>
             <p className="text-xs text-wellqc-muted font-mono">Subsurface Security &amp; Auth</p>
           </div>
         </div>
@@ -161,7 +161,7 @@ function ResetPasswordContent() {
         <>
           <h2 className="text-lg font-bold text-white">Create new password</h2>
           <p className="mt-1 text-xs text-wellqc-muted">
-            Enter a new password for your WellQC account. Must be at least 8 characters.
+            Enter a new password for your WellQCPlus account. Must be at least 8 characters.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">

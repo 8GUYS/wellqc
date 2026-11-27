@@ -27,6 +27,22 @@ import {
 } from "lucide-react";
 import { PaystackUpgradeModal } from "@/components/payments/paystack-upgrade-modal";
 
+interface PersistedInspectedWell {
+  id: string;
+  name: string;
+  apiNo?: string;
+  fileName?: string;
+  score?: number;
+  grade?: string;
+  operator?: string;
+  field?: string;
+  depthUnit?: string;
+  tdFt?: number;
+  curveCount?: number;
+  activeTab?: string;
+  inspectedAt?: string;
+}
+
 export default function WellAssetsManagementPage() {
   const [wells, setWells] = useState<WellListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,6 +50,52 @@ export default function WellAssetsManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [gradeFilter, setGradeFilter] = useState<string>("ALL");
+
+  // Persisted active well session (remembers previously inspected well across page navigations)
+  const [persistedWell, setPersistedWell] = useState<PersistedInspectedWell | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("wellqc_last_inspected_well");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.id && parsed.name) {
+          setPersistedWell(parsed);
+        }
+      }
+    } catch { }
+  }, []);
+
+  const handleClearPersistedWell = () => {
+    try {
+      localStorage.removeItem("wellqc_last_inspected_well");
+      localStorage.removeItem("wellqc_last_inspected_well_id");
+    } catch { }
+    setPersistedWell(null);
+  };
+
+  const handleSelectActiveWell = (well: WellListItem) => {
+    const record: PersistedInspectedWell = {
+      id: well.id,
+      name: well.name,
+      apiNo: well.apiNo,
+      fileName: well.latestLasFileName || `${well.name}.las`,
+      score: well.qualityScore ?? 0,
+      grade: well.qualityGrade || "GOOD",
+      operator: well.operatorName,
+      field: well.fieldName,
+      depthUnit: well.depthUnit || "FT",
+      tdFt: well.tdFt,
+      curveCount: well.curveCount || 0,
+      activeTab: "viewer",
+      inspectedAt: new Date().toISOString(),
+    };
+    try {
+      localStorage.setItem("wellqc_last_inspected_well", JSON.stringify(record));
+      localStorage.setItem("wellqc_last_inspected_well_id", well.id);
+    } catch { }
+    setPersistedWell(record);
+  };
 
   // Selection & Bulk Delete state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -308,6 +370,122 @@ export default function WellAssetsManagementPage() {
           </div>
         </header>
 
+        {/* Previously Inspected / Open Well Asset (Persistent Inspection Session) */}
+        {persistedWell && (
+          <section
+            aria-label="Active Inspected Well Asset"
+            className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#0f2137]/90 via-[#132742]/90 to-[#0b1828]/95 border-2 border-cyan-500/50 shadow-xl relative overflow-hidden backdrop-blur-md animate-in fade-in duration-300"
+          >
+            {/* Background ambient light */}
+            <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-500/10 rounded-full blur-[90px] pointer-events-none" />
+
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="flex h-2.5 w-2.5 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500" />
+                  </span>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-300 bg-cyan-500/15 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
+                    Active Inspected Well Asset
+                  </span>
+                  {persistedWell.inspectedAt && (
+                    <span className="text-[10px] font-mono text-slate-400">
+                      Opened {new Date(persistedWell.inspectedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-baseline gap-3">
+                  <h2 className="text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
+                    {persistedWell.name}
+                  </h2>
+                  <span className="text-xs font-mono text-cyan-300 font-medium">
+                    {persistedWell.fileName}
+                  </span>
+                  {persistedWell.score !== undefined && (
+                    <span
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold font-mono border ${
+                        persistedWell.grade === "EXCELLENT"
+                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                          : persistedWell.grade === "GOOD"
+                          ? "bg-cyan-500/15 text-cyan-400 border-cyan-500/30"
+                          : "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                      }`}
+                    >
+                      {persistedWell.score}/100 {persistedWell.grade}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-300 font-mono flex flex-wrap items-center gap-y-1">
+                  <span>
+                    Operator: <strong className="text-white">{persistedWell.operator || "N/A"}</strong>
+                  </span>
+                  <span className="mx-2 text-slate-600">•</span>
+                  <span>
+                    Field: <strong className="text-white">{persistedWell.field || "Standard Field"}</strong>
+                  </span>
+                  <span className="mx-2 text-slate-600">•</span>
+                  <span>
+                    Curves: <strong className="text-white">{persistedWell.curveCount || 0} active channels</strong>
+                  </span>
+                  {persistedWell.tdFt ? (
+                    <>
+                      <span className="mx-2 text-slate-600">•</span>
+                      <span>
+                        Depth Interval:{" "}
+                        <strong className="text-white">
+                          {persistedWell.tdFt.toLocaleString()} {persistedWell.depthUnit || "FT"}
+                        </strong>
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+              </div>
+
+              {/* Action Buttons to Resume & Make Changes */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0">
+                <Link
+                  href={`/wells/${persistedWell.id}`}
+                  className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-black text-xs flex items-center space-x-2 shadow-lg shadow-cyan-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  title="Resume viewing wireline curves, anomalies, and log viewer"
+                >
+                  <Eye className="w-4 h-4 text-slate-950" />
+                  <span>Resume Inspection</span>
+                </Link>
+
+                <Link
+                  href={`/qa-engine?wellId=${encodeURIComponent(persistedWell.id)}`}
+                  className="px-3.5 py-2.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 font-mono font-bold text-xs flex items-center space-x-1.5 transition-colors shadow-sm"
+                  title="Make changes: despike, calibrate, and repair in QA Engine"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <span>QA Engine</span>
+                </Link>
+
+                <Link
+                  href={`/standardisation?wellId=${encodeURIComponent(persistedWell.id)}`}
+                  className="px-3.5 py-2.5 rounded-xl bg-wellqc-card hover:bg-slate-800 text-slate-200 border border-wellqc-border font-mono font-bold text-xs flex items-center space-x-1.5 transition-colors"
+                  title="Make changes: map and standardise curve mnemonics"
+                >
+                  <Layers className="w-3.5 h-3.5 text-slate-300" />
+                  <span>Standardise</span>
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={handleClearPersistedWell}
+                  className="p-2.5 rounded-xl bg-wellqc-card/60 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-wellqc-border transition-colors"
+                  title="Dismiss active well session"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Operational Metrics KPI Cards */}
         <section aria-label="Well Repository Metrics" className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
           <div className="p-4 rounded-2xl bg-wellqc-panel border border-wellqc-border font-mono shadow-md">
@@ -514,6 +692,7 @@ export default function WellAssetsManagementPage() {
                 <tbody className="divide-y divide-wellqc-border/60">
                   {filteredWells.map((well) => {
                     const isSelected = selectedIds.has(well.id);
+                    const isInspected = persistedWell?.id === well.id;
                     const grade = (well.qualityGrade || "UNVALIDATED").toUpperCase();
                     const score = typeof well.qualityScore === "number" ? Math.round(well.qualityScore) : 0;
                     const hasCurves = (well.curveCount || 0) > 0;
@@ -521,8 +700,12 @@ export default function WellAssetsManagementPage() {
                     return (
                       <tr
                         key={well.id}
-                        className={`hover:bg-wellqc-card/40 transition-colors group ${
-                          isSelected ? "bg-cyan-500/5" : ""
+                        className={`transition-colors group ${
+                          isInspected
+                            ? "bg-cyan-500/10 ring-1 ring-inset ring-cyan-500/50"
+                            : isSelected
+                            ? "bg-cyan-500/5 hover:bg-wellqc-card/40"
+                            : "hover:bg-wellqc-card/40"
                         }`}
                       >
                         {/* Row Checkbox (Admins Only) */}
@@ -548,10 +731,16 @@ export default function WellAssetsManagementPage() {
                             <div className="flex items-center space-x-2">
                               <Link
                                 href={`/wells/${well.id}`}
-                                className="font-bold text-white text-xs tracking-tight hover:text-cyan-400 transition-colors flex items-center space-x-1"
+                                onClick={() => handleSelectActiveWell(well)}
+                                className="font-bold text-white text-xs tracking-tight hover:text-cyan-400 transition-colors flex items-center space-x-1.5"
                                 title="Open full well dossier & log viewer"
                               >
                                 <span>{well.name}</span>
+                                {isInspected && (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-cyan-500/25 text-cyan-300 border border-cyan-500/40">
+                                    OPEN
+                                  </span>
+                                )}
                               </Link>
                             </div>
                             <div className="flex items-center space-x-1.5 text-[11px] text-slate-400">
@@ -629,6 +818,7 @@ export default function WellAssetsManagementPage() {
                             {/* Inspect Link */}
                             <Link
                               href={`/wells/${well.id}`}
+                              onClick={() => handleSelectActiveWell(well)}
                               className="px-2.5 py-1.5 rounded-lg bg-wellqc-card hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 border border-wellqc-border hover:border-cyan-500/40 text-[11px] font-bold transition-colors flex items-center space-x-1 shadow-sm"
                               title="Inspect curves & anomalies in well dossier"
                             >

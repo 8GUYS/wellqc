@@ -79,4 +79,5 @@ skills-lock.json
 verify.txt
 
 # scratch & temporary agent exports
+.temp/
 /scratch/

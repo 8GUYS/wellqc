@@ -64,13 +64,19 @@
          C 50 35, 50 20, 50 8 Z"
       fill="url(#wellqcRightGrad)"
     />
+
+    <!-- Plus symbol on emerald wing -->
+    <g stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" opacity="0.95">
+      <line x1="68" y1="56" x2="68" y2="70" />
+      <line x1="61" y1="63" x2="75" y2="63" />
+    </g>
   </g>
 
   <!-- Typography -->
   <g transform="translate(115, 20)">
     <!-- Well (Navy/Dark slate) -->
     <text x="0" y="46" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="48" font-weight="800" fill="#0b2c58" letter-spacing="-1">
-      Well<tspan fill="url(#qcBlueGrad)">QC</tspan>
+      Well<tspan fill="url(#qcBlueGrad)">QC</tspan><tspan fill="#059669">+</tspan>
     </text>
 
     <!-- Tagline: Validate · Visualize · Trust -->

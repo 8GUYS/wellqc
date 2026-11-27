@@ -516,6 +516,25 @@ export default function LASUploadPage() {
             timestamp: Date.now(),
           }),
         );
+        localStorage.setItem(
+          "wellqc_last_inspected_well",
+          JSON.stringify({
+            id: result.well.id,
+            name: result.well.name,
+            apiNo: parsedLAS.wellInfo?.apiUwi || "",
+            fileName: fileName || `${result.well.name}.las`,
+            score: result.well.qualityScore ?? 0,
+            grade: qaResult.qualityGrade || "GOOD",
+            operator: parsedLAS.wellInfo?.company || "",
+            field: parsedLAS.wellInfo?.field || "",
+            depthUnit: parsedLAS.wellInfo?.depthUnit || "FT",
+            tdFt: parsedLAS.wellInfo?.stopDepth || 0,
+            curveCount: qaResult.curveSummaries?.length || 0,
+            activeTab: "viewer",
+            inspectedAt: new Date().toISOString(),
+          }),
+        );
+        localStorage.setItem("wellqc_last_inspected_well_id", result.well.id);
       } catch { }
     } catch (error) {
       setSavedSuccess(false);

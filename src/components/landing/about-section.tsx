@@ -115,7 +115,7 @@ export function AboutSection() {
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-700 dark:text-cyan-400 text-xs font-semibold">
               <Building className="w-3.5 h-3.5" />
-              <span>About WellQC</span>
+              <span>About WellQCPlus</span>
             </div>
 
             <h2 className="text-3xl sm:text-4xl font-extrabold text-wellqc-text tracking-tight leading-tight">
@@ -127,7 +127,7 @@ export function AboutSection() {
             </p>
 
             <p className="text-wellqc-muted leading-relaxed text-sm">
-              WellQC was created to eliminate tedious manual cleaning of raw LAS files. Our AI-driven engine enforces physical boundary limits, cleans noisy sensor signals, standardises inconsistent mnemonics across different oilfield operators, and provides machine-learning powered missing value imputation.
+              WellQCPlus was created to eliminate tedious manual cleaning of raw LAS files. Our AI-driven engine enforces physical boundary limits, cleans noisy sensor signals, standardises inconsistent mnemonics across different oilfield operators, and provides machine-learning powered missing value imputation.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
@@ -152,7 +152,7 @@ export function AboutSection() {
             <div className="relative bg-wellqc-card rounded-2xl border border-wellqc-border p-8 space-y-6 shadow-md">
               <h3 className="text-xl font-bold text-wellqc-text flex items-center gap-2">
                 <Award className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                Why Leading Energy Teams Trust WellQC
+                Why Leading Energy Teams Trust WellQCPlus
               </h3>
 
               <ul className="space-y-4 text-sm text-wellqc-text/90">

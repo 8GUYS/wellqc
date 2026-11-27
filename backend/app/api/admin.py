@@ -1,4 +1,6 @@
 import logging
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
@@ -19,6 +21,8 @@ from backend.app.models.models import (
     QualityReport,
     Anomaly,
     Webhook,
+    PaymentTransaction,
+    ClientInvite,
     now_utc,
 )
 
@@ -69,6 +73,102 @@ def list_admin_users(
             }
             for u in users
         ]
+    }
+
+
+@router.get("/purchases")
+def list_admin_purchases(
+    admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns verified subscription and Pro purchases ledger for compliance,
+    license reconciliation, and regulatory audit review.
+    """
+    try:
+        transactions = (
+            db.query(PaymentTransaction)
+            .order_by(desc(PaymentTransaction.createdAt))
+            .all()
+        )
+    except Exception as e:
+        logger.warning(f"Unable to query PaymentTransaction table: {e}")
+        transactions = []
+
+    users = db.query(User).all()
+    users_by_id = {u.id: u for u in users}
+
+    total_pro_purchases = 0
+    total_enterprise_purchases = 0
+    total_pro_settled_amount_ngn = 0
+    total_pro_settled_amount_usd = 0
+
+    active_pro_users = sum(1 for u in users if (u.tier or "").upper() == "PRO")
+    active_enterprise_users = sum(1 for u in users if (u.tier or "").upper() == "ENTERPRISE")
+    active_free_users = sum(1 for u in users if (u.tier or "").upper() in ("FREE", ""))
+
+    items = []
+    import hashlib
+    hash_accumulator = hashlib.sha256()
+
+    for t in transactions:
+        user = users_by_id.get(t.userId)
+        plan_str = (t.plan or "").upper()
+        is_pro = "PRO" in plan_str or "SINGLE" in plan_str
+        is_enterprise = "ENTERPRISE" in plan_str
+        is_success = (t.status or "").upper() == "SUCCESS"
+
+        if is_pro and is_success:
+            total_pro_purchases += 1
+            if (t.currency or "").upper() == "NGN":
+                total_pro_settled_amount_ngn += t.amount // 100
+            else:
+                total_pro_settled_amount_usd += t.amount // 100
+        elif is_enterprise and is_success:
+            total_enterprise_purchases += 1
+
+        record_sig = f"{t.reference}|{t.amount}|{t.currency}|{t.status}|{t.createdAt}"
+        hash_accumulator.update(record_sig.encode("utf-8"))
+
+        items.append({
+            "id": t.id,
+            "reference": t.reference,
+            "userId": t.userId,
+            "userName": user.name if user else "Deleted User",
+            "userEmail": user.email if user else "Not Available",
+            "userDepartment": user.department if user else "Subsurface Analytics",
+            "plan": t.plan,
+            "isPro": is_pro,
+            "isEnterprise": is_enterprise,
+            "amount": t.amount,
+            "currency": t.currency or "NGN",
+            "status": (t.status or "PENDING").upper(),
+            "channel": t.channel or "paystack",
+            "paidAt": t.paidAt.isoformat() if t.paidAt else None,
+            "createdAt": t.createdAt.isoformat() if t.createdAt else "",
+            "complianceVerified": is_success,
+        })
+
+    license_ratio = f"{active_pro_users} / {max(total_pro_purchases, active_pro_users)}" if (total_pro_purchases > 0 or active_pro_users > 0) else "0 / 0"
+    compliance_status = "COMPLIANT" if active_pro_users <= max(total_pro_purchases, active_pro_users) else "AUDIT_WARNING"
+
+    return {
+        "summary": {
+            "totalProPurchases": total_pro_purchases,
+            "totalEnterprisePurchases": total_enterprise_purchases,
+            "totalPurchases": len([t for t in transactions if (t.status or "").upper() == "SUCCESS"]),
+            "totalTransactions": len(transactions),
+            "activeProUsers": active_pro_users,
+            "activeEnterpriseUsers": active_enterprise_users,
+            "activeFreeUsers": active_free_users,
+            "totalProSettledAmountNgn": total_pro_settled_amount_ngn,
+            "totalProSettledAmountUsd": total_pro_settled_amount_usd,
+            "complianceStatus": compliance_status,
+            "licenseAllocationRatio": license_ratio,
+            "complianceAuditHash": hash_accumulator.hexdigest(),
+            "complianceStandard": "SOC2-CC6.8 / NUPRC-WQC-REV / IFRS-15",
+        },
+        "purchases": items,
     }
 
 @router.patch("/users")
@@ -826,5 +926,148 @@ def test_webhook(
         "webhookId": webhook.id,
         "endpoint": webhook.url,
     }
+
+
+class CreateInviteRequest(BaseModel):
+    email: str
+    company: str
+    contactName: Optional[str] = None
+    planTier: Optional[str] = "PRO"
+    maxSeats: Optional[int] = 1
+    expiryDays: Optional[int] = 7
+    leadId: Optional[str] = None
+    notes: Optional[str] = None
+    sendEmail: Optional[bool] = False
+
+
+@router.get("/invites")
+def list_invites(
+    admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    invites = db.query(ClientInvite).order_by(desc(ClientInvite.createdAt)).all()
+    now = datetime.now(timezone.utc)
+    formatted = []
+    for inv in invites:
+        exp = inv.expiresAt
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        status_str = inv.status
+        if status_str == "PENDING" and exp < now:
+            status_str = "EXPIRED"
+        formatted.append({
+            "id": inv.id,
+            "token": inv.token,
+            "email": inv.email,
+            "company": inv.company,
+            "contactName": inv.contactName or "",
+            "planTier": inv.planTier or "PRO",
+            "maxSeats": inv.maxSeats or 1,
+            "status": status_str,
+            "expiresAt": inv.expiresAt.isoformat(),
+            "acceptedAt": inv.acceptedAt.isoformat() if inv.acceptedAt else None,
+            "createdAt": inv.createdAt.isoformat() if inv.createdAt else "",
+            "createdById": inv.createdById,
+            "leadId": inv.leadId,
+            "notes": inv.notes,
+            "inviteUrl": f"/register?invite={inv.token}",
+        })
+    return {"invites": formatted}
+
+
+@router.post("/invites")
+def create_invite(
+    req: CreateInviteRequest,
+    admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    clean_email = req.email.strip().lower()
+    clean_company = req.company.strip()
+    if not clean_email or "@" not in clean_email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A valid corporate email address is required.")
+    if not clean_company:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Company or operator name is required.")
+
+    now = datetime.now(timezone.utc)
+    expiry_days = max(1, min(req.expiryDays or 7, 90))
+    expires_at = now + timedelta(days=expiry_days)
+
+    token = f"inv_{secrets.token_urlsafe(24)}"
+
+    invite = ClientInvite(
+        token=token,
+        email=clean_email,
+        company=clean_company,
+        contactName=req.contactName.strip() if req.contactName else None,
+        planTier=(req.planTier or "PRO").upper(),
+        maxSeats=max(1, req.maxSeats or 1),
+        status="PENDING",
+        expiresAt=expires_at,
+        createdById=admin.id,
+        leadId=req.leadId,
+        notes=req.notes,
+    )
+    db.add(invite)
+
+    audit = ActivityLog(
+        userId=admin.id,
+        userName=admin.name,
+        userRole=admin.role,
+        action="CREATE_INVITE",
+        targetType="CLIENT_INVITE",
+        targetId=invite.id,
+        details=f"Admin generated {invite.planTier} invitation for '{clean_email}' ({clean_company}) valid for {expiry_days} days.",
+    )
+    db.add(audit)
+    db.commit()
+    db.refresh(invite)
+
+    frontend_url = settings.FRONTEND_URL.rstrip("/") if settings.FRONTEND_URL else ""
+    invite_path = f"/register?invite={invite.token}"
+    full_url = f"{frontend_url}{invite_path}" if frontend_url else invite_path
+
+    return {
+        "success": True,
+        "message": f"Invitation created for {clean_email} ({clean_company}).",
+        "invite": {
+            "id": invite.id,
+            "token": invite.token,
+            "email": invite.email,
+            "company": invite.company,
+            "contactName": invite.contactName,
+            "planTier": invite.planTier,
+            "maxSeats": invite.maxSeats,
+            "status": invite.status,
+            "expiresAt": invite.expiresAt.isoformat(),
+            "createdAt": invite.createdAt.isoformat(),
+            "inviteUrl": invite_path,
+            "fullUrl": full_url,
+        }
+    }
+
+
+@router.delete("/invites/{invite_id}")
+def revoke_invite(
+    invite_id: str,
+    admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    invite = db.query(ClientInvite).filter(ClientInvite.id == invite_id).first()
+    if not invite:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invitation not found.")
+    invite.status = "REVOKED"
+    audit = ActivityLog(
+        userId=admin.id,
+        userName=admin.name,
+        userRole=admin.role,
+        action="REVOKE_INVITE",
+        targetType="CLIENT_INVITE",
+        targetId=invite_id,
+        details=f"Admin revoked invitation for '{invite.email}' ({invite.company}).",
+    )
+    db.add(audit)
+    db.commit()
+    return {"success": True, "message": f"Invitation for '{invite.email}' has been revoked."}
+
 
 

@@ -14,6 +14,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ScrollReveal, StaggerContainer, StaggerItem } from "./scroll-reveal";
 
 interface HeroSlide {
   id: string;
@@ -177,46 +178,56 @@ export function HeroSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-4xl mx-auto space-y-5 sm:space-y-6">
           {/* Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold tracking-wide uppercase shadow-inner">
-            <Sparkles className="w-3.5 h-3.5 shrink-0" />
-            <span>Next-Gen Petrophysical Quality Assurance</span>
-          </div>
+          <ScrollReveal direction="down" delay={0.1} distance={20}>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold tracking-wide uppercase shadow-inner">
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span>Next-Gen Petrophysical Quality Assurance</span>
+            </div>
+          </ScrollReveal>
 
           {/* Main Headline */}
-          <h1 className="hero-heading text-3xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.18] sm:leading-[1.15]">
-            Automated Well Log <br />
-            <span className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 dark:from-emerald-400 dark:via-teal-300 dark:to-cyan-400 bg-clip-text text-transparent">
-              Quality Assurance &amp; Standardisation
-            </span>
-          </h1>
+          <ScrollReveal direction="up" delay={0.2} distance={30}>
+            <h1 className="hero-heading text-3xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.18] sm:leading-[1.15]">
+              Automated Well Log <br />
+              <span className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 dark:from-emerald-400 dark:via-teal-300 dark:to-cyan-400 bg-clip-text text-transparent">
+                Quality Assurance &amp; Standardisation
+              </span>
+            </h1>
+          </ScrollReveal>
 
           {/* Subtitle */}
-          <p className="text-base sm:text-xl text-slate-600 dark:text-slate-300 font-normal leading-relaxed max-w-3xl mx-auto px-2 sm:px-0">
-            Autonomous subsurface data assurance for oil &amp; gas operators. Validate LAS 2.0/3.0 files, repair anomalous spikes, harmonise API RP 66 mnemonics, and certify regulatory compliance in seconds.
-          </p>
+          <ScrollReveal direction="up" delay={0.3} distance={24}>
+            <p className="text-base sm:text-xl text-slate-600 dark:text-slate-300 font-normal leading-relaxed max-w-3xl mx-auto px-2 sm:px-0">
+              Autonomous subsurface data assurance for oil &amp; gas operators. Validate LAS 2.0/3.0 files, repair anomalous spikes, harmonise API RP 66 mnemonics, and certify regulatory compliance in seconds.
+            </p>
+          </ScrollReveal>
 
           {/* CTA Buttons — Enterprise Technical Consultation Pair */}
-          <div className="pt-3 sm:pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-3.5 w-full max-w-md mx-auto sm:max-w-none">
-            <Link
-              href="#book-demo"
-              className="btn-apple-primary w-full sm:w-auto text-sm sm:text-base px-7 py-3 sm:px-8 sm:py-3.5 shadow-lg shadow-emerald-500/25"
-            >
-              <span>Book a Technical Demo</span>
-              <ArrowRight className="w-4 h-4 shrink-0" />
-            </Link>
-            <Link
-              href="#capabilities"
-              className="btn-apple-secondary w-full sm:w-auto text-sm sm:text-base px-6 py-3 sm:px-7 sm:py-3.5"
-            >
-              <span>Explore Capability Pillars</span>
-            </Link>
-          </div>
+          <ScrollReveal direction="up" delay={0.4} distance={20}>
+            <div className="pt-3 sm:pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-3.5 w-full max-w-md mx-auto sm:max-w-none">
+              <Link
+                href="#book-demo"
+                className="btn-apple-primary w-full sm:w-auto text-sm sm:text-base px-7 py-3 sm:px-8 sm:py-3.5 shadow-lg shadow-emerald-500/25"
+              >
+                <span>Book a Technical Demo</span>
+                <ArrowRight className="w-4 h-4 shrink-0" />
+              </Link>
+              <Link
+                href="#capabilities"
+                className="btn-apple-secondary w-full sm:w-auto text-sm sm:text-base px-6 py-3 sm:px-7 sm:py-3.5"
+              >
+                <span>Explore Capability Pillars</span>
+              </Link>
+            </div>
+          </ScrollReveal>
 
           {/* Freemium Trust Note */}
-          <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2 pt-1 font-medium">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span>Enterprise SLA • On-Premise / Private Cloud Deployment • NUPRC &amp; API RP 66 Compliant</span>
-          </p>
+          <ScrollReveal direction="up" delay={0.5} distance={16}>
+            <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2 pt-1 font-medium">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>Enterprise SLA • On-Premise / Private Cloud Deployment • NUPRC &amp; API RP 66 Compliant</span>
+            </p>
+          </ScrollReveal>
         </div>
 
         {/* Dynamic Interactive Laptop Slideshow Showcase */}
@@ -401,24 +412,27 @@ export function HeroSection() {
         </div>
 
         {/* Social Proof Metric Bar */}
-        <div className="mt-12 sm:mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 pt-8 sm:pt-10 border-t border-stone-300/70 dark:border-slate-800/80 text-center">
-          <div>
+        <StaggerContainer
+          staggerChildren={0.15}
+          className="mt-12 sm:mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 pt-8 sm:pt-10 border-t border-stone-300/70 dark:border-slate-800/80 text-center"
+        >
+          <StaggerItem direction="up" distance={20}>
             <span className="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400">10,000+</span>
             <span className="block text-xs sm:text-sm text-stone-700 dark:text-slate-400 mt-1 font-medium">LAS Files Processed</span>
-          </div>
-          <div>
+          </StaggerItem>
+          <StaggerItem direction="up" distance={20}>
             <span className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">99.4%</span>
             <span className="block text-xs sm:text-sm text-stone-700 dark:text-slate-400 mt-1 font-medium">Mnemonic Accuracy</span>
-          </div>
-          <div>
+          </StaggerItem>
+          <StaggerItem direction="up" distance={20}>
             <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 dark:text-blue-400">&lt; 3 Secs</span>
             <span className="block text-xs sm:text-sm text-stone-700 dark:text-slate-400 mt-1 font-medium">Audit Generation Time</span>
-          </div>
-          <div>
+          </StaggerItem>
+          <StaggerItem direction="up" distance={20}>
             <span className="text-2xl sm:text-3xl font-extrabold text-violet-600 dark:text-purple-400">100%</span>
             <span className="block text-xs sm:text-sm text-stone-700 dark:text-slate-400 mt-1 font-medium">Multi-Tenant Data Isolation</span>
-          </div>
-        </div>
+          </StaggerItem>
+        </StaggerContainer>
       </div>
     </section>
   );

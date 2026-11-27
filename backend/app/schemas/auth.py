@@ -42,6 +42,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     role: Optional[str] = Field("USER", max_length=30)
     acceptedNda: Optional[bool] = False
+    inviteToken: Optional[str] = Field(None, max_length=128)
 
     @field_validator("name")
     @classmethod

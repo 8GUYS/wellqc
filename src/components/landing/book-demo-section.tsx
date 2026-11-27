@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   Calendar,
   CheckCircle2,
@@ -20,12 +19,13 @@ import {
 export function BookDemoSection() {
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     fullName: "",
     workEmail: "",
     company: "",
     jobTitle: "",
-    fleetSize: "< 50 Wells",
+    fleetSize: "",
     primaryObjective: "NUPRC Regulatory Compliance Filing",
     timeframe: "This Week",
     notes: "",
@@ -34,23 +34,29 @@ export function BookDemoSection() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
-      // Send demo booking request to activity log / contact endpoint
-      await fetch("/api/activity", {
+      const response = await fetch("/api/leads/demo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "DEMO_REQUEST",
-          targetType: "ENTERPRISE_LEAD",
-          details: `Demo requested by ${formData.fullName} (${formData.workEmail}) from ${formData.company}. Fleet: ${formData.fleetSize}. Focus: ${formData.primaryObjective}.`,
-        }),
-      }).catch(() => null);
-    } catch {
-      // Graceful fallback
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => null);
+        throw new Error(
+          errBody?.detail || errBody?.error || "Unable to submit demo request right now. Please try again."
+        );
+      }
+
+      setSubmitted(true);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Unable to submit demo request right now. Please try again."
+      );
     } finally {
       setIsSubmitting(false);
-      setSubmitted(true);
     }
   };
 
@@ -68,7 +74,7 @@ export function BookDemoSection() {
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
-            See WellQC Live on Your Own Well Logs
+            See WellQCPlus Live on Your Own Well Logs
           </h2>
 
           <p className="text-slate-300 text-base sm:text-lg leading-relaxed">
@@ -182,18 +188,11 @@ export function BookDemoSection() {
                     </div>
                   </div>
 
-                  <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
-                    <Link
-                      href="/upload"
-                      className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-xs font-mono shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
-                    >
-                      <span>Test a File in Sandbox Right Now</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </Link>
+                  <div className="pt-4 flex items-center justify-center">
                     <button
                       type="button"
                       onClick={() => setSubmitted(false)}
-                      className="w-full sm:w-auto px-5 py-3 rounded-xl border border-slate-700 hover:border-slate-500 text-slate-300 font-mono text-xs transition-colors"
+                      className="w-full sm:w-auto px-5 py-3 rounded-xl border border-slate-700 hover:border-slate-500 text-slate-300 font-mono text-xs transition-colors cursor-pointer"
                     >
                       Submit Another Request
                     </button>
@@ -209,6 +208,12 @@ export function BookDemoSection() {
                       Complete the details below to tailor the session to your asset basin and data formats.
                     </p>
                   </div>
+
+                  {submitError && (
+                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 font-mono">
+                      {submitError}
+                    </div>
+                  )}
 
                   {/* Row 1: Name and Email */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -280,24 +285,8 @@ export function BookDemoSection() {
                     </div>
                   </div>
 
-                  {/* Row 3: Fleet Size and Primary Objective */}
+                  {/* Row 3: Primary Objective & Target Timeline */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
-                        Active Well Portfolio Size
-                      </label>
-                      <select
-                        value={formData.fleetSize}
-                        onChange={(e) => setFormData({ ...formData, fleetSize: e.target.value })}
-                        className="w-full bg-wellqc-panel border border-wellqc-border focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none transition"
-                      >
-                        <option value="< 50 Wells">&lt; 50 Wells (Single Asset)</option>
-                        <option value="50 – 250 Wells">50 – 250 Wells (Multi-Field)</option>
-                        <option value="250 – 1,000 Wells">250 – 1,000 Wells (Regional Fleet)</option>
-                        <option value="1,000+ Enterprise Fleet">1,000+ Enterprise Fleet</option>
-                      </select>
-                    </div>
-
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
                         Primary Technical Focus
@@ -312,6 +301,22 @@ export function BookDemoSection() {
                         <option value="Pre-Drilling Offset Well Comparison">Pre-Drilling Offset Log Correlation</option>
                         <option value="ML & Subsurface Analytics Data Prep">ML Dataset Quality Assurance</option>
                         <option value="Automated Petrophysical QA Workflow">Comprehensive E&P Department Rollout</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
+                        Target Demonstration Timeline
+                      </label>
+                      <select
+                        value={formData.timeframe}
+                        onChange={(e) => setFormData({ ...formData, timeframe: e.target.value })}
+                        className="w-full bg-wellqc-panel border border-wellqc-border focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none transition"
+                      >
+                        <option value="This Week">This Week (Priority)</option>
+                        <option value="Next 2 Weeks">Next 2 Weeks</option>
+                        <option value="This Month">This Month</option>
+                        <option value="Exploring Solutions">Exploring Solutions</option>
                       </select>
                     </div>
                   </div>

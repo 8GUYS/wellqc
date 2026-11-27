@@ -256,7 +256,7 @@ export default function StandardisationPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           standardMnemonic: selectedCurve,
-          alias: newAlias.trim().toUpperCase(),
+          alias: newAlias.trim(),
           addedBy: addedByName.trim() || currentUserName,
         }),
       });
@@ -274,7 +274,7 @@ export default function StandardisationPage() {
 
       await updateActiveUploadWithNewAlias(rerunQA);
 
-      showToast(`Alias "${newAlias.trim().toUpperCase()}" mapped to ${selectedCurve} for your account!`, "success");
+      showToast(`Alias "${newAlias.trim()}" mapped to ${selectedCurve} for your account!`, "success");
       setAddModalOpen(false);
       setNewAlias("");
       setAddError(null);
@@ -315,7 +315,7 @@ export default function StandardisationPage() {
     e.preventDefault();
     if (!editingCurve || !oldAlias || !newAliasEdit.trim()) return;
 
-    if (oldAlias.toUpperCase() === newAliasEdit.trim().toUpperCase()) {
+    if (oldAlias === newAliasEdit.trim()) {
       setEditModalOpen(false);
       return;
     }
@@ -333,8 +333,8 @@ export default function StandardisationPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           standardMnemonic: editingCurve,
-          oldAlias: oldAlias.toUpperCase(),
-          newAlias: newAliasEdit.trim().toUpperCase(),
+          oldAlias: oldAlias,
+          newAlias: newAliasEdit.trim(),
         }),
       });
 
@@ -351,7 +351,7 @@ export default function StandardisationPage() {
 
       await updateActiveUploadWithNewAlias(rerunQA);
 
-      showToast(`Updated alias "${oldAlias}" to "${newAliasEdit.trim().toUpperCase()}"`, "success");
+      showToast(`Updated alias "${oldAlias}" to "${newAliasEdit.trim()}"`, "success");
       setEditModalOpen(false);
       setEditError(null);
     } catch (err) {
@@ -389,7 +389,7 @@ export default function StandardisationPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        showToast(data.error || "Failed to delete alias", "error");
+        showToast(data.detail || data.error || "Failed to delete alias", "error");
         return;
       }
 
@@ -821,9 +821,8 @@ export default function StandardisationPage() {
 
               <form onSubmit={handleAddAlias} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-300 block">
                     <span>New Mnemonic Alias:</span>
-                    <span className="text-[10px] text-slate-500 font-normal">Auto-converted to uppercase</span>
                   </label>
                   <input
                     type="text"
@@ -832,7 +831,7 @@ export default function StandardisationPage() {
                     placeholder="e.g. GAM_CORR_V2"
                     value={newAlias}
                     onChange={(e) => handleNewAliasChange(e.target.value)}
-                    className="w-full bg-wellqc-card border border-wellqc-border focus:border-purple-500 rounded-lg p-2.5 text-white uppercase placeholder:normal-case font-bold tracking-wider text-sm focus:outline-none transition-colors"
+                    className="w-full bg-wellqc-card border border-wellqc-border focus:border-purple-500 rounded-lg p-2.5 text-white font-medium tracking-wide text-sm focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -924,9 +923,8 @@ export default function StandardisationPage() {
 
               <form onSubmit={handleSaveEdit} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-300 block">
                     <span>New Mnemonic Name:</span>
-                    <span className="text-[10px] text-slate-500 font-normal">Auto-converted to uppercase</span>
                   </label>
                   <input
                     type="text"
@@ -934,7 +932,7 @@ export default function StandardisationPage() {
                     autoFocus
                     value={newAliasEdit}
                     onChange={(e) => handleEditAliasChange(e.target.value)}
-                    className="w-full bg-wellqc-card border border-wellqc-border focus:border-cyan-500 rounded-lg p-2.5 text-white uppercase font-bold tracking-wider text-sm focus:outline-none transition-colors"
+                    className="w-full bg-wellqc-card border border-wellqc-border focus:border-cyan-500 rounded-lg p-2.5 text-white font-medium tracking-wide text-sm focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -1069,7 +1067,7 @@ export default function StandardisationPage() {
                   filteredCurves.map((c) => {
                     const customList = c.customAliases || [];
                     const customAliasesMap = new Map(
-                      customList.map((entry) => [entry.alias.toUpperCase(), entry])
+                      customList.map((entry) => [entry.alias.toLowerCase(), entry])
                     );
 
                     return (
@@ -1094,16 +1092,17 @@ export default function StandardisationPage() {
                         <td className="p-4 align-top">
                           <div className="flex flex-wrap gap-1.5 items-center">
                             {c.aliases.map((alias) => {
-                              const cleanAlias = alias.toUpperCase();
-                              const customEntry = customAliasesMap.get(cleanAlias);
+                              const aliasKey = alias.toLowerCase();
+                              const customEntry = customAliasesMap.get(aliasKey);
                               const isCustom = !!customEntry;
-                              const popoverKey = `${c.standardMnemonic}_${cleanAlias}`;
+                              const displayAlias = customEntry ? customEntry.alias : alias;
+                              const popoverKey = `${c.standardMnemonic}_${aliasKey}`;
                               const isPopoverOpen = activePopoverAlias === popoverKey;
 
                               if (isCustom && customEntry) {
                                 return (
                                   <div
-                                    key={cleanAlias}
+                                    key={aliasKey}
                                     className="relative inline-block"
                                     data-alias-pill="true"
                                   >
@@ -1120,7 +1119,7 @@ export default function StandardisationPage() {
                                         title={`Custom alias added by ${customEntry.addedBy} on ${formatTimestamp(customEntry.addedAt)}. Click for info & edit.`}
                                       >
                                         <Sparkles className="w-2.5 h-2.5 text-purple-400 shrink-0" />
-                                        <span className="font-bold">{cleanAlias}</span>
+                                        <span className="font-bold">{displayAlias}</span>
                                         <span className="text-[9px] text-purple-400/80 font-normal">
                                           ● Custom
                                         </span>
@@ -1129,11 +1128,11 @@ export default function StandardisationPage() {
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          openDeleteModal(c.standardMnemonic, cleanAlias);
+                                          openDeleteModal(c.standardMnemonic, displayAlias);
                                         }}
                                         className="text-rose-400 hover:text-rose-200 hover:bg-rose-500/30 rounded p-1 transition-colors cursor-pointer flex items-center"
-                                        title={`Delete custom alias ${cleanAlias}`}
-                                        aria-label={`Delete custom alias ${cleanAlias}`}
+                                        title={`Delete custom alias ${displayAlias}`}
+                                        aria-label={`Delete custom alias ${displayAlias}`}
                                       >
                                         <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                                       </button>
@@ -1162,7 +1161,7 @@ export default function StandardisationPage() {
                                           <div className="flex items-center justify-between text-slate-300">
                                             <span className="text-slate-500">Mnemonic:</span>
                                             <span className="font-bold text-white bg-purple-900/40 px-1.5 py-0.5 rounded border border-purple-500/30">
-                                              {cleanAlias}
+                                              {displayAlias}
                                             </span>
                                           </div>
                                           <div className="flex items-center justify-between text-slate-300">
@@ -1186,14 +1185,14 @@ export default function StandardisationPage() {
                                         {/* Actions: Edit & Delete (Issue 3) */}
                                         <div className="pt-2 border-t border-wellqc-border flex items-center justify-end gap-1.5">
                                           <button
-                                            onClick={() => openEditModal(c.standardMnemonic, cleanAlias)}
+                                            onClick={() => openEditModal(c.standardMnemonic, displayAlias)}
                                             className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-wellqc-card hover:bg-cyan-500/20 text-cyan-300 border border-wellqc-border text-[11px] font-bold transition-colors"
                                           >
                                             <Edit2 className="w-3 h-3" />
                                             <span>Edit</span>
                                           </button>
                                           <button
-                                            onClick={() => openDeleteModal(c.standardMnemonic, cleanAlias)}
+                                            onClick={() => openDeleteModal(c.standardMnemonic, displayAlias)}
                                             className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-wellqc-card hover:bg-rose-500/20 text-rose-300 border border-wellqc-border text-[11px] font-bold transition-colors"
                                           >
                                             <Trash2 className="w-3 h-3" />

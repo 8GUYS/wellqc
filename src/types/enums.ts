@@ -203,5 +203,7 @@ export const ActivityAction = {
   ADMIN_VERIFY_EMAIL: "ADMIN_VERIFY_EMAIL",
   ADMIN_UPDATE_USER: "ADMIN_UPDATE_USER",
   ADMIN_DELETE_USER: "ADMIN_DELETE_USER",
+  DEMO_REQUEST: "DEMO_REQUEST",
+  CONTACT_INQUIRY: "CONTACT_INQUIRY",
 } as const;
 export type ActivityAction = (typeof ActivityAction)[keyof typeof ActivityAction];

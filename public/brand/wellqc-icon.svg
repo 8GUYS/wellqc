@@ -64,4 +64,10 @@
        C 50 35, 50 20, 50 8 Z"
     fill="url(#wellqcRightGrad)"
   />
+
+  <!-- Plus symbol on emerald wing -->
+  <g stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" opacity="0.95">
+    <line x1="68" y1="56" x2="68" y2="70" />
+    <line x1="61" y1="63" x2="75" y2="63" />
+  </g>
 </svg>

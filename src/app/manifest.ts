@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "WellQC Petrophysical Studio",
-    short_name: "WellQC",
+    name: "WellQC+ Petrophysical Studio",
+    short_name: "WellQC+",
     description: "Enterprise AI-Powered Well Log Quality Assurance & Standardisation Platform",
     start_url: "/upload",
     display: "standalone",

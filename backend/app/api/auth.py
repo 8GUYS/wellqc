@@ -16,7 +16,7 @@ from backend.app.core.security import (
     read_password_reset_token,
     normalize_role,
 )
-from backend.app.models.models import User, ActivityLog
+from backend.app.models.models import User, ActivityLog, ClientInvite
 from backend.app.schemas.auth import (
     LoginRequest,
     RegisterRequest,
@@ -78,7 +78,7 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
     if not user or not req.password or not verify_password(req.password, user.passwordHash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email address or password.",
+            detail="Incorrect email address or password. If your team is new to WellQC Workstation, registration is by corporate invitation only.",
         )
     
     # Enforce email verification check
@@ -113,6 +113,52 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
     return {"user": user_dict, "token": token}
 
 
+@router.get("/invite/verify")
+def verify_invite(token: str, db: Session = Depends(get_db)):
+    clean_token = (token or "").strip()
+    if not clean_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invitation token is required.",
+        )
+    invite = db.query(ClientInvite).filter(ClientInvite.token == clean_token).first()
+    if not invite:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="The invitation link provided is invalid or has expired.",
+        )
+    if invite.status == "ACCEPTED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This invitation link has already been used to register an account.",
+        )
+    if invite.status == "REVOKED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This invitation link has been revoked by an administrator.",
+        )
+    expires_at = invite.expiresAt
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        invite.status = "EXPIRED"
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This invitation link has expired. Please contact your administrator for a new invite.",
+        )
+    return {
+        "valid": True,
+        "token": invite.token,
+        "email": invite.email,
+        "company": invite.company,
+        "contactName": invite.contactName or "",
+        "planTier": invite.planTier or "PRO",
+        "maxSeats": invite.maxSeats or 1,
+        "expiresAt": invite.expiresAt.isoformat(),
+    }
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED, dependencies=[Depends(RateLimitDependency(max_requests=10, window_seconds=60, action="register"))])
 def register(req: RegisterRequest, response: Response, request: Request, db: Session = Depends(get_db)):
     safe_name = req.name.strip() if req.name else ""
@@ -139,6 +185,47 @@ def register(req: RegisterRequest, response: Response, request: Request, db: Ses
             detail="Enter a name, a valid email address, a password of at least 8 characters, and accept the confidentiality agreement.",
         )
 
+    # Validate invite token if present, or enforce gated registration
+    invite = None
+    if req.inviteToken:
+        clean_token = req.inviteToken.strip()
+        invite = db.query(ClientInvite).filter(ClientInvite.token == clean_token).first()
+        if not invite:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="The invitation link provided is invalid or does not exist.",
+            )
+        if invite.status == "ACCEPTED":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This invitation link has already been used to register an account.",
+            )
+        if invite.status == "REVOKED":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This invitation link has been revoked by an administrator.",
+            )
+        expires_at = invite.expiresAt
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            invite.status = "EXPIRED"
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This invitation link has expired. Please contact your administrator or request a new invite.",
+            )
+        if safe_email != invite.email.strip().lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Registration email must match the invited corporate address: {invite.email}.",
+            )
+    elif settings.REQUIRE_REGISTRATION_INVITE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Registration to WellQC Workstation is currently by enterprise invitation only. Please book a demo to receive an invitation link.",
+        )
+
     existing = db.query(User).filter(User.email == safe_email).first()
     if existing:
         raise HTTPException(
@@ -147,36 +234,48 @@ def register(req: RegisterRequest, response: Response, request: Request, db: Ses
         )
 
     now = datetime.now(timezone.utc)
+    is_verified = (invite is not None) or (not settings.REQUIRE_EMAIL_VERIFICATION)
     new_user = User(
         name=safe_name,
         email=safe_email,
         passwordHash=hash_password(req.password),
         role=safe_role,
+        department=invite.company if invite else None,
+        tier=invite.planTier if invite else "FREE",
         ndaAcceptedAt=now,
-        isEmailVerified=not settings.REQUIRE_EMAIL_VERIFICATION,
+        isEmailVerified=is_verified,
+        emailVerifiedAt=now if is_verified else None,
     )
     db.add(new_user)
+    if invite:
+        invite.status = "ACCEPTED"
+        invite.acceptedAt = now
     db.commit()
     db.refresh(new_user)
 
-    # Generate secure verification token
-    verification_token = create_email_verification_token(
-        user_id=new_user.id,
-        email=new_user.email,
-    )
+    user_dict = _format_user(new_user)
 
-    # Dispatch verification email via transactional service (EmailJS, Resend, or dev logger)
-    try:
-        send_verification_email(
+    # If already verified via invite, directly establish session cookie
+    token = None
+    if is_verified:
+        token = _set_session_cookie(response, user_dict)
+    else:
+        # Generate secure verification token and send verification email
+        verification_token = create_email_verification_token(
+            user_id=new_user.id,
             email=new_user.email,
-            name=new_user.name,
-            token=verification_token,
-            db=db,
-            request=request,
         )
-    except Exception as email_err:
-        import logging
-        logging.getLogger("wellqc.auth").warning(f"Verification email dispatch warning: {email_err}")
+        try:
+            send_verification_email(
+                email=new_user.email,
+                name=new_user.name,
+                token=verification_token,
+                db=db,
+                request=request,
+            )
+        except Exception as email_err:
+            import logging
+            logging.getLogger("wellqc.auth").warning(f"Verification email dispatch warning: {email_err}")
 
     user_dict = _format_user(new_user)
 

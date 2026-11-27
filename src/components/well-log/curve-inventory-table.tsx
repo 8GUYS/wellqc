@@ -92,18 +92,29 @@ export function CurveInventoryTable({
                       : "All Nulls"}
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${curve.status === "EXCELLENT"
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                        : curve.status === "GOOD"
-                          ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                          : curve.status === "POOR"
-                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                            : "bg-red-500/20 text-red-300 border border-red-500/30"
-                        }`}
-                    >
-                      {curve.status} ({curve.healthScore}/100)
-                    </span>
+                    {(() => {
+                      const score = typeof curve.healthScore === "number" ? Math.max(0, Math.min(100, Math.round(curve.healthScore))) : 100;
+                      const status =
+                        score >= 90 ? "EXCELLENT" :
+                        score >= 75 ? "GOOD" :
+                        score >= 50 ? "POOR" : "CRITICAL";
+
+                      return (
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            status === "EXCELLENT"
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                              : status === "GOOD"
+                              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                              : status === "POOR"
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                              : "bg-red-500/20 text-red-300 border border-red-500/30"
+                          }`}
+                        >
+                          {status} ({score}/100)
+                        </span>
+                      );
+                    })()}
                   </td>
                   {onSelectCurveForTrack && (
                     <td className="py-3 px-4 text-center">

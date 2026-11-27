@@ -79,7 +79,7 @@ def create_alias(
     db: Session = Depends(get_db),
 ):
     clean_curve = req.standardMnemonic.strip().upper() if req.standardMnemonic else ""
-    clean_alias = req.alias.strip().upper() if req.alias else ""
+    clean_alias = req.alias.strip() if req.alias else ""
 
     if not clean_curve:
         raise HTTPException(
@@ -154,8 +154,8 @@ def update_alias(
     db: Session = Depends(get_db),
 ):
     clean_curve = req.standardMnemonic.strip().upper() if req.standardMnemonic else ""
-    clean_old = req.oldAlias.strip().upper() if req.oldAlias else ""
-    clean_new = req.newAlias.strip().upper() if req.newAlias else ""
+    clean_old = req.oldAlias.strip() if req.oldAlias else ""
+    clean_new = req.newAlias.strip() if req.newAlias else ""
 
     if not clean_curve or not clean_old or not clean_new:
         raise HTTPException(
@@ -165,7 +165,7 @@ def update_alias(
 
     user_aliases = _get_user_aliases(db, current_user)
     existing = next(
-        (e for e in user_aliases if e.standardMnemonic.upper() == clean_curve and e.alias.upper() == clean_old),
+        (e for e in user_aliases if e.standardMnemonic.upper() == clean_curve and e.alias.strip().upper() == clean_old.upper()),
         None,
     )
 
@@ -195,8 +195,7 @@ def update_alias(
     db_record = (
         db.query(CustomAlias)
         .filter(
-            CustomAlias.standardMnemonic == clean_curve,
-            CustomAlias.alias == clean_old,
+            CustomAlias.id == existing.id,
             or_(*user_filter),
         )
         .first()
@@ -225,7 +224,7 @@ def update_alias(
 
 
 @router.delete("/aliases")
-def delete_alias(
+async def delete_alias(
     request: Request,
     standardMnemonic: Optional[str] = Query(None),
     alias: Optional[str] = Query(None),
@@ -236,15 +235,12 @@ def delete_alias(
     # Check body if not in query
     if not standardMnemonic or not alias:
         try:
-            # Safely attempt to parse body
-            body_bytes = request.scope.get("_body")
-            if body_bytes:
-                body_data = json.loads(body_bytes.decode("utf-8"))
+            body_data = await request.json()
         except Exception:
             pass
 
     clean_curve = (standardMnemonic or body_data.get("standardMnemonic") or "").strip().upper()
-    clean_alias = (alias or body_data.get("alias") or "").strip().upper()
+    clean_alias = (alias or body_data.get("alias") or "").strip()
 
     if not clean_curve or not clean_alias:
         raise HTTPException(
@@ -254,26 +250,18 @@ def delete_alias(
 
     user_aliases = _get_user_aliases(db, current_user)
     existing = next(
-        (e for e in user_aliases if e.standardMnemonic.upper() == clean_curve and e.alias.upper() == clean_alias),
+        (e for e in user_aliases if e.standardMnemonic.upper() == clean_curve and e.alias.strip().upper() == clean_alias.upper()),
         None,
     )
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f'Alias "{alias}" was not found under {clean_curve}.',
+            detail=f'Alias "{clean_alias}" was not found under {clean_curve}.',
         )
 
-    # Delete from DB with user ownership enforcement
-    user_id = current_user.id if current_user else "anonymous"
-    user_email = current_user.email if current_user else ""
-    user_filter = [CustomAlias.userId == user_id]
-    if user_email:
-        user_filter.append(CustomAlias.userEmail == user_email)
-
+    # Delete from DB using exact record ID
     db.query(CustomAlias).filter(
-        CustomAlias.standardMnemonic == clean_curve,
-        CustomAlias.alias == clean_alias,
-        or_(*user_filter),
+        CustomAlias.id == existing.id,
     ).delete(synchronize_session=False)
     db.commit()
 

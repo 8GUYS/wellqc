@@ -34,7 +34,20 @@ export default function WellDetailPage({ params }: { params: Promise<{ id: strin
   const [detail, setDetail] = useState<WellDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<"viewer" | "curves" | "anomalies" | "headers" | "raw">("viewer");
+  const [activeTab, setActiveTab] = useState<"viewer" | "curves" | "anomalies" | "headers" | "raw">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("wellqc_last_inspected_well");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.id === id && parsed.activeTab) {
+            return parsed.activeTab;
+          }
+        }
+      } catch { }
+    }
+    return "viewer";
+  });
 
   // User Profile & License Gatekeeper State
   const [userProfile, setUserProfile] = useState<{
@@ -42,6 +55,30 @@ export default function WellDetailPage({ params }: { params: Promise<{ id: strin
     role: string;
   }>({ tier: "FREE", role: "USER" });
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+
+  // Persist the currently inspected well to localStorage so the user can easily resume/modify from Well Assets
+  useEffect(() => {
+    if (!detail?.well) return;
+    try {
+      const persisted = {
+        id: detail.well.id,
+        name: detail.well.name,
+        apiNo: detail.well.apiNo || "",
+        fileName: detail.well.latestLasFileName || `${detail.well.name}.las`,
+        score: detail.well.qualityScore ?? 0,
+        grade: detail.well.qualityGrade || "GOOD",
+        operator: detail.well.operatorName || "",
+        field: detail.well.fieldName || "",
+        depthUnit: detail.well.depthUnit || "FT",
+        tdFt: detail.well.tdFt || 0,
+        curveCount: detail.curveSummaries?.length || Object.keys(detail.curvesData?.curves || {}).length,
+        activeTab,
+        inspectedAt: new Date().toISOString(),
+      };
+      localStorage.setItem("wellqc_last_inspected_well", JSON.stringify(persisted));
+      localStorage.setItem("wellqc_last_inspected_well_id", detail.well.id);
+    } catch { }
+  }, [detail, activeTab]);
 
   useEffect(() => {
     let active = true;

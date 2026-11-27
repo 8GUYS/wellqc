@@ -60,6 +60,7 @@ export default function WellAssetsManagementPage() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.id && parsed.name) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setPersistedWell(parsed);
         }
       }

@@ -18,7 +18,6 @@ import {
   ShieldCheck,
   AlertTriangle,
   ArrowRight,
-  CheckCircle2,
   Building2,
 } from "lucide-react";
 import { safeReadJson } from "@/lib/http-client";
@@ -56,6 +55,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
   useEffect(() => {
     if (!isRegister) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsVerifyingInvite(false);
       return;
     }

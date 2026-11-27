@@ -25,7 +25,7 @@ export function BookDemoSection() {
     workEmail: "",
     company: "",
     jobTitle: "",
-    fleetSize: "< 50 Wells",
+    fleetSize: "",
     primaryObjective: "NUPRC Regulatory Compliance Filing",
     timeframe: "This Week",
     notes: "",
@@ -74,7 +74,7 @@ export function BookDemoSection() {
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
-            See WellQC Live on Your Own Well Logs
+            See WellQCPlus Live on Your Own Well Logs
           </h2>
 
           <p className="text-slate-300 text-base sm:text-lg leading-relaxed">
@@ -285,24 +285,8 @@ export function BookDemoSection() {
                     </div>
                   </div>
 
-                  {/* Row 3: Fleet Size and Primary Objective */}
+                  {/* Row 3: Primary Objective & Target Timeline */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
-                        Active Well Portfolio Size
-                      </label>
-                      <select
-                        value={formData.fleetSize}
-                        onChange={(e) => setFormData({ ...formData, fleetSize: e.target.value })}
-                        className="w-full bg-wellqc-panel border border-wellqc-border focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none transition"
-                      >
-                        <option value="< 50 Wells">&lt; 50 Wells (Single Asset)</option>
-                        <option value="50 – 250 Wells">50 – 250 Wells (Multi-Field)</option>
-                        <option value="250 – 1,000 Wells">250 – 1,000 Wells (Regional Fleet)</option>
-                        <option value="1,000+ Enterprise Fleet">1,000+ Enterprise Fleet</option>
-                      </select>
-                    </div>
-
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
                         Primary Technical Focus
@@ -317,6 +301,22 @@ export function BookDemoSection() {
                         <option value="Pre-Drilling Offset Well Comparison">Pre-Drilling Offset Log Correlation</option>
                         <option value="ML & Subsurface Analytics Data Prep">ML Dataset Quality Assurance</option>
                         <option value="Automated Petrophysical QA Workflow">Comprehensive E&P Department Rollout</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
+                        Target Demonstration Timeline
+                      </label>
+                      <select
+                        value={formData.timeframe}
+                        onChange={(e) => setFormData({ ...formData, timeframe: e.target.value })}
+                        className="w-full bg-wellqc-panel border border-wellqc-border focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none transition"
+                      >
+                        <option value="This Week">This Week (Priority)</option>
+                        <option value="Next 2 Weeks">Next 2 Weeks</option>
+                        <option value="This Month">This Month</option>
+                        <option value="Exploring Solutions">Exploring Solutions</option>
                       </select>
                     </div>
                   </div>

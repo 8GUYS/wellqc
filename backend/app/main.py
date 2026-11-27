@@ -112,6 +112,32 @@ async def lifespan(app: FastAPI):
                 '''))
                 conn.execute(text('CREATE INDEX IF NOT EXISTS "FormationMarker_wellId_idx" ON "FormationMarker"("wellId");'))
 
+            has_client_invite = conn.execute(text(
+                """select to_regclass('public."ClientInvite"') is not null""")).scalar()
+            if not has_client_invite:
+                conn.execute(text('''
+                    CREATE TABLE IF NOT EXISTS "ClientInvite" (
+                        "id" TEXT NOT NULL PRIMARY KEY,
+                        "token" VARCHAR(128) NOT NULL UNIQUE,
+                        "email" VARCHAR(255) NOT NULL,
+                        "company" VARCHAR(150) NOT NULL,
+                        "contactName" VARCHAR(120),
+                        "planTier" VARCHAR(50) NOT NULL DEFAULT 'PRO',
+                        "maxSeats" INTEGER NOT NULL DEFAULT 1,
+                        "status" VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+                        "expiresAt" TIMESTAMP(3) NOT NULL,
+                        "acceptedAt" TIMESTAMP(3),
+                        "createdById" TEXT REFERENCES "User"("id") ON DELETE SET NULL,
+                        "leadId" TEXT,
+                        "notes" TEXT,
+                        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                '''))
+                conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS "ClientInvite_token_key" ON "ClientInvite"("token");'))
+                conn.execute(text('CREATE INDEX IF NOT EXISTS "ClientInvite_email_idx" ON "ClientInvite"("email");'))
+                conn.execute(text('CREATE INDEX IF NOT EXISTS "ClientInvite_status_idx" ON "ClientInvite"("status");'))
+
         logger.info("Database schema compatibility check completed successfully.")
     except Exception as e:
         logger.exception(f"Database schema check failure on startup: {e}")

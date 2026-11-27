@@ -644,8 +644,7 @@ export function WellLogViewer({
   const handleTrackMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>, trackKey?: string) => {
       const rect = e.currentTarget.getBoundingClientRect();
-      const scrollY = e.currentTarget.scrollTop;
-      const clientYInContent = e.clientY - rect.top + scrollY;
+      const clientYInContent = e.clientY - rect.top;
       const rawDepth = minDepth + ((clientYInContent - 30) / (svgHeight - 60)) * depthSpan;
       const clampedDepth = Math.max(minDepth, Math.min(maxDepth, rawDepth));
       const idx = findDepthIndex(clampedDepth, depthArr);
@@ -673,8 +672,7 @@ export function WellLogViewer({
       if (e.touches.length === 0) return;
       const touch = e.touches[0];
       const rect = e.currentTarget.getBoundingClientRect();
-      const scrollY = e.currentTarget.scrollTop;
-      const clientYInContent = touch.clientY - rect.top + scrollY;
+      const clientYInContent = touch.clientY - rect.top;
       const rawDepth = minDepth + ((clientYInContent - 30) / (svgHeight - 60)) * depthSpan;
       const clampedDepth = Math.max(minDepth, Math.min(maxDepth, rawDepth));
       const idx = findDepthIndex(clampedDepth, depthArr);
@@ -962,8 +960,15 @@ export function WellLogViewer({
     const paneHeight = Math.min(svgHeight, VIEWPORT_HEIGHT);
 
     if (viewMode === "CLASSIC_PAPER") {
+      const isMultiTrack = selectedTracks.length > 3;
+      const depthColWidth = 96;
+      const singleTrackWidth = 200;
+      const totalLogWidth = isMultiTrack
+        ? depthColWidth + selectedTracks.length * singleTrackWidth
+        : 680;
+
       return (
-        <div className="bg-white text-black p-4 border-4 border-red-600 rounded-lg shadow-2xl overflow-x-auto select-none font-serif">
+        <div className="bg-white text-black p-4 border-4 border-red-600 rounded-lg shadow-2xl overflow-hidden select-none font-serif">
           {/* Main Title Banner Header */}
           <div className="border-2 border-black mb-1 p-2 flex flex-col md:flex-row md:items-center justify-between bg-white text-black text-center font-bold">
             <div className="w-24 hidden md:block text-left text-xs font-sans">
@@ -989,275 +994,281 @@ export function WellLogViewer({
           {/* Real-time Wireline Telemetry HUD */}
           <div className="mb-2">{renderTelemetryHudBar()}</div>
 
-          {/* Log Track Header Box */}
-          <div className="flex border-2 border-black bg-white text-black font-sans font-bold text-center text-xs min-w-[580px]">
-            {/* Depth Header */}
-            <div className="w-20 md:w-24 shrink-0 border-r-2 border-black p-2 flex flex-col justify-between bg-slate-100">
-              <div>Depth</div>
-              <div className="text-sm font-black">{depthUnit.toLowerCase()}</div>
-            </div>
-
-            {/* Dynamic Curve Track Headers */}
-            {selectedTracks.map((track, i) => (
-              <div
-                key={track.key}
-                className="flex-1 min-w-[180px] border-r-2 border-black last:border-r-0 p-1 bg-white flex flex-col justify-between"
-              >
-                <div className="flex items-center justify-between border-b border-black pb-0.5 text-xs">
-                  <span className="uppercase text-[11px] text-slate-700">TRACK {i + 1}</span>
-                  <div className="flex items-center space-x-1">
-                    {/* Inline Curve Switcher */}
-                    <select
-                      value={track.key}
-                      onChange={(e) => handleSwitchTrack(track.key, e.target.value)}
-                      className="bg-transparent text-[10px] font-mono font-bold cursor-pointer hover:bg-slate-100 rounded px-1 border-none focus:outline-none"
-                      title="Switch this track to another curve"
-                    >
-                      {allCurveKeys.map((k) => (
-                        <option key={k} value={k}>
-                          {k}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTrack(track.key)}
-                      title={`Hide ${track.meta.mnemonic} track`}
-                      className="text-slate-400 hover:text-red-600 p-0.5 rounded text-[11px]"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-
-                <div className="text-sm font-black truncate px-1 pt-0.5" style={{ color: track.meta.colorPaper }}>
-                  {track.meta.name.toUpperCase()}
-                </div>
-                <div className="text-xs font-mono" style={{ color: track.meta.colorPaper }}>
-                  {track.meta.mnemonic} ({track.meta.unit}) {track.meta.isLogScale ? "— Log Scale" : ""}
-                </div>
-
-                <div className="flex justify-between text-[11px] font-mono px-2 pt-1 border-t border-slate-300 mt-1">
-                  {track.meta.isLogScale ? (
-                    <>
-                      <span>0.2</span>
-                      <span>2</span>
-                      <span>20</span>
-                      <span>200</span>
-                      <span>2000</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>{track.meta.ticks[0]}</span>
-                      <span>{track.meta.ticks[1]}</span>
-                      <span>{track.meta.ticks[2]}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {selectedTracks.length === 0 && (
-              <div className="flex-1 p-3 text-center text-slate-500 font-mono text-xs">
-                No tracks displayed. Click &ldquo;Curves&rdquo; selector above to choose channels.
-              </div>
-            )}
-          </div>
-
-          {/* Main Log Grid Body — fixed-height scroll viewport (windowed rendering) */}
+          {/* Unified Scroll Viewport: Enables full horizontal scrolling across all tracks & vertical windowed depth scrolling */}
           <div
             onScroll={handleTrackScroll}
-            onMouseMove={(e) => handleTrackMouseMove(e)}
-            onMouseLeave={handleTrackMouseLeave}
-            onTouchMove={(e) => handleTrackTouchMove(e)}
-            onTouchEnd={handleTrackMouseLeave}
-            onClick={handleTrackClick}
-            className="relative border-2 border-t-0 border-black bg-white overflow-y-auto overflow-x-hidden min-w-[580px] cursor-crosshair"
-            style={{ height: `${paneHeight}px` }}
+            className="relative border-2 border-black bg-white overflow-x-auto overflow-y-auto cursor-crosshair"
+            style={{ height: `${paneHeight + 115}px`, maxHeight: `${VIEWPORT_HEIGHT + 115}px` }}
           >
-            <div className="relative" style={{ height: `${svgHeight}px` }}>
-              {/* Background Graph Grid Pattern */}
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  backgroundImage: `
-                    linear-gradient(to right, #cbd5e1 1px, transparent 1px),
-                    linear-gradient(to bottom, #94a3b8 1px, transparent 1px),
-                    linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)
-                  `,
-                  backgroundSize: `16.66% 40px, 100% 40px, 100% 10px`,
-                }}
-              />
-
-              {/* Selected Depth Marker Line */}
-              {selectedDepth !== null && selectedDepth >= minDepth && selectedDepth <= maxDepth && (
-                <div
-                  className="absolute left-0 right-0 border-b-2 border-cyan-500 z-30 pointer-events-none flex items-center justify-end pr-2"
-                  style={{ top: `${mapDepthToY(selectedDepth)}px` }}
-                >
-                  <span className="bg-cyan-600 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
-                    Target Depth: {selectedDepth.toFixed(1)} {depthUnit}
-                  </span>
-                </div>
-              )}
-
-              {/* Hover Crosshair Guide Line spanning all tracks */}
-              {hoverDepth !== null && (
-                <div
-                  className="absolute left-0 right-0 border-b-2 border-red-600/90 z-30 pointer-events-none flex items-center justify-between"
-                  style={{ top: `${mapDepthToY(hoverDepth)}px`, transform: "translateY(-50%)" }}
-                >
-                  <div className="bg-red-600 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-r shadow-md flex items-center space-x-1.5">
-                    <Crosshair className="w-3 h-3 text-white" />
-                    <span>{hoverDepth.toFixed(2)} {depthUnit}</span>
-                    {hoverTelemetry?.hasAnyNull && (
-                      <span className="bg-amber-400 text-black px-1 rounded text-[9px] font-black uppercase">
-                        NULL DETECTED
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex h-full relative z-10 font-sans">
-                {/* Depth Column */}
-                <div className="w-20 md:w-24 shrink-0 border-r-2 border-black bg-slate-50/50 relative">
-                  {depthTicks.map((d) => {
-                    const y = mapDepthToY(d);
-                    return (
-                      <div
-                        key={d}
-                        className="absolute left-0 right-0 flex items-center justify-between px-2 text-xs font-mono font-bold text-black border-t border-black/40"
-                        style={{ top: `${y}px`, transform: "translateY(-50%)" }}
-                      >
-                        <span className="text-sm">{d}</span>
-                        <span className="text-[10px] text-slate-500">—</span>
-                      </div>
-                    );
-                  })}
+            <div style={{ minWidth: isMultiTrack ? `${totalLogWidth}px` : "100%", width: isMultiTrack ? "max-content" : "100%" }}>
+              {/* Log Track Header Box — sticky top-0 to remain anchored during vertical scroll */}
+              <div className="sticky top-0 z-30 flex border-b-2 border-black bg-white text-black font-sans font-bold text-center text-xs">
+                {/* Depth Header — sticky left-0 and top-0 so depth indicator is ALWAYS visible */}
+                <div className="sticky left-0 z-40 w-20 md:w-24 shrink-0 border-r-2 border-black p-2 flex flex-col justify-between bg-slate-100 shadow-[2px_0_4px_rgba(0,0,0,0.08)]">
+                  <div>Depth</div>
+                  <div className="text-sm font-black">{depthUnit.toLowerCase()}</div>
                 </div>
 
-                {/* Dynamic Curve Tracks */}
-                {selectedTracks.map((track) => (
+                {/* Dynamic Curve Track Headers */}
+                {selectedTracks.map((track, i) => (
                   <div
                     key={track.key}
-                    className="flex-1 min-w-[180px] border-r-2 border-black last:border-r-0 relative"
+                    className={`${isMultiTrack ? "w-[200px] shrink-0" : "flex-1 min-w-[180px]"} border-r-2 border-black last:border-r-0 p-1 bg-white flex flex-col justify-between`}
                   >
-                    {/* Logarithmic Decades Grid */}
-                    {track.meta.isLogScale && (
-                      <div className="absolute inset-0 pointer-events-none flex justify-between px-0">
-                        <div className="border-r border-red-200/60 h-full w-[25%]" />
-                        <div className="border-r border-red-200/60 h-full w-[25%]" />
-                        <div className="border-r border-red-200/60 h-full w-[25%]" />
-                        <div className="h-full w-[25%]" />
+                    <div className="flex items-center justify-between border-b border-black pb-0.5 text-xs">
+                      <span className="uppercase text-[11px] text-slate-700">TRACK {i + 1}</span>
+                      <div className="flex items-center space-x-1">
+                        {/* Inline Curve Switcher */}
+                        <select
+                          value={track.key}
+                          onChange={(e) => handleSwitchTrack(track.key, e.target.value)}
+                          className="bg-transparent text-[10px] font-mono font-bold cursor-pointer hover:bg-slate-100 rounded px-1 border-none focus:outline-none"
+                          title="Switch this track to another curve"
+                        >
+                          {allCurveKeys.map((k) => (
+                            <option key={k} value={k}>
+                              {k}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTrack(track.key)}
+                          title={`Hide ${track.meta.mnemonic} track`}
+                          className="text-slate-400 hover:text-red-600 p-0.5 rounded text-[11px]"
+                        >
+                          ✕
+                        </button>
                       </div>
-                    )}
+                    </div>
 
-                    {/* SVG Polyline with non-scaling stroke across width */}
-                    <svg
-                      className="w-full h-full overflow-visible relative z-10"
-                      viewBox={`0 0 100 ${svgHeight}`}
-                      preserveAspectRatio="none"
+                    <div className="text-sm font-black truncate px-1 pt-0.5" style={{ color: track.meta.colorPaper }}>
+                      {track.meta.name.toUpperCase()}
+                    </div>
+                    <div className="text-xs font-mono" style={{ color: track.meta.colorPaper }}>
+                      {track.meta.mnemonic} ({track.meta.unit}) {track.meta.isLogScale ? "— Log Scale" : ""}
+                    </div>
+
+                    <div className="flex justify-between text-[11px] font-mono px-2 pt-1 border-t border-slate-300 mt-1">
+                      {track.meta.isLogScale ? (
+                        <>
+                          <span>0.2</span>
+                          <span>2</span>
+                          <span>20</span>
+                          <span>200</span>
+                          <span>2000</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>{track.meta.ticks[0]}</span>
+                          <span>{track.meta.ticks[1]}</span>
+                          <span>{track.meta.ticks[2]}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {selectedTracks.length === 0 && (
+                  <div className="flex-1 p-3 text-center text-slate-500 font-mono text-xs">
+                    No tracks displayed. Click &ldquo;Curves&rdquo; selector above to choose channels.
+                  </div>
+                )}
+              </div>
+
+              {/* Main Log Grid Body (Windowed Rendering) */}
+              <div
+                onMouseMove={(e) => handleTrackMouseMove(e)}
+                onMouseLeave={handleTrackMouseLeave}
+                onTouchMove={(e) => handleTrackTouchMove(e)}
+                onTouchEnd={handleTrackMouseLeave}
+                onClick={handleTrackClick}
+                className="relative bg-white"
+                style={{ height: `${svgHeight}px` }}
+              >
+                {/* Background Graph Grid Pattern */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    backgroundImage: `
+                      linear-gradient(to right, #cbd5e1 1px, transparent 1px),
+                      linear-gradient(to bottom, #94a3b8 1px, transparent 1px),
+                      linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)
+                    `,
+                    backgroundSize: `16.66% 40px, 100% 40px, 100% 10px`,
+                  }}
+                />
+
+                {/* Selected Depth Marker Line */}
+                {selectedDepth !== null && selectedDepth >= minDepth && selectedDepth <= maxDepth && (
+                  <div
+                    className="absolute left-0 right-0 border-b-2 border-cyan-500 z-30 pointer-events-none flex items-center justify-end pr-2"
+                    style={{ top: `${mapDepthToY(selectedDepth)}px` }}
+                  >
+                    <span className="bg-cyan-600 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
+                      Target Depth: {selectedDepth.toFixed(1)} {depthUnit}
+                    </span>
+                  </div>
+                )}
+
+                {/* Hover Crosshair Guide Line spanning all tracks */}
+                {hoverDepth !== null && (
+                  <div
+                    className="absolute left-0 right-0 border-b-2 border-red-600/90 z-30 pointer-events-none flex items-center justify-between"
+                    style={{ top: `${mapDepthToY(hoverDepth)}px`, transform: "translateY(-50%)" }}
+                  >
+                    <div className="bg-red-600 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-r shadow-md flex items-center space-x-1.5">
+                      <Crosshair className="w-3 h-3 text-white" />
+                      <span>{hoverDepth.toFixed(2)} {depthUnit}</span>
+                      {hoverTelemetry?.hasAnyNull && (
+                        <span className="bg-amber-400 text-black px-1 rounded text-[9px] font-black uppercase">
+                          NULL DETECTED
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex h-full relative z-10 font-sans">
+                  {/* Depth Column — sticky left-0 so depth indicator remains visible when scrolling horizontally */}
+                  <div className="sticky left-0 z-20 w-20 md:w-24 shrink-0 border-r-2 border-black bg-slate-50/95 backdrop-blur-sm relative shadow-[2px_0_4px_rgba(0,0,0,0.08)]">
+                    {depthTicks.map((d) => {
+                      const y = mapDepthToY(d);
+                      return (
+                        <div
+                          key={d}
+                          className="absolute left-0 right-0 flex items-center justify-between px-2 text-xs font-mono font-bold text-black border-t border-black/40"
+                          style={{ top: `${y}px`, transform: "translateY(-50%)" }}
+                        >
+                          <span className="text-sm">{d}</span>
+                          <span className="text-[10px] text-slate-500">—</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Dynamic Curve Tracks */}
+                  {selectedTracks.map((track) => (
+                    <div
+                      key={track.key}
+                      className={`${isMultiTrack ? "w-[200px] shrink-0" : "flex-1 min-w-[180px]"} border-r-2 border-black last:border-r-0 relative`}
                     >
-                      <polyline
-                        fill="none"
-                        stroke={track.meta.colorPaper}
-                        strokeWidth="2.5"
-                        vectorEffect="non-scaling-stroke"
-                        strokeLinejoin="round"
-                        strokeLinecap="round"
-                        points={track.points}
-                      />
+                      {/* Logarithmic Decades Grid */}
+                      {track.meta.isLogScale && (
+                        <div className="absolute inset-0 pointer-events-none flex justify-between px-0">
+                          <div className="border-r border-red-200/60 h-full w-[25%]" />
+                          <div className="border-r border-red-200/60 h-full w-[25%]" />
+                          <div className="border-r border-red-200/60 h-full w-[25%]" />
+                          <div className="h-full w-[25%]" />
+                        </div>
+                      )}
 
-                      {/* Hover Point on Curve */}
+                      {/* SVG Polyline with non-scaling stroke across width */}
+                      <svg
+                        className="w-full h-full overflow-visible relative z-10"
+                        viewBox={`0 0 100 ${svgHeight}`}
+                        preserveAspectRatio="none"
+                      >
+                        <polyline
+                          fill="none"
+                          stroke={track.meta.colorPaper}
+                          strokeWidth="2.5"
+                          vectorEffect="non-scaling-stroke"
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
+                          points={track.points}
+                        />
+
+                        {/* Hover Point on Curve */}
+                        {hoverDepth !== null && (() => {
+                          const reading = hoverTelemetry?.readings.find((r) => r.key === track.key);
+                          if (!reading || reading.isNull || reading.val === undefined) return null;
+                          const x = mapValueToX(reading.val, track.meta.minVal, track.meta.maxVal, 100, track.meta.isLogScale);
+                          const y = mapDepthToY(hoverDepth);
+                          return (
+                            <circle
+                              cx={x}
+                              cy={y}
+                              r="4"
+                              fill={track.meta.colorPaper}
+                              stroke="#ffffff"
+                              strokeWidth="2"
+                              className="pointer-events-none"
+                            />
+                          );
+                        })()}
+                      </svg>
+
+                      {/* Hover Value Badge & Explicit Null Value Callout on Line */}
                       {hoverDepth !== null && (() => {
                         const reading = hoverTelemetry?.readings.find((r) => r.key === track.key);
-                        if (!reading || reading.isNull || reading.val === undefined) return null;
-                        const x = mapValueToX(reading.val, track.meta.minVal, track.meta.maxVal, 100, track.meta.isLogScale);
+                        if (!reading) return null;
                         const y = mapDepthToY(hoverDepth);
-                        return (
-                          <circle
-                            cx={x}
-                            cy={y}
-                            r="4"
-                            fill={track.meta.colorPaper}
-                            stroke="#ffffff"
-                            strokeWidth="2"
-                            className="pointer-events-none"
-                          />
-                        );
-                      })()}
-                    </svg>
 
-                    {/* Hover Value Badge & Explicit Null Value Callout on Line */}
-                    {hoverDepth !== null && (() => {
-                      const reading = hoverTelemetry?.readings.find((r) => r.key === track.key);
-                      if (!reading) return null;
-                      const y = mapDepthToY(hoverDepth);
+                        if (reading.isNull) {
+                          return (
+                            <div
+                              className="absolute left-1 right-1 bg-red-600 text-white border-2 border-black px-1.5 py-0.5 rounded shadow-lg text-[10px] font-black font-sans flex items-center justify-center space-x-1 z-30 pointer-events-none animate-pulse"
+                              style={{ top: `${y}px`, transform: "translateY(-50%)" }}
+                            >
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                              <span className="truncate">
+                                ⚠️ NULL VALUE ({reading.val !== undefined && reading.val !== null ? reading.val : "-999.25"})
+                              </span>
+                            </div>
+                          );
+                        }
 
-                      if (reading.isNull) {
+                        const x = mapValueToX(reading.val, track.meta.minVal, track.meta.maxVal, 100, track.meta.isLogScale);
                         return (
                           <div
-                            className="absolute left-1 right-1 bg-red-600 text-white border-2 border-black px-1.5 py-0.5 rounded shadow-lg text-[10px] font-black font-sans flex items-center justify-center space-x-1 z-30 pointer-events-none animate-pulse"
+                            className="absolute font-mono font-black text-[10px] px-1.5 py-0.5 rounded shadow z-30 pointer-events-none text-white whitespace-nowrap"
+                            style={{
+                              left: `${Math.min(75, Math.max(8, x))}%`,
+                              top: `${y - 20}px`,
+                              backgroundColor: track.meta.colorPaper,
+                            }}
+                          >
+                            {reading.val.toFixed(2)} {track.meta.unit}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Missing Gaps Callouts */}
+                      {track.visibleGaps.map((gap, i) => {
+                        const topY = mapDepthToY(gap.startDepth);
+                        const botY = mapDepthToY(gap.endDepth);
+                        const h = Math.max(35, botY - topY);
+                        return (
+                          <div
+                            key={i}
+                            className="absolute left-2 right-2 border-2 border-black bg-white flex items-center justify-center font-black font-sans text-xs shadow-md z-20"
+                            style={{ top: `${topY}px`, height: `${h}px` }}
+                          >
+                            <span>MISSING GAP</span>
+                          </div>
+                        );
+                      })}
+
+                      {/* Anomalies on this curve track */}
+                      {track.curveAnomalies.map((an, i) => {
+                        const y = mapDepthToY(an.depthStart);
+                        return (
+                          <div
+                            key={i}
+                            className="absolute right-2 border-2 border-black bg-white px-2 py-1 shadow-lg text-[10px] font-black font-sans flex items-center space-x-1 z-20"
                             style={{ top: `${y}px`, transform: "translateY(-50%)" }}
                           >
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                            <span className="truncate">
-                              ⚠️ NULL VALUE ({reading.val !== undefined && reading.val !== null ? reading.val : "-999.25"})
+                            <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
+                            <span className="truncate max-w-[140px] uppercase">
+                              {an.anomalyType.replace(/_/g, " ")}
                             </span>
                           </div>
                         );
-                      }
-
-                      const x = mapValueToX(reading.val, track.meta.minVal, track.meta.maxVal, 100, track.meta.isLogScale);
-                      return (
-                        <div
-                          className="absolute font-mono font-black text-[10px] px-1.5 py-0.5 rounded shadow z-30 pointer-events-none text-white whitespace-nowrap"
-                          style={{
-                            left: `${Math.min(75, Math.max(8, x))}%`,
-                            top: `${y - 20}px`,
-                            backgroundColor: track.meta.colorPaper,
-                          }}
-                        >
-                          {reading.val.toFixed(2)} {track.meta.unit}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Missing Gaps Callouts */}
-                    {track.visibleGaps.map((gap, i) => {
-                      const topY = mapDepthToY(gap.startDepth);
-                      const botY = mapDepthToY(gap.endDepth);
-                      const h = Math.max(35, botY - topY);
-                      return (
-                        <div
-                          key={i}
-                          className="absolute left-2 right-2 border-2 border-black bg-white flex items-center justify-center font-black font-sans text-xs shadow-md z-20"
-                          style={{ top: `${topY}px`, height: `${h}px` }}
-                        >
-                          <span>MISSING GAP</span>
-                        </div>
-                      );
-                    })}
-
-                    {/* Anomalies on this curve track */}
-                    {track.curveAnomalies.map((an, i) => {
-                      const y = mapDepthToY(an.depthStart);
-                      return (
-                        <div
-                          key={i}
-                          className="absolute right-2 border-2 border-black bg-white px-2 py-1 shadow-lg text-[10px] font-black font-sans flex items-center space-x-1 z-20"
-                          style={{ top: `${y}px`, transform: "translateY(-50%)" }}
-                        >
-                          <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
-                          <span className="truncate max-w-[140px] uppercase">
-                            {an.anomalyType.replace(/_/g, " ")}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                      })}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -1298,16 +1309,23 @@ export function WellLogViewer({
           </div>
         ) : (
           <div
-            className={`grid grid-cols-1 ${
-              selectedTracks.length === 2
-                ? "md:grid-cols-2"
-                : selectedTracks.length >= 3
-                ? "md:grid-cols-3"
-                : ""
-            } gap-4 font-mono`}
+            className={
+              selectedTracks.length > 3
+                ? "flex overflow-x-auto gap-4 pb-4 font-mono select-none"
+                : `grid grid-cols-1 ${
+                    selectedTracks.length === 2
+                      ? "md:grid-cols-2"
+                      : selectedTracks.length === 3
+                      ? "md:grid-cols-3"
+                      : ""
+                  } gap-4 font-mono`
+            }
           >
             {selectedTracks.map((track, i) => (
-              <div key={track.key} className="bg-wellqc-panel border border-wellqc-border rounded-xl p-3">
+              <div
+                key={track.key}
+                className={`${selectedTracks.length > 3 ? "w-80 shrink-0" : ""} bg-wellqc-panel border border-wellqc-border rounded-xl p-3`}
+              >
                 <div className="flex items-center justify-between pb-2 border-b border-wellqc-border mb-2 text-xs font-bold">
                   <div className="flex items-center space-x-1.5 truncate">
                     <span

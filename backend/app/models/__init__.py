@@ -11,6 +11,8 @@ from backend.app.models.models import (
     APIToken,
     Webhook,
     CustomAlias,
+    PaymentTransaction,
+    ClientInvite,
 )
 
 __all__ = [
@@ -26,4 +28,6 @@ __all__ = [
     "APIToken",
     "Webhook",
     "CustomAlias",
+    "PaymentTransaction",
+    "ClientInvite",
 ]

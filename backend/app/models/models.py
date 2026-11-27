@@ -365,3 +365,31 @@ class PaymentTransaction(Base):
     user = relationship("User", back_populates="paymentTransactions")
 
 
+class ClientInvite(Base):
+    """
+    ClientInvite Model.
+    Tracks encrypted enterprise onboarding invitations issued by administrators
+    for verified petroleum operating company teams and leads.
+    """
+    __tablename__ = "ClientInvite"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    token = Column(String(128), unique=True, nullable=False, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    company = Column(String(150), nullable=False)
+    contactName = Column(String(120), nullable=True)
+    planTier = Column(String(50), default="PRO", nullable=False)  # "PRO", "ENTERPRISE"
+    maxSeats = Column(Integer, default=1, nullable=False)
+    status = Column(String(20), default="PENDING", nullable=False, index=True)  # PENDING, ACCEPTED, EXPIRED, REVOKED
+    expiresAt = Column(DateTime, nullable=False)
+    acceptedAt = Column(DateTime, nullable=True)
+    createdById = Column(String, ForeignKey("User.id", ondelete="SET NULL"), nullable=True, index=True)
+    leadId = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    createdAt = Column(DateTime, default=now_utc, nullable=False)
+    updatedAt = Column(DateTime, default=now_utc, onupdate=now_utc, nullable=False)
+
+    creator = relationship("User", foreign_keys=[createdById])
+
+

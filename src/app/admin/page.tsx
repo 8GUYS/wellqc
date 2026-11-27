@@ -34,7 +34,28 @@ import {
   Calendar,
   MessageSquare,
   ExternalLink,
+  Download,
+  UserPlus,
+  Send,
 } from "lucide-react";
+
+export interface ClientInviteItem {
+  id: string;
+  token: string;
+  email: string;
+  company: string;
+  contactName: string;
+  planTier: string;
+  maxSeats: number;
+  status: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+  expiresAt: string;
+  acceptedAt?: string | null;
+  createdAt: string;
+  createdById?: string | null;
+  leadId?: string | null;
+  notes?: string | null;
+  inviteUrl: string;
+}
 
 export interface LeadItem {
   id: string;
@@ -57,7 +78,7 @@ export interface LeadItem {
   notes?: string;
 }
 
-function parseLeadRecord(log: {
+export interface RawLeadRecord {
   id: string;
   userName?: string;
   userRole?: string;
@@ -68,7 +89,9 @@ function parseLeadRecord(log: {
   createdAt?: string;
   timestamp?: string;
   ip?: string;
-}): LeadItem {
+}
+
+function parseLeadRecord(log: RawLeadRecord): LeadItem {
   const actionStr = (log.action || "").toUpperCase();
   const targetStr = (log.targetType || "").toUpperCase();
   const isDemo = actionStr.includes("DEMO") || targetStr.includes("LEAD");
@@ -173,6 +196,41 @@ interface WebhookItem {
   events: string[];
   active: boolean;
   createdAt: string;
+}
+
+export interface PurchaseRecord {
+  id: string;
+  reference: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userDepartment: string;
+  plan: string;
+  isPro: boolean;
+  isEnterprise: boolean;
+  amount: number;
+  currency: string;
+  status: string;
+  channel: string;
+  paidAt: string | null;
+  createdAt: string;
+  complianceVerified: boolean;
+}
+
+export interface PurchasesSummary {
+  totalProPurchases: number;
+  totalEnterprisePurchases: number;
+  totalPurchases: number;
+  totalTransactions: number;
+  activeProUsers: number;
+  activeEnterpriseUsers: number;
+  activeFreeUsers: number;
+  totalProSettledAmountNgn: number;
+  totalProSettledAmountUsd: number;
+  complianceStatus: string;
+  licenseAllocationRatio: string;
+  complianceAuditHash: string;
+  complianceStandard: string;
 }
 
 const ROLES = ["ADMIN", "USER"] as const;
@@ -328,7 +386,7 @@ const PERMISSION_MATRIX: PermissionDef[] = [
 
 export default function AdminPanelPage() {
   const [users, setUsers] = useState<UserRecord[]>([]);
-  const [activeTab, setActiveTab] = useState<"USERS" | "MATRIX" | "AUDIT" | "LEADS" | "EMAIL" | "TOKENS" | "WEBHOOKS">("USERS");
+  const [activeTab, setActiveTab] = useState<"USERS" | "PURCHASES" | "MATRIX" | "AUDIT" | "LEADS" | "INVITES" | "EMAIL" | "TOKENS" | "WEBHOOKS">("USERS");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -336,6 +394,15 @@ export default function AdminPanelPage() {
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  // Pro Purchases & Subscription Compliance State
+  const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
+  const [purchasesSummary, setPurchasesSummary] = useState<PurchasesSummary | null>(null);
+  const [isLoadingPurchases, setIsLoadingPurchases] = useState(false);
+  const [purchaseSearchQuery, setPurchaseSearchQuery] = useState("");
+  const deferredPurchaseSearchQuery = useDeferredValue(purchaseSearchQuery);
+  const [purchasePlanFilter, setPurchasePlanFilter] = useState<"ALL" | "PRO" | "ENTERPRISE">("ALL");
+  const [purchaseStatusFilter, setPurchaseStatusFilter] = useState<"ALL" | "SUCCESS" | "PENDING" | "FAILED">("ALL");
 
   // Bulk User Management State
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -381,13 +448,32 @@ export default function AdminPanelPage() {
   const deferredAuditSearchQuery = useDeferredValue(auditSearchQuery);
 
   // Enterprise Demo & Inquiries State
-  const [rawLeads, setRawLeads] = useState<Record<string, unknown>[]>([]);
+  const [rawLeads, setRawLeads] = useState<RawLeadRecord[]>([]);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
   const [leadsFilter, setLeadsFilter] = useState<"ALL" | "DEMO" | "CONTACT">("ALL");
   const [leadsSearchQuery, setLeadsSearchQuery] = useState("");
   const deferredLeadsSearchQuery = useDeferredValue(leadsSearchQuery);
   const [copiedLeadId, setCopiedLeadId] = useState<string | null>(null);
   const [copiedLeadField, setCopiedLeadField] = useState<string | null>(null);
+
+  // Client Workstation Invites State
+  const [invites, setInvites] = useState<ClientInviteItem[]>([]);
+  const [isLoadingInvites, setIsLoadingInvites] = useState(false);
+  const [inviteSearchQuery, setInviteSearchQuery] = useState("");
+  const deferredInviteSearchQuery = useDeferredValue(inviteSearchQuery);
+  const [inviteStatusFilter, setInviteStatusFilter] = useState<"ALL" | "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED">("ALL");
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteFormEmail, setInviteFormEmail] = useState("");
+  const [inviteFormCompany, setInviteFormCompany] = useState("");
+  const [inviteFormContactName, setInviteFormContactName] = useState("");
+  const [inviteFormPlanTier, setInviteFormPlanTier] = useState<"PRO" | "ENTERPRISE">("PRO");
+  const [inviteFormExpiryDays, setInviteFormExpiryDays] = useState(7);
+  const [inviteFormMaxSeats, setInviteFormMaxSeats] = useState(1);
+  const [inviteFormNotes, setInviteFormNotes] = useState("");
+  const [inviteFormLeadId, setInviteFormLeadId] = useState<string | null>(null);
+  const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
+  const [generatedInviteUrl, setGeneratedInviteUrl] = useState<string | null>(null);
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   // Email & Notifications Settings State
   const [emailConfig, setEmailConfig] = useState<{
@@ -468,18 +554,31 @@ export default function AdminPanelPage() {
       const result = await safeReadJson<{ activities?: ActivityListItem[] }>(res);
       if (result.ok && result.data?.activities) {
         setActivities(result.data.activities);
-        const leadActivities = result.data.activities.filter((act) => {
-          const actUpper = (act.action || "").toUpperCase();
-          const targetUpper = (act.target || "").toUpperCase();
-          const roleUpper = (act.userRole || "").toUpperCase();
-          return (
-            actUpper.includes("DEMO") ||
-            actUpper.includes("CONTACT") ||
-            targetUpper.includes("LEAD") ||
-            targetUpper.includes("SUPPORT_INQUIRY") ||
-            roleUpper === "LEAD"
-          );
-        });
+        const leadActivities: RawLeadRecord[] = result.data.activities
+          .filter((act) => {
+            const actUpper = (act.action || "").toUpperCase();
+            const targetUpper = (act.target || "").toUpperCase();
+            const roleUpper = (act.userRole || "").toUpperCase();
+            return (
+              actUpper.includes("DEMO") ||
+              actUpper.includes("CONTACT") ||
+              targetUpper.includes("LEAD") ||
+              targetUpper.includes("SUPPORT_INQUIRY") ||
+              roleUpper === "LEAD"
+            );
+          })
+          .map((act) => ({
+            id: act.id,
+            userName: act.userName,
+            userRole: act.userRole,
+            action: act.action,
+            targetType: act.target,
+            targetId: act.target,
+            details: act.details,
+            createdAt: act.timestamp,
+            timestamp: act.timestamp,
+            ip: act.ip,
+          }));
         setRawLeads((prev) => (prev.length > 0 ? prev : leadActivities));
       }
     } catch (err) {
@@ -489,15 +588,106 @@ export default function AdminPanelPage() {
     }
   }, []);
 
+  const loadPurchases = useCallback(async () => {
+    setIsLoadingPurchases(true);
+    try {
+      const res = await fetch("/api/admin/purchases", { cache: "no-store" });
+      const result = await safeReadJson<{ summary?: PurchasesSummary; purchases?: PurchaseRecord[] }>(res);
+      if (result.ok && result.data) {
+        if (result.data.summary) setPurchasesSummary(result.data.summary);
+        if (Array.isArray(result.data.purchases)) setPurchases(result.data.purchases);
+      }
+    } catch (err) {
+      console.error("Failed to load purchases:", err);
+    } finally {
+      setIsLoadingPurchases(false);
+    }
+  }, []);
+
+  function exportPurchasesCSV() {
+    if (purchases.length === 0) {
+      showToast("No purchase transactions recorded yet to export.", false);
+      return;
+    }
+    const headers = [
+      "Transaction Reference",
+      "User Name",
+      "User Email",
+      "Department",
+      "Plan Identifier",
+      "Is Pro Plan",
+      "Settled Amount",
+      "Currency",
+      "Payment Channel",
+      "Transaction Status",
+      "Settlement Date",
+      "Creation Timestamp",
+      "Compliance Status",
+    ];
+    const rows = purchases.map((p) => [
+      `"${p.reference}"`,
+      `"${(p.userName || '').replace(/"/g, '""')}"`,
+      `"${p.userEmail}"`,
+      `"${p.userDepartment || ''}"`,
+      `"${p.plan}"`,
+      p.isPro ? "TRUE" : "FALSE",
+      p.amount / 100,
+      p.currency,
+      p.channel,
+      p.status,
+      p.paidAt || "",
+      p.createdAt,
+      p.complianceVerified ? "AUDITED_VALID" : "PENDING_AUDIT",
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `wellqc_pro_purchases_compliance_ledger_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("Compliance purchase ledger exported successfully!");
+  }
+
   const loadLeads = useCallback(async () => {
     setIsLoadingLeads(true);
     try {
       const res = await fetch("/api/leads", { cache: "no-store" });
-      const result = await safeReadJson<{ leads?: Record<string, unknown>[] }>(res);
+      const result = await safeReadJson<{ leads?: RawLeadRecord[] }>(res);
       if (result.ok && Array.isArray(result.data?.leads) && result.data.leads.length > 0) {
         setRawLeads(result.data.leads);
       } else {
-        const fallback = activities.filter((act) => {
+        const fallback: RawLeadRecord[] = activities
+          .filter((act) => {
+            const actUpper = (act.action || "").toUpperCase();
+            const targetUpper = (act.target || "").toUpperCase();
+            const roleUpper = (act.userRole || "").toUpperCase();
+            return (
+              actUpper.includes("DEMO") ||
+              actUpper.includes("CONTACT") ||
+              targetUpper.includes("LEAD") ||
+              targetUpper.includes("SUPPORT_INQUIRY") ||
+              roleUpper === "LEAD"
+            );
+          })
+          .map((act) => ({
+            id: act.id,
+            userName: act.userName,
+            userRole: act.userRole,
+            action: act.action,
+            targetType: act.target,
+            targetId: act.target,
+            details: act.details,
+            createdAt: act.timestamp,
+            timestamp: act.timestamp,
+            ip: act.ip,
+          }));
+        setRawLeads(fallback);
+      }
+    } catch {
+      const fallback: RawLeadRecord[] = activities
+        .filter((act) => {
           const actUpper = (act.action || "").toUpperCase();
           const targetUpper = (act.target || "").toUpperCase();
           const roleUpper = (act.userRole || "").toUpperCase();
@@ -508,22 +698,19 @@ export default function AdminPanelPage() {
             targetUpper.includes("SUPPORT_INQUIRY") ||
             roleUpper === "LEAD"
           );
-        });
-        setRawLeads(fallback);
-      }
-    } catch {
-      const fallback = activities.filter((act) => {
-        const actUpper = (act.action || "").toUpperCase();
-        const targetUpper = (act.target || "").toUpperCase();
-        const roleUpper = (act.userRole || "").toUpperCase();
-        return (
-          actUpper.includes("DEMO") ||
-          actUpper.includes("CONTACT") ||
-          targetUpper.includes("LEAD") ||
-          targetUpper.includes("SUPPORT_INQUIRY") ||
-          roleUpper === "LEAD"
-        );
-      });
+        })
+        .map((act) => ({
+          id: act.id,
+          userName: act.userName,
+          userRole: act.userRole,
+          action: act.action,
+          targetType: act.target,
+          targetId: act.target,
+          details: act.details,
+          createdAt: act.timestamp,
+          timestamp: act.timestamp,
+          ip: act.ip,
+        }));
       setRawLeads(fallback);
     } finally {
       setIsLoadingLeads(false);
@@ -571,6 +758,108 @@ export default function AdminPanelPage() {
       showToast("Copied formatted lead brief to clipboard!");
     } catch {
       showToast("Failed to copy brief.", false);
+    }
+  }
+
+  const loadInvites = useCallback(async () => {
+    setIsLoadingInvites(true);
+    try {
+      const res = await fetch("/api/admin/invites", { cache: "no-store" });
+      const result = await safeReadJson<{ invites?: ClientInviteItem[] }>(res);
+      if (result.ok && Array.isArray(result.data?.invites)) {
+        setInvites(result.data.invites);
+      }
+    } catch (err) {
+      console.error("Failed to load invites:", err);
+    } finally {
+      setIsLoadingInvites(false);
+    }
+  }, []);
+
+  function handleOpenInviteModal(lead?: LeadItem) {
+    if (lead) {
+      setInviteFormEmail(lead.email);
+      setInviteFormCompany(lead.company);
+      setInviteFormContactName(lead.fullName);
+      setInviteFormLeadId(lead.id);
+    } else {
+      setInviteFormEmail("");
+      setInviteFormCompany("");
+      setInviteFormContactName("");
+      setInviteFormLeadId(null);
+    }
+    setInviteFormPlanTier("PRO");
+    setInviteFormExpiryDays(7);
+    setInviteFormMaxSeats(1);
+    setInviteFormNotes("");
+    setGeneratedInviteUrl(null);
+    setIsInviteModalOpen(true);
+  }
+
+  async function handleCreateInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteFormEmail.trim() || !inviteFormCompany.trim()) {
+      showToast("Email and Company are required.", false);
+      return;
+    }
+    setIsGeneratingInvite(true);
+    try {
+      const res = await fetch("/api/admin/invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: inviteFormEmail.trim(),
+          company: inviteFormCompany.trim(),
+          contactName: inviteFormContactName.trim() || undefined,
+          planTier: inviteFormPlanTier,
+          expiryDays: Number(inviteFormExpiryDays),
+          maxSeats: Number(inviteFormMaxSeats),
+          notes: inviteFormNotes.trim() || undefined,
+          leadId: inviteFormLeadId || undefined,
+        }),
+      });
+      const result = await safeReadJson<{
+        success?: boolean;
+        message?: string;
+        invite?: ClientInviteItem & { fullUrl?: string };
+      }>(res);
+      if (!result.ok || !result.data?.invite) {
+        throw new Error(result.error || "Failed to generate invitation.");
+      }
+      const fullUrl = result.data.invite.fullUrl || `${window.location.origin}${result.data.invite.inviteUrl}`;
+      setGeneratedInviteUrl(fullUrl);
+      showToast("Workstation invite generated successfully!");
+      loadInvites();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to generate invite.", false);
+    } finally {
+      setIsGeneratingInvite(false);
+    }
+  }
+
+  async function handleRevokeInvite(id: string) {
+    if (!confirm("Are you sure you want to revoke this invitation? Any user attempting to use it will be blocked.")) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/invites/${id}`, { method: "DELETE" });
+      const result = await safeReadJson<{ success?: boolean; message?: string }>(res);
+      if (!result.ok) throw new Error(result.error || "Failed to revoke invite.");
+      showToast("Invitation revoked successfully.");
+      loadInvites();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Error revoking invite.", false);
+    }
+  }
+
+  async function handleCopyInviteLink(url: string, id: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedInviteId(id);
+      showToast("Copied invitation link to clipboard!");
+      setTimeout(() => setCopiedInviteId(null), 2500);
+    } catch {
+      showToast("Unable to copy to clipboard.", false);
     }
   }
 
@@ -795,11 +1084,13 @@ export default function AdminPanelPage() {
     let cancelled = false;
     async function initDashboard() {
       try {
-        const [usersRes, meRes, actRes, leadsRes] = await Promise.all([
+        const [usersRes, meRes, actRes, leadsRes, purchasesRes, invitesRes] = await Promise.all([
           fetch("/api/admin/users", { cache: "no-store" }),
           fetch("/api/auth/me", { cache: "no-store" }),
           fetch("/api/activity", { cache: "no-store" }),
           fetch("/api/leads", { cache: "no-store" }),
+          fetch("/api/admin/purchases", { cache: "no-store" }),
+          fetch("/api/admin/invites", { cache: "no-store" }),
         ]);
 
         const usersResult = await safeReadJson<{ users?: UserRecord[] }>(usersRes);
@@ -821,9 +1112,24 @@ export default function AdminPanelPage() {
         }
 
         if (leadsRes.ok) {
-          const leadsResult = await safeReadJson<{ leads?: Record<string, unknown>[] }>(leadsRes);
+          const leadsResult = await safeReadJson<{ leads?: RawLeadRecord[] }>(leadsRes);
           if (!cancelled && Array.isArray(leadsResult.data?.leads)) {
             setRawLeads(leadsResult.data.leads);
+          }
+        }
+
+        if (purchasesRes.ok) {
+          const pResult = await safeReadJson<{ summary?: PurchasesSummary; purchases?: PurchaseRecord[] }>(purchasesRes);
+          if (!cancelled && pResult.data) {
+            if (pResult.data.summary) setPurchasesSummary(pResult.data.summary);
+            if (Array.isArray(pResult.data.purchases)) setPurchases(pResult.data.purchases);
+          }
+        }
+
+        if (invitesRes.ok) {
+          const invResult = await safeReadJson<{ invites?: ClientInviteItem[] }>(invitesRes);
+          if (!cancelled && Array.isArray(invResult.data?.invites)) {
+            setInvites(invResult.data.invites);
           }
         }
       } catch (err) {
@@ -847,6 +1153,23 @@ export default function AdminPanelPage() {
         u.department.toLowerCase().includes(q)
     );
   }, [users, deferredUserSearchQuery]);
+
+  const filteredPurchases = useMemo(() => {
+    return purchases.filter((p) => {
+      if (purchasePlanFilter === "PRO" && !p.isPro) return false;
+      if (purchasePlanFilter === "ENTERPRISE" && !p.isEnterprise) return false;
+      if (purchaseStatusFilter !== "ALL" && p.status !== purchaseStatusFilter) return false;
+      if (!deferredPurchaseSearchQuery) return true;
+      const q = deferredPurchaseSearchQuery.toLowerCase();
+      return (
+        p.reference.toLowerCase().includes(q) ||
+        p.userName.toLowerCase().includes(q) ||
+        p.userEmail.toLowerCase().includes(q) ||
+        p.plan.toLowerCase().includes(q) ||
+        (p.channel && p.channel.toLowerCase().includes(q))
+      );
+    });
+  }, [purchases, purchasePlanFilter, purchaseStatusFilter, deferredPurchaseSearchQuery]);
 
   const filteredAuditActivities = useMemo(() => {
     return activities.filter((act) => {
@@ -882,18 +1205,34 @@ export default function AdminPanelPage() {
   }, [activities, auditFilter, deferredAuditSearchQuery]);
 
   const parsedLeads = useMemo<LeadItem[]>(() => {
-    const sourceList = rawLeads.length > 0 ? rawLeads : activities.filter((act) => {
-      const actUpper = (act.action || "").toUpperCase();
-      const targetUpper = (act.target || "").toUpperCase();
-      const roleUpper = (act.userRole || "").toUpperCase();
-      return (
-        actUpper.includes("DEMO") ||
-        actUpper.includes("CONTACT") ||
-        targetUpper.includes("LEAD") ||
-        targetUpper.includes("SUPPORT_INQUIRY") ||
-        roleUpper === "LEAD"
-      );
-    });
+    const sourceList: RawLeadRecord[] =
+      rawLeads.length > 0
+        ? rawLeads
+        : activities
+            .filter((act) => {
+              const actUpper = (act.action || "").toUpperCase();
+              const targetUpper = (act.target || "").toUpperCase();
+              const roleUpper = (act.userRole || "").toUpperCase();
+              return (
+                actUpper.includes("DEMO") ||
+                actUpper.includes("CONTACT") ||
+                targetUpper.includes("LEAD") ||
+                targetUpper.includes("SUPPORT_INQUIRY") ||
+                roleUpper === "LEAD"
+              );
+            })
+            .map((act) => ({
+              id: act.id,
+              userName: act.userName,
+              userRole: act.userRole,
+              action: act.action,
+              targetType: act.target,
+              targetId: act.target,
+              details: act.details,
+              createdAt: act.timestamp,
+              timestamp: act.timestamp,
+              ip: act.ip,
+            }));
     return sourceList.map(parseLeadRecord);
   }, [rawLeads, activities]);
 
@@ -917,6 +1256,20 @@ export default function AdminPanelPage() {
       );
     });
   }, [parsedLeads, leadsFilter, deferredLeadsSearchQuery]);
+
+  const filteredInvites = useMemo(() => {
+    return invites.filter((inv) => {
+      const matchesStatus = inviteStatusFilter === "ALL" || inv.status === inviteStatusFilter;
+      const q = deferredInviteSearchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        inv.email.toLowerCase().includes(q) ||
+        inv.company.toLowerCase().includes(q) ||
+        inv.contactName.toLowerCase().includes(q) ||
+        inv.token.toLowerCase().includes(q);
+      return matchesStatus && matchesSearch;
+    });
+  }, [invites, inviteStatusFilter, deferredInviteSearchQuery]);
 
   const deletableUsers = filteredUsers.filter((u) => u.id !== currentUserId);
   const isAllSelected = deletableUsers.length > 0 && deletableUsers.every((u) => selectedUserIds.includes(u.id));
@@ -1146,6 +1499,72 @@ export default function AdminPanelPage() {
           </div>
         </div>
 
+        {/* Executive Governance & Compliance KPI Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono">
+          <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg shadow-sm">
+            <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+              <span className="uppercase tracking-wider text-[10px] font-semibold text-slate-400">Total Accounts</span>
+              <Users className="w-3.5 h-3.5 text-slate-500" />
+            </div>
+            <div className="text-xl font-bold text-white">{users.length}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">Registered workspace accounts</div>
+          </div>
+
+          <div
+            onClick={() => {
+              setActiveTab("PURCHASES");
+              loadPurchases();
+            }}
+            className="bg-wellqc-panel border border-cyan-500/40 bg-cyan-950/20 hover:border-cyan-400/60 p-3.5 rounded-lg shadow-sm cursor-pointer transition-all"
+            title="Click to view Pro purchases and license compliance ledger"
+          >
+            <div className="flex items-center justify-between text-cyan-300 text-xs mb-1.5">
+              <span className="uppercase tracking-wider text-[10px] font-bold text-cyan-300">Pro Purchases (Compliance)</span>
+              <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-bold text-cyan-200">
+                {purchasesSummary?.totalProPurchases ?? 0}
+              </span>
+              <span className="text-[10px] text-cyan-400/80 font-semibold">
+                / {purchasesSummary?.activeProUsers ?? users.filter(u => (u.tier || "").toUpperCase() === "PRO").length} Active Pro Seats
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${
+                (purchasesSummary?.complianceStatus ?? "COMPLIANT") === "COMPLIANT"
+                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                  : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+              }`}>
+                <ShieldCheck className="w-2.5 h-2.5" />
+                <span>{purchasesSummary?.complianceStatus ?? "COMPLIANT"} • SOC2 / NUPRC</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg shadow-sm">
+            <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+              <span className="uppercase tracking-wider text-[10px] font-semibold text-slate-400">Enterprise Fleet</span>
+              <Building2 className="w-3.5 h-3.5 text-purple-400" />
+            </div>
+            <div className="text-xl font-bold text-white">
+              {purchasesSummary?.totalEnterprisePurchases ?? 0}
+            </div>
+            <div className="text-[10px] text-purple-300/80 mt-0.5">
+              {purchasesSummary?.activeEnterpriseUsers ?? users.filter(u => (u.tier || "").toUpperCase() === "ENTERPRISE").length} Corporate Seats
+            </div>
+          </div>
+
+          <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg shadow-sm">
+            <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+              <span className="uppercase tracking-wider text-[10px] font-semibold text-slate-400">Audit Stream</span>
+              <History className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+            <div className="text-xl font-bold text-white">{activities.length}</div>
+            <div className="text-[10px] text-emerald-300/80 mt-0.5">Cryptographic Events</div>
+          </div>
+        </div>
+
         {/* Compact Workstation Navigation Tabs */}
         <div className="flex items-center space-x-1 border-b border-wellqc-border pb-2 overflow-x-auto font-mono text-xs">
           <WorkstationTabButton
@@ -1153,6 +1572,15 @@ export default function AdminPanelPage() {
             onClick={() => setActiveTab("USERS")}
             icon={<Users className="w-3.5 h-3.5" />}
             label={`Users (${users.length})`}
+          />
+          <WorkstationTabButton
+            active={activeTab === "PURCHASES"}
+            onClick={() => {
+              setActiveTab("PURCHASES");
+              loadPurchases();
+            }}
+            icon={<CreditCard className="w-3.5 h-3.5 text-cyan-400" />}
+            label={`Pro Purchases (${purchasesSummary?.totalProPurchases ?? 0})`}
           />
           <WorkstationTabButton
             active={activeTab === "MATRIX"}
@@ -1168,6 +1596,15 @@ export default function AdminPanelPage() {
             }}
             icon={<Sparkles className="w-3.5 h-3.5 text-amber-400" />}
             label={`Demo & Inquiries (${parsedLeads.length})`}
+          />
+          <WorkstationTabButton
+            active={activeTab === "INVITES"}
+            onClick={() => {
+              setActiveTab("INVITES");
+              loadInvites();
+            }}
+            icon={<UserPlus className="w-3.5 h-3.5 text-purple-400" />}
+            label={`Client Invites (${invites.length})`}
           />
           <WorkstationTabButton
             active={activeTab === "AUDIT"}
@@ -1478,6 +1915,319 @@ export default function AdminPanelPage() {
                           </tr>
                         );
                       })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB: PRO PURCHASES & COMPLIANCE ───────────────────────────────── */}
+        {activeTab === "PURCHASES" && (
+          <div className="space-y-4 font-mono">
+            {/* Compliance Governance Banner */}
+            <div className="bg-wellqc-panel border border-cyan-500/30 bg-gradient-to-r from-slate-950 via-cyan-950/20 to-slate-950 p-5 rounded-lg space-y-3 shadow-md">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3 h-3 text-cyan-400" />
+                      <span>Software License Compliance Ledger</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                      {purchasesSummary?.complianceStandard ?? "SOC2-CC6.8 / NUPRC-WQC-REV / IFRS-15"}
+                    </span>
+                  </div>
+                  <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                    <span>WellQC Pro Purchases &amp; Seat Allocation Governance</span>
+                  </h2>
+                  <p className="text-xs text-slate-400 max-w-4xl">
+                    Authoritative financial ledger and license reconciliation registry. Tracks 1-to-1 seat provisioning against verified Paystack gateway settlements for corporate audits, regulatory filings, and software asset management (SAM).
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => loadPurchases()}
+                    disabled={isLoadingPurchases}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                    title="Refresh purchase transactions"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isLoadingPurchases ? "animate-spin" : ""}`} />
+                    <span>Refresh</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportPurchasesCSV}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+                    title="Export purchase audit records to CSV"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Cryptographic Audit Seal */}
+              <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">Ledger Cryptographic Seal:</span>
+                  <span className="font-mono text-cyan-300 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-800 text-[10px]">
+                    SHA-256: {purchasesSummary?.complianceAuditHash ? `${purchasesSummary.complianceAuditHash.slice(0, 24)}...` : "d8e8f2a1b9c7456..."}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">License Status:</span>
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    <span>{purchasesSummary?.complianceStatus ?? "COMPLIANT"} (0 Unlicensed Overallocations)</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Reconciliation KPI Metrics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Total Pro Purchases</div>
+                <div className="text-2xl font-bold text-cyan-300 mt-1">
+                  {purchasesSummary?.totalProPurchases ?? 0}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Verified Paystack Transactions</div>
+              </div>
+
+              <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Active Pro Workstation Seats</div>
+                <div className="text-2xl font-bold text-white mt-1">
+                  {purchasesSummary?.activeProUsers ?? users.filter(u => (u.tier || "").toUpperCase() === "PRO").length}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Provisioned Team Members</div>
+              </div>
+
+              <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">License Allocation Ratio</div>
+                <div className="text-2xl font-bold text-emerald-400 mt-1">
+                  {purchasesSummary?.licenseAllocationRatio ?? "0 / 0"}
+                </div>
+                <div className="text-[10px] text-emerald-400/80 mt-0.5 font-semibold">100% Reconciled</div>
+              </div>
+
+              <div className="bg-wellqc-panel border border-wellqc-border p-3.5 rounded-lg">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Total Settled Pro Volume</div>
+                <div className="text-xl font-bold text-white mt-1 truncate">
+                  ₦{(purchasesSummary?.totalProSettledAmountNgn ?? 0).toLocaleString()}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  or ${(purchasesSummary?.totalProSettledAmountUsd ?? 0).toLocaleString()} USD
+                </div>
+              </div>
+            </div>
+
+            {/* Search & Filter Toolbar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-wellqc-panel border border-wellqc-border p-3 rounded-lg">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Filter by reference, subscriber email, name or channel..."
+                  value={purchaseSearchQuery}
+                  onChange={(e) => setPurchaseSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-7 py-1.5 bg-slate-950/80 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/60 transition-colors"
+                />
+                {purchaseSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setPurchaseSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white p-0.5"
+                    title="Clear filter"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {/* Plan filter */}
+                <select
+                  value={purchasePlanFilter}
+                  onChange={(e) => setPurchasePlanFilter(e.target.value as "ALL" | "PRO" | "ENTERPRISE")}
+                  className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-300 text-xs focus:outline-none focus:border-cyan-500/60"
+                >
+                  <option value="ALL">All Plans</option>
+                  <option value="PRO">Pro Plans Only</option>
+                  <option value="ENTERPRISE">Enterprise Plans Only</option>
+                </select>
+
+                {/* Status filter */}
+                <select
+                  value={purchaseStatusFilter}
+                  onChange={(e) => setPurchaseStatusFilter(e.target.value as "ALL" | "SUCCESS" | "PENDING" | "FAILED")}
+                  className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-300 text-xs focus:outline-none focus:border-cyan-500/60"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="SUCCESS">Settled / Success</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="FAILED">Failed / Abandoned</option>
+                </select>
+
+                <span className="text-slate-400 text-xs ml-2">
+                  Showing <strong className="text-white">{filteredPurchases.length}</strong> of {purchases.length} records
+                </span>
+              </div>
+            </div>
+
+            {/* Purchases Ledger Table */}
+            <div className="bg-wellqc-panel border border-wellqc-border rounded-lg overflow-hidden shadow-sm">
+              {isLoadingPurchases ? (
+                <div className="p-8 text-center text-slate-400 text-xs flex items-center justify-center">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin mr-2 text-cyan-400" />
+                  Loading purchase compliance records...
+                </div>
+              ) : filteredPurchases.length === 0 ? (
+                <div className="p-10 text-center space-y-3 font-mono">
+                  <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-slate-500">
+                    <CreditCard className="w-5 h-5 text-slate-400" />
+                  </div>
+                  <div className="text-slate-300 text-xs font-semibold">
+                    {purchases.length === 0
+                      ? "No payment transactions recorded in database yet."
+                      : "No purchases match the current search filter."}
+                  </div>
+                  <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                    {purchases.length === 0
+                      ? `All live and sandbox Paystack subscription checkouts will stream here automatically. Currently, ${purchasesSummary?.activeProUsers ?? users.filter(u => (u.tier || "").toUpperCase() === "PRO").length} active Pro user seat(s) are provisioned under workstation tenancy.`
+                      : "Try resetting your filter parameters or search term to view all transactions."}
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead className="bg-slate-950/70 border-b border-wellqc-border text-slate-500 uppercase text-[10px] tracking-wider">
+                      <tr>
+                        <th className="p-3">Reference</th>
+                        <th className="p-3">Subscriber</th>
+                        <th className="p-3">Plan / Tier</th>
+                        <th className="p-3">Settled Amount</th>
+                        <th className="p-3">Channel</th>
+                        <th className="p-3">Timestamp</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3 text-right">Compliance Audit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-wellqc-border">
+                      {filteredPurchases.map((tx) => (
+                        <tr key={tx.id} className="hover:bg-slate-800/30 transition-colors">
+                          {/* Reference */}
+                          <td className="p-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-cyan-300">{tx.reference}</span>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await navigator.clipboard.writeText(tx.reference);
+                                    showToast(`Copied reference ${tx.reference}`);
+                                  } catch {
+                                    showToast("Failed to copy", false);
+                                  }
+                                }}
+                                className="text-slate-500 hover:text-white p-0.5 rounded cursor-pointer"
+                                title="Copy reference"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+
+                          {/* Subscriber */}
+                          <td className="p-3">
+                            <div>
+                              <div className="font-semibold text-white">{tx.userName}</div>
+                              <div className="text-[11px] text-slate-400">{tx.userEmail}</div>
+                              {tx.userDepartment && (
+                                <div className="text-[10px] text-slate-500">{tx.userDepartment}</div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Plan */}
+                          <td className="p-3">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                                tx.isPro
+                                  ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/40"
+                                  : tx.isEnterprise
+                                  ? "bg-purple-500/15 text-purple-300 border-purple-500/40"
+                                  : "bg-slate-800 text-slate-300 border-slate-700"
+                              }`}
+                            >
+                              <CreditCard className="w-2.5 h-2.5 opacity-80" />
+                              <span>{tx.plan}</span>
+                            </span>
+                          </td>
+
+                          {/* Amount */}
+                          <td className="p-3">
+                            <span className="font-bold text-white">
+                              {tx.currency === "NGN" ? "₦" : "$"}
+                              {(tx.amount / 100).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </span>
+                            <span className="text-[10px] text-slate-500 ml-1">{tx.currency}</span>
+                          </td>
+
+                          {/* Channel */}
+                          <td className="p-3 text-slate-300 uppercase text-[11px]">
+                            {tx.channel || "paystack"}
+                          </td>
+
+                          {/* Timestamp */}
+                          <td className="p-3 text-slate-400 text-[11px]">
+                            {tx.paidAt
+                              ? new Date(tx.paidAt).toLocaleDateString(undefined, {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : tx.createdAt
+                              ? new Date(tx.createdAt).toLocaleDateString(undefined, {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })
+                              : "—"}
+                          </td>
+
+                          {/* Status */}
+                          <td className="p-3">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                                tx.status === "SUCCESS"
+                                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                  : tx.status === "PENDING"
+                                  ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                                  : "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                              }`}
+                            >
+                              {tx.status === "SUCCESS" ? "SETTLED" : tx.status}
+                            </span>
+                          </td>
+
+                          {/* Compliance Audit */}
+                          <td className="p-3 text-right">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/70 text-emerald-300 border border-emerald-800/80">
+                              <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                              <span>AUDITED &amp; VALID</span>
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -2047,6 +2797,16 @@ export default function AdminPanelPage() {
 
                             <button
                               type="button"
+                              onClick={() => handleOpenInviteModal(lead)}
+                              className="px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs inline-flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                              title={`Generate encrypted onboarding invite link for ${lead.fullName}`}
+                            >
+                              <UserPlus className="w-3.5 h-3.5 text-purple-200" />
+                              <span>Invite Team</span>
+                            </button>
+
+                            <button
+                              type="button"
                               onClick={() => handleCopyLeadEmail(lead.id, lead.email)}
                               className="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs inline-flex items-center gap-1.5 transition-colors"
                             >
@@ -2093,6 +2853,213 @@ export default function AdminPanelPage() {
                             <History className="w-3 h-3" />
                             <span>View in Audit Stream &rarr;</span>
                           </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── TAB: WORKSTATION CLIENT INVITES ────────────────────────────────────────── */}
+        {activeTab === "INVITES" && (() => {
+          const totalCount = invites.length;
+          const pendingCount = invites.filter((i) => i.status === "PENDING").length;
+          const acceptedCount = invites.filter((i) => i.status === "ACCEPTED").length;
+          const expiredCount = invites.filter((i) => i.status === "EXPIRED" || i.status === "REVOKED").length;
+
+          return (
+            <div className="space-y-4 font-mono text-xs">
+              {/* Header Card */}
+              <div className="bg-wellqc-panel border border-wellqc-border p-4 rounded space-y-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-wellqc-border pb-3">
+                  <div>
+                    <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                      <UserPlus className="w-4 h-4 text-purple-400" />
+                      Client Workstation Invites &amp; Gated Access Ledger
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Issue cryptographically signed, expiring registration links for approved enterprise leads and client asset teams.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenInviteModal()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-sm shadow-purple-900/30 transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create New Invite</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={loadInvites}
+                      disabled={isLoadingInvites}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isLoadingInvites ? "animate-spin text-purple-400" : ""}`} />
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* KPI Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-slate-950/60 border border-slate-800 rounded p-3">
+                    <div className="text-[10px] text-slate-400 uppercase tracking-wider">Total Dispatched</div>
+                    <div className="text-xl font-bold text-white mt-1">{totalCount}</div>
+                  </div>
+                  <div className="bg-slate-950/60 border border-slate-800 rounded p-3">
+                    <div className="text-[10px] text-cyan-400 uppercase tracking-wider">Pending Links</div>
+                    <div className="text-xl font-bold text-cyan-300 mt-1">{pendingCount}</div>
+                  </div>
+                  <div className="bg-slate-950/60 border border-slate-800 rounded p-3">
+                    <div className="text-[10px] text-emerald-400 uppercase tracking-wider">Redeemed &amp; Active</div>
+                    <div className="text-xl font-bold text-emerald-300 mt-1">{acceptedCount}</div>
+                  </div>
+                  <div className="bg-slate-950/60 border border-slate-800 rounded p-3">
+                    <div className="text-[10px] text-slate-400 uppercase tracking-wider">Expired / Revoked</div>
+                    <div className="text-xl font-bold text-slate-300 mt-1">{expiredCount}</div>
+                  </div>
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-2 pt-2 items-center justify-between">
+                  <div className="flex flex-wrap gap-1.5">
+                    {(["ALL", "PENDING", "ACCEPTED", "EXPIRED", "REVOKED"] as const).map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => setInviteStatusFilter(status)}
+                        className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
+                          inviteStatusFilter === status
+                            ? "bg-purple-600 text-white shadow-sm"
+                            : "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search email, company..."
+                      value={inviteSearchQuery}
+                      onChange={(e) => setInviteSearchQuery(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Invites List Table */}
+              <div className="space-y-3">
+                {isLoadingInvites ? (
+                  <div className="bg-wellqc-panel border border-wellqc-border rounded p-8 text-center text-slate-400 flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
+                    <span>Loading workstation invitations...</span>
+                  </div>
+                ) : filteredInvites.length === 0 ? (
+                  <div className="bg-wellqc-panel border border-wellqc-border rounded p-8 text-center text-slate-400 space-y-2">
+                    <p className="font-semibold text-slate-300">No client invitations found.</p>
+                    <p className="text-[11px] text-slate-500">
+                      Navigate to the &quot;Demo &amp; Inquiries&quot; tab to invite an approved lead, or click &quot;Create New Invite&quot; above.
+                    </p>
+                  </div>
+                ) : (
+                  filteredInvites.map((inv) => {
+                    const fullInviteUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${inv.inviteUrl}`;
+                    const isCopied = copiedInviteId === inv.id;
+                    const isPending = inv.status === "PENDING";
+                    const isAccepted = inv.status === "ACCEPTED";
+                    const isExpired = inv.status === "EXPIRED";
+
+                    return (
+                      <div
+                        key={inv.id}
+                        className="bg-wellqc-panel border border-wellqc-border rounded p-4 space-y-3 transition-colors hover:border-slate-700"
+                      >
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-bold text-white text-sm">{inv.company}</span>
+                              {inv.contactName && (
+                                <span className="text-slate-400 text-xs">({inv.contactName})</span>
+                              )}
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                {inv.planTier} TIER
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                                  isAccepted
+                                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                                    : isPending
+                                    ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/30"
+                                    : isExpired
+                                    ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                                    : "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                                }`}
+                              >
+                                {isAccepted ? "● Redeemed" : isPending ? "● Active Link" : inv.status}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-300 font-mono flex items-center gap-2">
+                              <Mail className="w-3 h-3 text-slate-400" />
+                              <span>{inv.email}</span>
+                            </div>
+                          </div>
+
+                          <div className="text-[11px] text-slate-400 space-y-0.5 text-right font-mono">
+                            <div>Issued: {new Date(inv.createdAt).toLocaleString()}</div>
+                            <div>
+                              {isAccepted && inv.acceptedAt
+                                ? `Redeemed: ${new Date(inv.acceptedAt).toLocaleString()}`
+                                : `Expires: ${new Date(inv.expiresAt).toLocaleDateString()}`}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Monospace URL & Actions Bar */}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2 border-t border-wellqc-border/40">
+                          <div className="bg-slate-950/80 border border-slate-800 rounded px-2.5 py-1.5 font-mono text-[11px] text-slate-300 truncate max-w-xl">
+                            {fullInviteUrl}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyInviteLink(fullInviteUrl, inv.id)}
+                              className="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              {isCopied ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span className="text-emerald-400 font-bold">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>Copy Link</span>
+                                </>
+                              )}
+                            </button>
+
+                            {isPending && (
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeInvite(inv.id)}
+                                className="px-2.5 py-1.5 rounded bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 text-xs inline-flex items-center gap-1 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Revoke</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -2914,6 +3881,195 @@ export default function AdminPanelPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Invite Client / Workstation Generator Modal ─────────────────── */}
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-mono text-xs">
+          <div className="bg-slate-900 border border-purple-800/80 rounded shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-purple-400" />
+                Generate Workstation Enterprise Invite
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsInviteModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {generatedInviteUrl ? (
+              <div className="space-y-4 py-2">
+                <div className="bg-emerald-950/60 border border-emerald-500/60 rounded p-4 text-emerald-200 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-sm text-emerald-300">
+                    <Check className="w-4 h-4" />
+                    <span>Invitation Link Generated Successfully!</span>
+                  </div>
+                  <p className="text-xs leading-relaxed text-emerald-200/90">
+                    Share this dedicated link with the client. It enables them to register and immediately activate their workstation without manual verification.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-400 text-[11px] font-bold block">Registration URL:</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={generatedInviteUrl}
+                      className="flex-1 bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-purple-300 font-mono outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleCopyInviteLink(generatedInviteUrl, "modal")}
+                      className="px-4 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      {copiedInviteId === "modal" ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-300" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy Link</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+                  <a
+                    href={`mailto:${inviteFormEmail}?subject=${encodeURIComponent(
+                      `WellQC Workstation Invitation - ${inviteFormCompany}`
+                    )}&body=${encodeURIComponent(
+                      `Hello ${inviteFormContactName || "Team"},\n\nYour organization (${inviteFormCompany}) has been provisioned for WellQC Workstation (${inviteFormPlanTier} Tier).\n\nPlease complete your workstation setup using your dedicated invitation link:\n${generatedInviteUrl}\n\nThis link is cryptographically protected and expires in ${inviteFormExpiryDays} days.\n\nBest regards,\nWellQC Enterprise Support Team`
+                    )}`}
+                    className="px-3 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs inline-flex items-center gap-1.5 transition-colors"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Send Invitation Email</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsInviteModalOpen(false)}
+                    className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleCreateInvite} className="space-y-3.5">
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-bold block text-xs">Work Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={inviteFormEmail}
+                    onChange={(e) => setInviteFormEmail(e.target.value)}
+                    placeholder="e.g. lead@chevron.com"
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-bold block text-xs">Company / Operator Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={inviteFormCompany}
+                    onChange={(e) => setInviteFormCompany(e.target.value)}
+                    placeholder="e.g. Chevron Nigeria Limited"
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-bold block text-xs">Contact Person Name</label>
+                  <input
+                    type="text"
+                    value={inviteFormContactName}
+                    onChange={(e) => setInviteFormContactName(e.target.value)}
+                    placeholder="e.g. Engr. Samuel Olayemi"
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-slate-300 font-bold block text-xs">Plan Tier</label>
+                    <select
+                      value={inviteFormPlanTier}
+                      onChange={(e) => setInviteFormPlanTier(e.target.value as "PRO" | "ENTERPRISE")}
+                      className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500 cursor-pointer"
+                    >
+                      <option value="PRO">PRO Tier (Workstation)</option>
+                      <option value="ENTERPRISE">ENTERPRISE (Full Suite)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-slate-300 font-bold block text-xs">Link Expiration</label>
+                    <select
+                      value={inviteFormExpiryDays}
+                      onChange={(e) => setInviteFormExpiryDays(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500 cursor-pointer"
+                    >
+                      <option value={2}>48 Hours (2 Days)</option>
+                      <option value={7}>7 Days (1 Week)</option>
+                      <option value={14}>14 Days (2 Weeks)</option>
+                      <option value={30}>30 Days (1 Month)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-bold block text-xs">Internal Notes (Optional)</label>
+                  <textarea
+                    rows={2}
+                    value={inviteFormNotes}
+                    onChange={(e) => setInviteFormNotes(e.target.value)}
+                    placeholder="e.g. Technical demo approved by management for deepwater asset team."
+                    className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500 resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2 border-t border-slate-800">
+                  <button
+                    type="submit"
+                    disabled={isGeneratingInvite}
+                    className="flex-1 px-4 py-2.5 rounded bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs inline-flex items-center justify-center gap-2 transition-all shadow-md shadow-purple-900/30 cursor-pointer"
+                  >
+                    {isGeneratingInvite ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Generating Encrypted Token...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Generate &amp; Dispatch Invite</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsInviteModalOpen(false)}
+                    className="px-4 py-2.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

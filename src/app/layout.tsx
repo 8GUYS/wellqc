@@ -14,13 +14,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "WellQC | AI-Powered Well Log Quality Assurance Platform",
+  title: "WellQC+ | AI-Powered Well Log Quality Assurance Platform",
   description: "Enterprise petrophysical well log validation, standardisation, and quality assurance cloud platform.",
-  applicationName: "WellQC",
+  applicationName: "WellQC+",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "WellQC",
+    title: "WellQC+",
   },
   manifest: "/manifest.webmanifest",
   icons: {

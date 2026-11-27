@@ -57,12 +57,6 @@ export function LandingNavbar() {
           <div className="hidden md:flex items-center gap-3">
             <ThemeSwitcher iconOnly />
             <Link
-              href="/login"
-              className="nav-link-item text-sm font-semibold text-slate-900 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/60 px-3.5 py-1.5 rounded-lg transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
               href="#book-demo"
               className="btn-apple-primary relative group inline-flex items-center gap-2 text-sm font-medium px-5 py-2 rounded-full transition-all duration-200 shadow-md"
             >
@@ -101,13 +95,6 @@ export function LandingNavbar() {
             ))}
           </div>
           <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
-            <Link
-              href="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="w-full text-center text-sm font-medium text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 py-2.5 rounded-xl transition-colors"
-            >
-              Sign In
-            </Link>
             <Link
               href="#book-demo"
               onClick={() => setMobileMenuOpen(false)}

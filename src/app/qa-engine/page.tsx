@@ -1303,9 +1303,10 @@ export default function QAEngineWorkspace() {
     }
   };
 
-  // Current quality score before cleaning
-  const currentScore = qaResult?.overallScore ?? (sourceChoice === "ACTIVE_UPLOAD" ? 75 : 80);
-  const currentGrade = qaResult?.qualityGrade ?? "GOOD";
+  // Current quality score before cleaning — only available when real analysis data is loaded
+  const hasSelectedWell = Boolean(rawLas && rawLas.curves && rawLas.curves.length > 0 && wellName !== "Select a well...");
+  const currentScore = hasSelectedWell && qaResult?.overallScore !== undefined ? qaResult.overallScore : null;
+  const currentGrade = hasSelectedWell && qaResult?.qualityGrade ? qaResult.qualityGrade : null;
 
   if (isVerifyingTier) {
     return (
@@ -1550,52 +1551,68 @@ export default function QAEngineWorkspace() {
           <div className="p-4 rounded-xl bg-wellqc-dark border border-wellqc-border flex flex-col md:flex-row md:items-center justify-between gap-5">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-bold text-white font-mono">{wellName}</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                  {sourceChoice === "ACTIVE_UPLOAD" ? "Active upload" : "Saved well asset"}
+                <span className="text-sm font-bold text-white font-mono">
+                  {hasSelectedWell ? wellName : "No Well Asset Selected"}
                 </span>
+                {hasSelectedWell && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                    {sourceChoice === "ACTIVE_UPLOAD" ? "Active upload" : "Saved well asset"}
+                  </span>
+                )}
               </div>
 
-              <div className="text-xs text-wellqc-muted font-mono flex flex-wrap gap-x-5 gap-y-1">
-                <span>
-                  Depth range:{" "}
-                  <strong className="text-slate-200">
-                    {rawLas?.wellInfo?.startDepth ?? 0} - {rawLas?.wellInfo?.stopDepth ?? 0} {depthUnit}
-                  </strong>
-                </span>
-                <span>
-                  Curves: <strong className="text-slate-200">{rawLas?.curves?.length || 0}</strong>
-                </span>
-                <span>
-                  Samples:{" "}
-                  <strong className="text-slate-200">
-                    {(rawLas?.totalPoints || rawLas?.data?.depth?.length || 0).toLocaleString()}
-                  </strong>
-                </span>
-                <span>
-                  Step: <strong className="text-slate-200">{rawLas?.wellInfo?.step ?? 0.5} {depthUnit}</strong>
-                </span>
-              </div>
+              {hasSelectedWell ? (
+                <div className="text-xs text-wellqc-muted font-mono flex flex-wrap gap-x-5 gap-y-1">
+                  <span>
+                    Depth range:{" "}
+                    <strong className="text-slate-200">
+                      {rawLas?.wellInfo?.startDepth ?? 0} - {rawLas?.wellInfo?.stopDepth ?? 0} {depthUnit}
+                    </strong>
+                  </span>
+                  <span>
+                    Curves: <strong className="text-slate-200">{rawLas?.curves?.length || 0}</strong>
+                  </span>
+                  <span>
+                    Samples:{" "}
+                    <strong className="text-slate-200">
+                      {(rawLas?.totalPoints || rawLas?.data?.depth?.length || 0).toLocaleString()}
+                    </strong>
+                  </span>
+                  <span>
+                    Step: <strong className="text-slate-200">{rawLas?.wellInfo?.step ?? 0.5} {depthUnit}</strong>
+                  </span>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 font-mono">
+                  Select a well asset above or upload a LAS file to inspect anomalies and perform automated petrophysical cleaning.
+                </p>
+              )}
             </div>
 
-            {/* Current Quality Score Badge */}
-            <div className="flex items-center gap-3 shrink-0 self-start md:self-auto border-t md:border-t-0 md:border-l border-wellqc-border/60 pt-3 md:pt-0 md:pl-5">
-              <div className="text-right">
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">
-                  Current quality score
-                </span>
-                <span className="text-xs text-slate-500 font-mono">Before cleaning</span>
+            {/* Current Quality Score Badge (Only displayed when a well asset is selected) */}
+            {hasSelectedWell && currentScore !== null && currentGrade !== null ? (
+              <div className="flex items-center gap-3 shrink-0 self-start md:self-auto border-t md:border-t-0 md:border-l border-wellqc-border/60 pt-3 md:pt-0 md:pl-5">
+                <div className="text-right">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">
+                    Current quality score
+                  </span>
+                  <span className="text-xs text-slate-500 font-mono">Before cleaning</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-3xl font-black font-mono text-cyan-400">
+                    {currentScore}
+                    <span className="text-lg text-slate-500 font-normal">/100</span>
+                  </span>
+                  <span className={`px-2.5 py-1 rounded text-xs font-mono font-bold border ${getGradeBadgeStyle(currentGrade)}`}>
+                    {currentGrade}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-3xl font-black font-mono text-cyan-400">
-                  {currentScore}
-                  <span className="text-lg text-slate-500 font-normal">/100</span>
-                </span>
-                <span className={`px-2.5 py-1 rounded text-xs font-mono font-bold border ${getGradeBadgeStyle(currentGrade)}`}>
-                  {currentGrade}
-                </span>
+            ) : (
+              <div className="flex items-center gap-2 shrink-0 self-start md:self-auto border-t md:border-t-0 md:border-l border-wellqc-border/60 pt-3 md:pt-0 md:pl-5 text-slate-500 font-mono text-xs">
+                <span>Select a well to view quality score</span>
               </div>
-            </div>
+            )}
           </div>
         </section>
 

@@ -180,13 +180,13 @@ export function PWAClient() {
               </div>
               <div className="space-y-1">
                 <div className="flex items-center space-x-1.5">
-                  <span className="text-xs font-bold text-white">Install WellQC App</span>
+                  <span className="text-xs font-bold text-white">Install WellQCPlus App</span>
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                     PWA
                   </span>
                 </div>
                 <p className="text-[11px] text-wellqc-muted leading-tight">
-                  Launch WellQC as a high-speed desktop/mobile workstation with offline support.
+                  Launch WellQCPlus as a high-speed desktop/mobile workstation with offline support.
                 </p>
               </div>
             </div>

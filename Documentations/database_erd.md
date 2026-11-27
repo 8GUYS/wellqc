@@ -392,6 +392,20 @@ The platform integrates **Paystack** for enterprise NGN and USD subscription bil
      - `User.tier` is upgraded to the corresponding tier (e.g. `"PRO"`), unlocking unlimited LAS remediation and NUPRC certificates.
      - An audit entry is recorded in `ACTIVITY_LOG`.
 
+### 5.1 Pro Purchases Compliance Ledger & Software License Reconciliation Architecture
+
+For SOC 2 Type II (CC6.8), IFRS-15 revenue recognition, and NUPRC regulatory compliance, WellQC implements automated 1-to-1 license reconciliation between financial settlement transactions (`PaymentTransaction`) and provisioned workstation seats (`User.tier == 'PRO'`):
+
+1. **Compliance Reconciliation Ledger Endpoint (`GET /api/admin/purchases`):**
+   - Restricted to `ADMIN` users via `get_current_admin_user`.
+   - Aggregates verified settlements, active allocated seats, and calculates the **License Allocation Ratio** ($ActiveSeats / PurchasedLicenses$).
+   - Flags an `AUDIT_WARNING` if active allocated seats exceed verified purchased licenses, ensuring 0 unlicensed overallocations.
+2. **Cryptographic SHA-256 Ledger Integrity Seal:**
+   - The backend computes an incremental SHA-256 hash across all ordered settlement records (`reference|amount|currency|status|createdAt`).
+   - Any unauthorized manual database tampering or row deletion alters the cryptographic hash, failing third-party compliance verification.
+3. **Regulatory Audit Export:**
+   - Enables one-click CSV export of the full immutable financial and licensing ledger for corporate software asset management (SAM) and external compliance auditors.
+
 
 ---
 
@@ -438,4 +452,4 @@ WellQC standardizes operational states across both frontend TypeScript definitio
 | Enum | Allowed Values | Description |
 |---|---|---|
 | **`UserRole`** | `ADMIN`, `USER` | Strict binary role access control for platform authorization. |
-| **`ActivityAction`** | `LOGIN`, `LOGOUT`, `REGISTER`, `UPLOAD_LAS`, `COMMIT_WELL`, `EXPORT_LAS`, `EXPORT_CSV`, `EXPORT_PDF`, `QA_REPAIR`, `STANDARDISE`, `PAYMENT_INITIALIZE`, `PAYMENT_SUCCESS`, `ADMIN_VERIFY_EMAIL`, `ADMIN_UPDATE_USER`, `ADMIN_DELETE_USER` | Immutable compliance audit ledger actions recorded in `ActivityLog`. |
+| **`ActivityAction`** | `LOGIN`, `LOGOUT`, `REGISTER`, `UPLOAD_LAS`, `COMMIT_WELL`, `EXPORT_LAS`, `EXPORT_CSV`, `EXPORT_PDF`, `QA_REPAIR`, `STANDARDISE`, `PAYMENT_INITIALIZE`, `PAYMENT_SUCCESS`, `ADMIN_VERIFY_EMAIL`, `ADMIN_UPDATE_USER`, `ADMIN_DELETE_USER`, `DEMO_REQUEST`, `CONTACT_INQUIRY`, `SUBSCRIPTION_UPGRADE` | Immutable compliance audit ledger actions recorded in `ActivityLog`. |

@@ -9,6 +9,7 @@ import {
   Send,
   User,
 } from "lucide-react";
+import { ScrollReveal, StaggerContainer, StaggerItem } from "./scroll-reveal";
 
 export function ContactSection() {
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -59,7 +60,7 @@ export function ContactSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Contact Details */}
-          <div className="space-y-6">
+          <ScrollReveal direction="left" delay={0.1} distance={36} className="space-y-6">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
               <Mail className="w-3.5 h-3.5" />
               <span>Get in Touch</span>
@@ -71,8 +72,8 @@ export function ContactSection() {
               Whether you need assistance with raw LAS file formats, custom enterprise deployments, or pricing details, we are here to help.
             </p>
 
-            <div className="space-y-4 pt-4">
-              <div className="flex items-start gap-4 p-4 rounded-xl bg-wellqc-card border border-wellqc-border shadow-sm">
+            <StaggerContainer staggerChildren={0.12} className="space-y-4 pt-4">
+              <StaggerItem direction="up" distance={16} className="flex items-start gap-4 p-4 rounded-xl bg-wellqc-card border border-wellqc-border shadow-sm">
                 <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                   <Mail className="w-5 h-5" />
                 </div>
@@ -80,9 +81,9 @@ export function ContactSection() {
                   <strong className="text-wellqc-text text-sm block font-semibold">Email Us</strong>
                   <span className="text-xs text-wellqc-muted">support@wellqcplus.com &bull; sales@wellqcplus.com</span>
                 </div>
-              </div>
+              </StaggerItem>
 
-              <div className="flex items-start gap-4 p-4 rounded-xl bg-wellqc-card border border-wellqc-border shadow-sm">
+              <StaggerItem direction="up" distance={16} className="flex items-start gap-4 p-4 rounded-xl bg-wellqc-card border border-wellqc-border shadow-sm">
                 <div className="w-10 h-10 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shrink-0">
                   <MapPin className="w-5 h-5" />
                 </div>
@@ -90,12 +91,12 @@ export function ContactSection() {
                   <strong className="text-wellqc-text text-sm block font-semibold">Subsurface Engineering Hub</strong>
                   <span className="text-xs text-wellqc-muted">Port Harcourt &amp; Lagos, Nigeria &bull; Global Remote Operations</span>
                 </div>
-              </div>
-            </div>
-          </div>
+              </StaggerItem>
+            </StaggerContainer>
+          </ScrollReveal>
 
           {/* Interactive Contact Form */}
-          <div className="bg-wellqc-card rounded-2xl border border-wellqc-border p-6 sm:p-8 shadow-sm relative">
+          <ScrollReveal direction="right" delay={0.2} distance={36} className="bg-wellqc-card rounded-2xl border border-wellqc-border p-6 sm:p-8 shadow-sm relative">
             {formSubmitted ? (
               <div className="text-center py-12 space-y-4">
                 <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
@@ -194,7 +195,7 @@ export function ContactSection() {
                 </button>
               </form>
             )}
-          </div>
+          </ScrollReveal>
         </div>
       </div>
     </section>
